@@ -1,0 +1,588 @@
+{
+  "info": {
+    "name": "Gity Point System API",
+    "description": "PayPayのようなQRコードベースのポイントシステムAPI",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "csrf_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health",
+        "description": "サーバーの稼働状態を確認"
+      },
+      "expected_response": {
+        "status": 200,
+        "body": {
+          "status": "ok"
+        }
+      }
+    },
+    {
+      "name": "1. 認証 (Authentication)",
+      "item": [
+        {
+          "name": "ユーザー登録",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "username": "testuser",
+              "email": "test@example.com",
+              "password": "Test@123456",
+              "display_name": "Test User"
+            }
+          },
+          "expected_response": {
+            "status": 201,
+            "body": {
+              "message": "user registered successfully",
+              "user": {
+                "id": "uuid",
+                "username": "testuser",
+                "email": "test@example.com",
+                "display_name": "Test User",
+                "balance": 0,
+                "role": "user"
+              }
+            }
+          }
+        },
+        {
+          "name": "ログイン",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "username": "user1",
+              "password": "User@123456"
+            }
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "message": "login successful",
+              "user": {
+                "id": "uuid",
+                "username": "user1",
+                "balance": 10000
+              },
+              "csrf_token": "token_here"
+            }
+          },
+          "note": "レスポンスのcsrf_tokenを保存し、以降のPOST/PUT/DELETEリクエストのX-CSRF-Tokenヘッダーに設定"
+        },
+        {
+          "name": "現在のユーザー取得",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/auth/me"
+          },
+          "expected_response": {
+            "status": 200
+          }
+        },
+        {
+          "name": "ログアウト",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/logout"
+          },
+          "expected_response": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. ポイント (Points)",
+      "item": [
+        {
+          "name": "残高確認",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/points/balance"
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "balance": 10000,
+              "user": {
+                "id": "uuid",
+                "username": "user1",
+                "display_name": "Test User 1"
+              }
+            }
+          }
+        },
+        {
+          "name": "ポイント転送",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/points/transfer",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "to_user_id": "受信者のUUID",
+              "amount": 100,
+              "idempotency_key": "unique-key-12345",
+              "description": "テスト送金"
+            }
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "message": "transfer successful",
+              "transaction": {
+                "id": "uuid",
+                "amount": 100,
+                "status": "completed"
+              },
+              "new_balance": 9900
+            }
+          },
+          "security_notes": [
+            "idempotency_keyは必須（重複送金防止）",
+            "CSRF対策: X-CSRF-Tokenヘッダー必須",
+            "トランザクション: ACID特性で原子性保証",
+            "楽観的ロック: versionカラムで競合検知",
+            "悲観的ロック: SELECT FOR UPDATEで残高保護"
+          ]
+        },
+        {
+          "name": "トランザクション履歴",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/points/history?offset=0&limit=20"
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "transactions": [],
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. QRコード (QR Code)",
+      "item": [
+        {
+          "name": "受取用QRコード生成",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/qr/generate/receive",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "amount": 500
+            }
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "qr_code": {
+                "id": "uuid",
+                "code": "random_code",
+                "qr_data": "receive:CODE:500",
+                "amount": 500,
+                "qr_type": "receive",
+                "expires_at": "2026-01-17T16:10:00Z"
+              }
+            }
+          },
+          "note": "QRコードは5分間有効。amountをnullにすると金額未指定QRになる"
+        },
+        {
+          "name": "送信用QRコード生成",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/qr/generate/send",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "amount": 1000
+            }
+          },
+          "expected_response": {
+            "status": 200
+          }
+        },
+        {
+          "name": "QRコードスキャン",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/qr/scan",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "qr_code": "receive:CODE_HERE:500",
+              "amount": null,
+              "idempotency_key": "unique-key-scan-12345"
+            }
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "message": "qr code scanned successfully",
+              "transaction": {
+                "id": "uuid",
+                "amount": 500,
+                "status": "completed"
+              }
+            }
+          }
+        },
+        {
+          "name": "QRコード履歴",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/qr/history?offset=0&limit=20"
+          },
+          "expected_response": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 友達 (Friends)",
+      "item": [
+        {
+          "name": "友達申請",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/friends/request",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "addressee_id": "友達にしたいユーザーのUUID"
+            }
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "message": "friend request sent",
+              "friendship": {
+                "id": "uuid",
+                "status": "pending"
+              }
+            }
+          }
+        },
+        {
+          "name": "友達申請承認",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/friends/accept",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "friendship_id": "友達関係のUUID"
+            }
+          },
+          "expected_response": {
+            "status": 200
+          }
+        },
+        {
+          "name": "友達申請拒否",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/friends/reject",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "friendship_id": "友達関係のUUID"
+            }
+          },
+          "expected_response": {
+            "status": 200
+          }
+        },
+        {
+          "name": "友達一覧",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/friends?offset=0&limit=20"
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "friends": []
+            }
+          }
+        },
+        {
+          "name": "保留中の友達申請",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/friends/pending?offset=0&limit=20"
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "requests": []
+            }
+          }
+        },
+        {
+          "name": "友達削除",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/friends/remove",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "friendship_id": "友達関係のUUID"
+            }
+          },
+          "expected_response": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. 管理者 (Admin)",
+      "item": [
+        {
+          "name": "ポイント付与",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/admin/points/grant",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "target_user_id": "対象ユーザーのUUID",
+              "amount": 1000,
+              "description": "ボーナスポイント付与"
+            }
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "message": "points granted successfully",
+              "user": {
+                "balance": 11000
+              }
+            }
+          },
+          "note": "管理者権限必須"
+        },
+        {
+          "name": "ポイント減算",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/admin/points/deduct",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "target_user_id": "対象ユーザーのUUID",
+              "amount": 500,
+              "description": "ペナルティ"
+            }
+          },
+          "expected_response": {
+            "status": 200
+          },
+          "note": "管理者権限必須"
+        },
+        {
+          "name": "全ユーザー一覧",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/admin/users?offset=0&limit=20"
+          },
+          "expected_response": {
+            "status": 200,
+            "body": {
+              "users": [],
+              "total": 3
+            }
+          },
+          "note": "管理者権限必須"
+        },
+        {
+          "name": "全トランザクション一覧",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/admin/transactions?offset=0&limit=20"
+          },
+          "expected_response": {
+            "status": 200
+          },
+          "note": "管理者権限必須"
+        },
+        {
+          "name": "ユーザー役割変更",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/admin/users/role",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "target_user_id": "対象ユーザーのUUID",
+              "new_role": "admin"
+            }
+          },
+          "expected_response": {
+            "status": 200
+          },
+          "note": "管理者権限必須"
+        },
+        {
+          "name": "ユーザー無効化",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/admin/users/deactivate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "target_user_id": "対象ユーザーのUUID"
+            }
+          },
+          "expected_response": {
+            "status": 200
+          },
+          "note": "管理者権限必須"
+        }
+      ]
+    }
+  ],
+  "security": {
+    "authentication": "Session-based (Cookie: session_token)",
+    "csrf_protection": "Double Submit Cookie (Cookie: csrf_token + Header: X-CSRF-Token)",
+    "password_hashing": "bcrypt (cost=12)",
+    "sql_injection": "GORM parameterized queries",
+    "xss": "React auto-escaping + input sanitization",
+    "transaction_safety": {
+      "idempotency": "Idempotency key for duplicate prevention",
+      "optimistic_locking": "Version column for conflict detection",
+      "pessimistic_locking": "SELECT FOR UPDATE for balance protection",
+      "acid": "PostgreSQL transaction for atomicity"
+    }
+  }
+}
