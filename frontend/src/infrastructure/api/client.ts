@@ -1,12 +1,16 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+console.log('API Base URL:', API_BASE_URL);
+
 class ApiClient {
   private client: AxiosInstance;
   private csrfToken: string = '';
 
   constructor() {
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+      baseURL: API_BASE_URL,
       withCredentials: true, // Session cookie送信のため必須
       headers: {
         'Content-Type': 'application/json',

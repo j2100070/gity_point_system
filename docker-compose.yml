@@ -1,14 +1,13 @@
-version: '3.8'
-
 services:
   # PostgreSQL データベース
-  postgres:
+  db:
     image: postgres:15-alpine
-    container_name: point_system_postgres
+    container_name: point_system_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: point_system
+      TZ: Asia/Tokyo
     ports:
       - "5432:5432"
     volumes:
@@ -19,6 +18,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - point_system_network
 
   # Go バックエンド
   backend:
@@ -26,26 +27,28 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: point_system_backend
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=point_system
-      - DB_SSL_MODE=disable
-      - SERVER_PORT=8080
-      - SERVER_HOST=0.0.0.0
-      - ENV=development
-      - ALLOWED_ORIGIN=http://localhost:3000
-      - SESSION_SECRET=change-this-in-production-very-secret-key-32bytes
     ports:
       - "8080:8080"
+    environment:
+      # データベース設定
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: point_system
+      DB_SSLMODE: disable
+      # サーバー設定
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_ENV: development
+      # セキュリティ設定
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,http://frontend:3000,http://frontend:5173
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
     restart: unless-stopped
+    networks:
+      - point_system_network
 
   # React フロントエンド
   frontend:
@@ -53,16 +56,22 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: point_system_frontend
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080
     ports:
-      - "3000:3000"
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8080
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
     restart: unless-stopped
+    networks:
+      - point_system_network
+
+networks:
+  point_system_network:
+    driver: bridge
 
 volumes:
   postgres_data:

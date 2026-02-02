@@ -1,246 +1,1185 @@
-# 現在製作中
-
 # Gity Point System
 
 PayPayのようなQRコードベースのポイント送受信システム
 
-## 🎯 概要
+## 目次
 
-React + Goで構築されたプロダクションレベルのポイント管理システムです。QRコードを使用したポイントのやり取り、友達機能、管理者機能を備えています。
+- [概要](#概要)
+- [主な機能](#主な機能)
+- [アーキテクチャ](#アーキテクチャ)
+- [技術スタック](#技術スタック)
+- [データベース設計](#データベース設計)
+- [セットアップ](#セットアップ)
+- [API仕様](#api仕様)
+- [セキュリティ](#セキュリティ)
+- [開発](#開発)
 
-## ✨ 主な機能
+---
+
+## 概要
+
+Gity Point Systemは、React + Go + PostgreSQLで構築されたポイント管理プラットフォームです。クリーンアーキテクチャを採用し、テスタビリティ、保守性、拡張性を重視して設計されています。
+
+### 特徴
+
+- **完全なACID保証**: PostgreSQLトランザクションによるデータ整合性
+- **デッドロック対策**: UUID順序ロックによる同時実行制御
+- **冪等性保証**: Idempotency Keyで重複トランザクション防止
+- **セキュアな認証**: Session + CSRF保護
+- **QRコード送受信**: PayPayライクなユーザー体験
+- **管理者機能**: ポイント付与・減算、ユーザー管理
+
+---
+
+## 主な機能
 
 ### ユーザー機能
-- **ポイント転送**: QRコードまたは直接送金
-- **QRコード**: 受取用・送信用QRコード生成
-- **友達機能**: 友達申請、承認、一覧表示
-- **取引履歴**: ポイント移動の完全な履歴
+
+#### 認証・アカウント管理
+- ユーザー登録 (メール・パスワード)
+- ログイン / ログアウト
+- セッション管理 (24時間有効)
+- CSRF保護
+
+#### ポイント転送
+- **直接送金**: ユーザー間でポイント転送
+- **QRコード受取**: QRコード生成して他のユーザーから受取
+- **QRコード送信**: QRコード生成して他のユーザーに送信
+- **取引履歴**: 全トランザクションの閲覧
+- **残高確認**: リアルタイム残高表示
+
+#### 友達機能
+- 友達申請の送信
+- 友達申請の承認・拒否
+- 友達一覧の表示
+- 保留中の申請表示
+
+#### QRコード機能
+- **受取用QRコード**: 金額指定で生成 (5分間有効)
+- **送信用QRコード**: 金額指定で生成 (5分間有効)
+- QRコードスキャンによる即時送金
+- QR履歴の確認
 
 ### 管理者機能
-- **ポイント管理**: ユーザーへのポイント付与・減算
-- **ユーザー管理**: 役割変更、アカウント無効化
-- **監査**: 全トランザクションの閲覧
 
+#### ポイント管理
+- ユーザーへのポイント付与
+- ユーザーからのポイント減算
+- 理由・説明の記録
 
-###  トランザクション保護
-- **冪等性**: Idempotency Keyで重複送金を防止
-- **楽観的ロック**: Version列で競合検知
-- **悲観的ロック**: SELECT FOR UPDATEで残高整合性を保証
-- **ACID特性**: PostgreSQLのトランザクションで原子性を保証
+#### ユーザー管理
+- 全ユーザー一覧表示
+- ユーザー役割変更 (user ⇔ admin)
+- アカウント無効化
 
-## 🏗️ アーキテクチャ
+#### 監査
+- 全トランザクション履歴の閲覧
+- 管理者操作ログの記録
 
-### バックエンド (Go)
+---
+
+## アーキテクチャ
+
+### バックエンド: クリーンアーキテクチャ (5層構造)
+
 ```
 backend/
-├── cmd/server/           # エントリーポイント
-├── internal/
-│   ├── domain/          # ドメインモデル・ビジネスロジック
-│   ├── usecase/         # ユースケース層
-│   ├── interface/       # HTTPハンドラー・ミドルウェア
-│   └── infrastructure/  # DB実装（GORM）
-├── migrations/          # DBマイグレーション
-└── config/             # 設定管理
+├── entities/                    # 第1層: エンティティ (ドメインモデル)
+│   ├── user.go                 # ユーザーエンティティ + ビジネスルール
+│   ├── transaction.go          # トランザクションエンティティ
+│   ├── friendship.go           # 友達関係エンティティ
+│   ├── qrcode.go              # QRコードエンティティ
+│   ├── session.go             # セッションエンティティ
+│   └── logger.go              # ロガーインターフェース
+│
+├── usecases/                   # 第2層: ユースケース (ビジネスロジック)
+│   ├── inputport/             # 入力ポート (ユースケースインターフェース)
+│   │   ├── auth_inputport.go
+│   │   ├── point_transfer_inputport.go
+│   │   ├── qrcode_inputport.go
+│   │   ├── friendship_inputport.go
+│   │   └── admin_inputport.go
+│   ├── interactor/            # インタラクター (ユースケース実装)
+│   │   ├── auth_interactor.go
+│   │   ├── point_transfer_interactor.go
+│   │   ├── qrcode_interactor.go
+│   │   ├── friendship_interactor.go
+│   │   └── admin_interactor.go
+│   └── repository/            # リポジトリインターフェース (出力ポート)
+│       ├── user_repository.go
+│       ├── transaction_repository.go
+│       ├── session_repository.go
+│       ├── qrcode_repository.go
+│       └── friendship_repository.go
+│
+├── gateways/                   # 第3層: ゲートウェイ (リポジトリ実装)
+│   ├── repository/            # リポジトリ実装層
+│   │   ├── user/             # ユーザーリポジトリ実装
+│   │   ├── transaction/      # トランザクションリポジトリ実装
+│   │   ├── session/          # セッションリポジトリ実装
+│   │   ├── qrcode/           # QRコードリポジトリ実装
+│   │   └── friendship/       # 友達リポジトリ実装
+│   ├── datasource/           # データソース実装
+│   │   └── dsmysqlimpl/      # PostgreSQL実装
+│   └── infra/                # インフラストラクチャ
+│       ├── inframysql/       # DB接続
+│       └── infralogger/      # ロガー実装
+│
+├── controllers/                # 第4層: コントローラー (入出力変換)
+│   └── web/
+│       ├── auth_controller.go
+│       ├── point_controller.go
+│       ├── qrcode_controller.go
+│       ├── friend_controller.go
+│       ├── admin_controller.go
+│       └── presenter/         # プレゼンター (出力フォーマット)
+│           ├── auth_presenter.go
+│           ├── point_presenter.go
+│           ├── qrcode_presenter.go
+│           ├── friend_presenter.go
+│           └── admin_presenter.go
+│
+├── frameworks/                 # 第5層: フレームワーク・外部ツール
+│   └── web/
+│       ├── router.go          # Ginルーター設定
+│       ├── middleware/        # ミドルウェア
+│       │   ├── auth.go       # 認証ミドルウェア
+│       │   ├── csrf.go       # CSRF保護
+│       │   └── security.go   # セキュリティヘッダー
+│       └── time_provider.go   # 時刻プロバイダー
+│
+├── cmd/
+│   └── clean_server/          # アプリケーションエントリーポイント
+│       └── main.go
+│
+├── config/                     # 設定管理
+│   └── config.go
+│
+└── migrations/                 # DBマイグレーション
+    ├── 001_init_schema.sql
+    └── 002_update_passwords.sql
 ```
 
-**クリーンアーキテクチャ**を採用:
-- 依存関係の方向: interface → usecase → domain
-- テスタビリティ重視
-- ドメイン層は外部に依存しない
+#### 依存関係の方向
 
-### フロントエンド (React)
+```
+Frameworks (Web/DB)
+    ↓ depends on
+Controllers (HTTP Handlers)
+    ↓ depends on
+Gateways (Repository Impl)
+    ↓ depends on
+UseCases (Business Logic)
+    ↓ depends on
+Entities (Domain Models)
+```
+
+**重要な原則:**
+- 内側の層は外側の層を知らない (依存性逆転の原則)
+- インターフェースによる疎結合
+- ドメイン層 (Entities) は完全に独立
+
+### フロントエンド: Feature-based + Clean Architecture
+
 ```
 frontend/
 ├── src/
-│   ├── features/        # Feature-based構造
-│   │   ├── auth/       # 認証機能
-│   │   ├── points/     # ポイント機能
-│   │   ├── friends/    # 友達機能
-│   │   └── admin/      # 管理者機能
-│   ├── shared/         # 共通コンポーネント
-│   └── core/           # 基盤（API、セキュリティ）
+│   ├── features/              # 機能ごとのモジュール
+│   │   ├── auth/             # 認証機能
+│   │   │   └── pages/
+│   │   │       ├── LoginPage.tsx
+│   │   │       └── RegisterPage.tsx
+│   │   ├── dashboard/        # ダッシュボード
+│   │   │   └── pages/
+│   │   │       └── DashboardPage.tsx
+│   │   ├── points/           # ポイント機能
+│   │   │   └── pages/
+│   │   │       ├── TransferPage.tsx
+│   │   │       └── HistoryPage.tsx
+│   │   ├── qrcode/           # QRコード機能
+│   │   │   └── pages/
+│   │   │       ├── ReceiveQRPage.tsx
+│   │   │       └── ScanQRPage.tsx
+│   │   ├── friends/          # 友達機能
+│   │   │   └── pages/
+│   │   │       └── FriendsPage.tsx
+│   │   └── admin/            # 管理者機能
+│   │       └── pages/
+│   │           ├── AdminDashboardPage.tsx
+│   │           ├── AdminUsersPage.tsx
+│   │           └── AdminTransactionsPage.tsx
+│   │
+│   ├── core/                  # ドメイン層
+│   │   ├── domain/           # ドメインモデル
+│   │   │   ├── User.ts
+│   │   │   ├── Transaction.ts
+│   │   │   ├── QRCode.ts
+│   │   │   └── Friendship.ts
+│   │   └── repositories/     # リポジトリインターフェース
+│   │       └── interfaces.ts
+│   │
+│   ├── infrastructure/        # インフラストラクチャ層
+│   │   └── api/
+│   │       ├── client.ts     # API クライアント
+│   │       └── repositories/ # リポジトリ実装
+│   │           ├── AuthRepository.ts
+│   │           ├── PointRepository.ts
+│   │           ├── QRCodeRepository.ts
+│   │           ├── FriendshipRepository.ts
+│   │           └── AdminRepository.ts
+│   │
+│   └── shared/               # 共通モジュール
+│       ├── components/       # 共通コンポーネント
+│       │   ├── Layout.tsx
+│       │   └── ProtectedRoute.tsx
+│       └── stores/           # 状態管理
+│           └── authStore.ts  # Zustand store
 ```
 
-**Feature-based + Clean Architecture**:
-- 機能ごとにディレクトリを分割
-- 各機能内でレイヤー分離 (api/components/hooks/types)
+---
 
-## 📊 データベース設計
+## 技術スタック
 
-### 主要テーブル
-```sql
--- ユーザー（楽観的ロック、ソフトデリート対応）
-users (id, username, email, password_hash, balance, version, role, ...)
+### バックエンド
 
--- セッション（Session-based認証）
-sessions (id, user_id, session_token, csrf_token, expires_at, ...)
+| 技術 | バージョン | 用途 |
+|-----|----------|------|
+| Go | 1.23+ | メイン言語 |
+| Gin | v1.9+ | HTTPフレームワーク |
+| GORM | v1.25+ | ORM |
+| PostgreSQL | 15+ | メインデータベース |
+| golang.org/x/crypto/bcrypt | - | パスワードハッシュ化 |
+| google/uuid | v1.6+ | UUID生成 |
 
--- トランザクション（ポイント移動履歴）
-transactions (id, from_user_id, to_user_id, amount, idempotency_key, ...)
+### フロントエンド
 
--- 冪等性キー（重複トランザクション防止）
-idempotency_keys (key, user_id, transaction_id, status, expires_at)
+| 技術 | バージョン | 用途 |
+|-----|----------|------|
+| React | 18+ | UIフレームワーク |
+| TypeScript | 5+ | 型安全性 |
+| React Router | v6+ | ルーティング |
+| Zustand | - | 状態管理 |
+| Axios | - | HTTP クライアント |
+| QRCode.react | - | QRコード生成 |
+| Html5-qrcode | - | QRコードスキャン |
 
--- 友達関係
-friendships (id, requester_id, addressee_id, status, ...)
+### インフラ
 
--- QRコード（一時的な受取・送信用）
-qr_codes (id, user_id, code, amount, qr_type, expires_at, ...)
+| 技術 | 用途 |
+|-----|------|
+| Docker | コンテナ化 |
+| Docker Compose | オーケストレーション |
+
+---
+
+## データベース設計
+
+### ER図 (概念)
+
+```
+users (1) ─────< (N) transactions (N) ─────> (1) users
+  │                                              │
+  │                                              │
+  ├─────< (N) sessions                          │
+  │                                              │
+  ├─────< (N) qr_codes                          │
+  │                                              │
+  └─────< (N) friendships (N) ─────────────────┘
 ```
 
-### 重要な設計ポイント
-1. **残高制約**: `CHECK (balance >= 0)` で負の値を防止
-2. **楽観的ロック**: `version`列で更新時の競合を検知
-3. **冪等性**: `idempotency_keys`で同一キーの重複処理を防止
-4. **監査ログ**: 管理者操作の完全な記録
+### テーブル詳細
 
-## 🚀 セットアップ
+#### users (ユーザー)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| id | UUID | PK | ユーザーID |
+| username | VARCHAR(50) | UNIQUE, NOT NULL | ユーザー名 |
+| email | VARCHAR(255) | UNIQUE, NOT NULL | メールアドレス |
+| password_hash | VARCHAR(255) | NOT NULL | bcryptハッシュ |
+| display_name | VARCHAR(100) | - | 表示名 |
+| balance | BIGINT | NOT NULL, CHECK >= 0 | 残高 (負の値禁止) |
+| role | VARCHAR(20) | NOT NULL, DEFAULT 'user' | 役割 (user/admin) |
+| version | INTEGER | NOT NULL, DEFAULT 1 | 楽観的ロック用 |
+| is_active | BOOLEAN | NOT NULL, DEFAULT true | アカウント有効フラグ |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+| updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
+
+**インデックス:**
+- `idx_users_username` on username
+- `idx_users_email` on email
+- `idx_users_is_active` on is_active
+
+#### transactions (トランザクション)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| id | UUID | PK | トランザクションID |
+| from_user_id | UUID | FK users(id) | 送信者ID (NULL=システム付与) |
+| to_user_id | UUID | FK users(id) | 受信者ID (NULL=システム減算) |
+| amount | BIGINT | NOT NULL, CHECK > 0 | 金額 |
+| transaction_type | VARCHAR(50) | NOT NULL | 種別 (transfer/qr_receive/admin_grant等) |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'pending' | 状態 (pending/completed/failed) |
+| idempotency_key | VARCHAR(255) | UNIQUE | 冪等性キー |
+| description | TEXT | NOT NULL | 説明 |
+| metadata | JSONB | DEFAULT '{}' | メタデータ |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+| completed_at | TIMESTAMPTZ | - | 完了日時 |
+
+**制約:**
+- `from_user_id IS NOT NULL OR to_user_id IS NOT NULL`
+- `from_user_id != to_user_id` (自分自身への送金禁止)
+
+**インデックス:**
+- `idx_transactions_from_user` on from_user_id
+- `idx_transactions_to_user` on to_user_id
+- `idx_transactions_idempotency` on idempotency_key
+- `idx_transactions_status` on status
+- `idx_transactions_created_at` on created_at DESC
+
+#### sessions (セッション)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| id | UUID | PK | セッションID |
+| user_id | UUID | FK users(id), NOT NULL | ユーザーID |
+| token | VARCHAR(255) | UNIQUE, NOT NULL | セッショントークン |
+| csrf_token | VARCHAR(255) | NOT NULL | CSRFトークン |
+| expires_at | TIMESTAMPTZ | NOT NULL | 有効期限 |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+| last_accessed_at | TIMESTAMPTZ | NOT NULL | 最終アクセス日時 |
+
+**インデックス:**
+- `idx_sessions_user` on user_id
+- `idx_sessions_token` on token
+- `idx_sessions_expires` on expires_at
+
+#### idempotency_keys (冪等性キー)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| key | VARCHAR(255) | PK | 冪等性キー |
+| user_id | UUID | FK users(id), NOT NULL | ユーザーID |
+| transaction_id | UUID | FK transactions(id) | 関連トランザクションID |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'processing' | 状態 (processing/completed/failed) |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+| expires_at | TIMESTAMPTZ | NOT NULL | 有効期限 |
+
+**インデックス:**
+- `idx_idempotency_user` on user_id
+- `idx_idempotency_expires` on expires_at
+
+#### friendships (友達関係)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| id | UUID | PK | 友達関係ID |
+| requester_id | UUID | FK users(id), NOT NULL | 申請者ID |
+| addressee_id | UUID | FK users(id), NOT NULL | 相手ID |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'pending' | 状態 (pending/accepted/rejected/blocked) |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+| updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
+
+**制約:**
+- `requester_id != addressee_id`
+- UNIQUE(requester_id, addressee_id)
+
+**インデックス:**
+- `idx_friendships_requester` on requester_id
+- `idx_friendships_addressee` on addressee_id
+- `idx_friendships_status` on status
+
+#### qr_codes (QRコード)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| id | UUID | PK | QRコードID |
+| user_id | UUID | FK users(id), NOT NULL | ユーザーID |
+| code | VARCHAR(255) | UNIQUE, NOT NULL | QRコード文字列 |
+| qr_type | VARCHAR(20) | NOT NULL | 種別 (receive/send) |
+| amount | BIGINT | CHECK > 0 | 金額 |
+| expires_at | TIMESTAMPTZ | NOT NULL | 有効期限 |
+| used_at | TIMESTAMPTZ | - | 使用日時 |
+| used_by_user_id | UUID | FK users(id) | 使用者ID |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+
+**インデックス:**
+- `idx_qrcodes_user` on user_id
+- `idx_qrcodes_code` on code
+- `idx_qrcodes_expires` on expires_at
+
+---
+
+## セットアップ
 
 ### 前提条件
-- Docker & Docker Compose
-- Go 1.21+
-- Node.js 18+
-- PostgreSQL 15+
 
-### 起動方法
+- Docker & Docker Compose
+- Git
+
+### クイックスタート
 
 ```bash
 # 1. リポジトリのクローン
-git clone <repository-url>
+git clone https://github.com/yourusername/gity_point_system.git
 cd gity_point_system
 
-# 2. 環境変数の設定
-cp .env.example .env
-
-# 3. Docker Composeで起動
+# 2. Docker Composeで全サービス起動
 docker-compose up -d
 
-# 4. データベースマイグレーション実行
-# PostgreSQLに接続してmigrationsを実行
-psql -h localhost -U postgres -d point_system -f backend/migrations/001_initial_schema.sql
+# 3. 起動確認
+docker-compose ps
 ```
+
+サービスが起動したら:
+- フロントエンド: http://localhost:5173
+- バックエンドAPI: http://localhost:8080
+- PostgreSQL: localhost:5432
 
 ### 初期アカウント
-```
-管理者:
-  Username: admin
-  Password: Admin@123456
-  Balance: 1,000,000 points
 
-テストユーザー1:
-  Username: user1
-  Password: User@123456
-  Balance: 10,000 points
+データベースマイグレーションで自動作成されます:
 
-テストユーザー2:
-  Username: user2
-  Password: User@123456
-  Balance: 5,000 points
-```
+**管理者アカウント:**
+- Username: `admin`
+- Password: `admin123`
+- Balance: 1,000,000 points
+- Role: admin
 
-## 🔧 開発
+**テストユーザー:**
+- Username: `testuser`
+- Password: `test123`
+- Balance: 10,000 points
+- Role: user
 
-### バックエンド開発
-```bash
-cd backend
-go mod download
-go run cmd/server/main.go
-```
+### 環境変数
 
-### フロントエンド開発
-```bash
-cd frontend
-npm install
-npm start
+`docker-compose.yml` で設定済み:
+
+**バックエンド:**
+```yaml
+DB_HOST: db
+DB_PORT: 5432
+DB_USER: postgres
+DB_PASSWORD: postgres
+DB_NAME: point_system
+SERVER_PORT: 8080
+ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
 ```
 
-## 📝 API エンドポイント
+**フロントエンド:**
+```yaml
+VITE_API_URL: http://localhost:8080
+```
+
+---
+
+## API仕様
+
+### ベースURL
+
+```
+http://localhost:8080/api
+```
 
 ### 認証
-- `POST /api/auth/register` - ユーザー登録
-- `POST /api/auth/login` - ログイン
-- `POST /api/auth/logout` - ログアウト
-- `GET /api/auth/me` - 現在のユーザー情報
 
-### ポイント（要認証）
-- `POST /api/points/transfer` - ポイント転送
-- `GET /api/points/balance` - 残高取得
-- `GET /api/points/history` - 取引履歴
+セッションベース認証。Cookie `session_token` を使用。
 
-### QRコード（要認証）
-- `POST /api/qr/generate/receive` - 受取用QR生成
-- `POST /api/qr/generate/send` - 送信用QR生成
-- `POST /api/qr/scan` - QRスキャン
-- `GET /api/qr/history` - QR履歴
+### 共通レスポンスフォーマット
 
-### 友達（要認証）
-- `POST /api/friends/request` - 友達申請
-- `POST /api/friends/accept` - 申請承認
-- `GET /api/friends` - 友達一覧
-- `GET /api/friends/pending` - 保留中申請
-
-### 管理者（要管理者権限）
-- `POST /api/admin/points/grant` - ポイント付与
-- `POST /api/admin/points/deduct` - ポイント減算
-- `GET /api/admin/users` - 全ユーザー一覧
-- `GET /api/admin/transactions` - 全トランザクション
-- `POST /api/admin/users/role` - ユーザー役割変更
-- `POST /api/admin/users/deactivate` - ユーザー無効化
-
-
-
-### ポイント転送の安全性保証
-
-```go
-// 1. 冪等性チェック（重複送金防止）
-existingKey := idempotencyRepo.FindByKey(req.IdempotencyKey)
-if existingKey.Status == "completed" {
-    return existingTransaction // 完了済みなら既存の結果を返す
+**成功:**
+```json
+{
+  "data": { ... },
+  "message": "success"
 }
-
-// 2. トランザクション開始
-db.Transaction(func(tx *gorm.DB) error {
-    // 3. SELECT FOR UPDATE（悲観的ロック）
-    userRepo.UpdateBalanceWithLock(tx, fromUserID, amount, true)
-    userRepo.UpdateBalanceWithLock(tx, toUserID, amount, false)
-
-    // 4. トランザクション記録作成
-    transactionRepo.Create(tx, transaction)
-
-    // 5. 冪等性キー更新
-    idempotencyKey.Status = "completed"
-    idempotencyRepo.Update(idempotencyKey)
-
-    return nil // コミット
-})
 ```
 
+**エラー:**
+```json
+{
+  "error": "error message"
+}
+```
 
+---
 
-## 📈 今後の拡張案
+### 認証API
 
-- [ ] テスト拡張
-- [ ] フレンド拡張
-- [ ] 監査ログの実装
-- [ ] Webhookサポート
-- [ ] メール通知
-- [ ] キャッシュ層（Redis）
-- [ ] メトリクス・モニタリング（Prometheus）
+#### POST /api/auth/register
+ユーザー登録
 
+**リクエスト:**
+```json
+{
+  "username": "newuser",
+  "email": "newuser@example.com",
+  "password": "password123",
+  "display_name": "New User"
+}
+```
 
+**バリデーション:**
+- username: 3-50文字
+- email: 有効なメールアドレス
+- password: 8文字以上
+- display_name: 1-100文字
 
-### コードスタイル
-- Go: `gofmt`でフォーマット
-- React: ESLint + Prettier
+**レスポンス (201):**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "username": "newuser",
+    "email": "newuser@example.com",
+    "display_name": "New User",
+    "balance": 0,
+    "role": "user"
+  },
+  "session": {
+    "session_token": "token",
+    "expires_at": "2024-01-02T00:00:00Z"
+  }
+}
+```
+
+#### POST /api/auth/login
+ログイン
+
+**リクエスト:**
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "username": "admin",
+    "balance": 1000000,
+    "role": "admin"
+  },
+  "session": {
+    "session_token": "token",
+    "expires_at": "2024-01-02T00:00:00Z"
+  }
+}
+```
+
+#### POST /api/auth/logout
+ログアウト (要認証)
+
+**レスポンス (200):**
+```json
+{
+  "message": "logout successful"
+}
+```
+
+#### GET /api/auth/me
+現在のユーザー情報取得 (要認証)
+
+**レスポンス (200):**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "username": "admin",
+    "email": "admin@example.com",
+    "display_name": "System Administrator",
+    "balance": 1000000,
+    "role": "admin"
+  }
+}
+```
+
+---
+
+### ポイント転送API (要認証)
+
+#### POST /api/points/transfer
+ポイント転送
+
+**リクエスト:**
+```json
+{
+  "to_user_id": "uuid",
+  "amount": 1000,
+  "description": "ランチ代",
+  "idempotency_key": "unique-key-123"
+}
+```
+
+**バリデーション:**
+- amount: 1以上
+- idempotency_key: 必須 (重複送金防止)
+
+**レスポンス (200):**
+```json
+{
+  "transaction": {
+    "id": "uuid",
+    "from_user_id": "uuid",
+    "to_user_id": "uuid",
+    "amount": 1000,
+    "transaction_type": "transfer",
+    "status": "completed",
+    "description": "ランチ代",
+    "created_at": "2024-01-01T12:00:00Z"
+  },
+  "from_user": {
+    "id": "uuid",
+    "balance": 9000
+  },
+  "to_user": {
+    "id": "uuid",
+    "balance": 11000
+  }
+}
+```
+
+**エラー (400):**
+- `insufficient balance`: 残高不足
+- `duplicate idempotency key`: 重複キー
+- `transfer is already in progress`: 処理中
+
+#### GET /api/points/balance
+残高取得
+
+**レスポンス (200):**
+```json
+{
+  "balance": 10000,
+  "user": {
+    "id": "uuid",
+    "username": "testuser",
+    "balance": 10000
+  }
+}
+```
+
+#### GET /api/points/history
+取引履歴取得
+
+**クエリパラメータ:**
+- `offset`: オフセット (デフォルト: 0)
+- `limit`: 件数 (デフォルト: 20)
+
+**レスポンス (200):**
+```json
+{
+  "transactions": [
+    {
+      "id": "uuid",
+      "from_user_id": "uuid",
+      "to_user_id": "uuid",
+      "amount": 1000,
+      "transaction_type": "transfer",
+      "status": "completed",
+      "description": "ランチ代",
+      "created_at": "2024-01-01T12:00:00Z"
+    }
+  ],
+  "total": 50
+}
+```
+
+---
+
+### QRコードAPI (要認証)
+
+#### POST /api/qr/generate/receive
+受取用QRコード生成
+
+**リクエスト:**
+```json
+{
+  "amount": 5000
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "qr_code": {
+    "id": "uuid",
+    "code": "qr-code-string",
+    "qr_type": "receive",
+    "amount": 5000,
+    "expires_at": "2024-01-01T12:05:00Z"
+  }
+}
+```
+
+#### POST /api/qr/generate/send
+送信用QRコード生成
+
+**リクエスト:**
+```json
+{
+  "amount": 3000
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "qr_code": {
+    "id": "uuid",
+    "code": "qr-code-string",
+    "qr_type": "send",
+    "amount": 3000,
+    "expires_at": "2024-01-01T12:05:00Z"
+  }
+}
+```
+
+#### POST /api/qr/scan
+QRコードスキャン
+
+**リクエスト:**
+```json
+{
+  "code": "qr-code-string",
+  "idempotency_key": "unique-key-456"
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "transaction": {
+    "id": "uuid",
+    "amount": 5000,
+    "transaction_type": "qr_receive",
+    "status": "completed"
+  },
+  "message": "QR code scanned successfully"
+}
+```
+
+**エラー:**
+- `QR code expired`: 期限切れ
+- `QR code already used`: 使用済み
+- `insufficient balance`: 残高不足
+
+#### GET /api/qr/history
+QR履歴取得
+
+**クエリパラメータ:**
+- `offset`, `limit`
+
+**レスポンス (200):**
+```json
+{
+  "qr_codes": [
+    {
+      "id": "uuid",
+      "code": "qr-code-string",
+      "qr_type": "receive",
+      "amount": 5000,
+      "used_at": "2024-01-01T12:03:00Z",
+      "created_at": "2024-01-01T12:00:00Z"
+    }
+  ],
+  "total": 10
+}
+```
+
+---
+
+### 友達API (要認証)
+
+#### POST /api/friends/request
+友達申請送信
+
+**リクエスト:**
+```json
+{
+  "addressee_id": "uuid"
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "friendship": {
+    "id": "uuid",
+    "requester_id": "uuid",
+    "addressee_id": "uuid",
+    "status": "pending",
+    "created_at": "2024-01-01T12:00:00Z"
+  }
+}
+```
+
+#### POST /api/friends/accept
+友達申請承認
+
+**リクエスト:**
+```json
+{
+  "friendship_id": "uuid"
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "friendship": {
+    "id": "uuid",
+    "status": "accepted",
+    "updated_at": "2024-01-01T12:05:00Z"
+  }
+}
+```
+
+#### POST /api/friends/reject
+友達申請拒否
+
+**リクエスト:**
+```json
+{
+  "friendship_id": "uuid"
+}
+```
+
+#### GET /api/friends
+友達一覧取得
+
+**レスポンス (200):**
+```json
+{
+  "friends": [
+    {
+      "id": "uuid",
+      "user": {
+        "id": "uuid",
+        "username": "friend1",
+        "display_name": "Friend One"
+      },
+      "status": "accepted",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+#### GET /api/friends/pending
+保留中の友達申請取得
+
+**レスポンス (200):**
+```json
+{
+  "pending_requests": [
+    {
+      "id": "uuid",
+      "requester": {
+        "id": "uuid",
+        "username": "user1",
+        "display_name": "User One"
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 管理者API (要管理者権限)
+
+#### POST /api/admin/points/grant
+ポイント付与
+
+**リクエスト:**
+```json
+{
+  "user_id": "uuid",
+  "amount": 10000,
+  "description": "キャンペーン報酬",
+  "idempotency_key": "admin-grant-123"
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "transaction": {
+    "id": "uuid",
+    "to_user_id": "uuid",
+    "amount": 10000,
+    "transaction_type": "admin_grant",
+    "status": "completed"
+  },
+  "user": {
+    "id": "uuid",
+    "balance": 20000
+  }
+}
+```
+
+#### POST /api/admin/points/deduct
+ポイント減算
+
+**リクエスト:**
+```json
+{
+  "user_id": "uuid",
+  "amount": 5000,
+  "description": "規約違反ペナルティ",
+  "idempotency_key": "admin-deduct-456"
+}
+```
+
+#### GET /api/admin/users
+全ユーザー一覧
+
+**クエリパラメータ:**
+- `offset`, `limit`
+
+**レスポンス (200):**
+```json
+{
+  "users": [
+    {
+      "id": "uuid",
+      "username": "user1",
+      "email": "user1@example.com",
+      "balance": 10000,
+      "role": "user",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 100
+}
+```
+
+#### GET /api/admin/transactions
+全トランザクション一覧
+
+**クエリパラメータ:**
+- `offset`, `limit`
+
+**レスポンス (200):**
+```json
+{
+  "transactions": [ ... ],
+  "total": 500
+}
+```
+
+#### POST /api/admin/users/role
+ユーザー役割変更
+
+**リクエスト:**
+```json
+{
+  "user_id": "uuid",
+  "role": "admin"
+}
+```
+
+**バリデーション:**
+- role: "user" または "admin"
+
+**レスポンス (200):**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "role": "admin"
+  }
+}
+```
+
+#### POST /api/admin/users/deactivate
+ユーザー無効化
+
+**リクエスト:**
+```json
+{
+  "user_id": "uuid"
+}
+```
+
+**レスポンス (200):**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "is_active": false
+  }
+}
+```
+
+**エラー:**
+- `cannot deactivate yourself`: 自分自身の無効化は禁止
+
+---
+
+## セキュリティ
+
+### 認証・認可
+
+#### セッションベース認証
+- **Cookie**: `session_token` (HttpOnly, SameSite=Lax)
+- **有効期限**: 24時間
+- **セッション管理**: PostgreSQLに永続化
+
+#### CSRF保護
+- CSRFトークンをセッションと紐付け
+- ミドルウェアで検証
+
+#### パスワードセキュリティ
+- **ハッシュアルゴリズム**: bcrypt (cost=10)
+- **最小長**: 8文字
+- パスワードは平文保存なし
+
+### トランザクション保護
+
+#### 1. 冪等性保証
+```go
+// Idempotency Keyで重複送金を防止
+existingKey := idempotencyRepo.FindByKey(req.IdempotencyKey)
+if existingKey.Status == "completed" {
+    return existingTransaction // 同じ結果を返す
+}
+```
+
+#### 2. 悲観的ロック (SELECT FOR UPDATE)
+```go
+// デッドロック回避: UUID順でロック
+if toUserID < fromUserID {
+    lock(toUserID)
+    lock(fromUserID)
+} else {
+    lock(fromUserID)
+    lock(toUserID)
+}
+```
+
+#### 3. トランザクション分離
+- **分離レベル**: READ COMMITTED (PostgreSQLデフォルト)
+- **ロック戦略**: 行レベル悲観的ロック
+
+#### 4. デッドロック対策 (NEW)
+- **UUID順序ロック**: 小さいUUIDから順にロック取得
+- 双方向送金でもデッドロック発生なし
+
+```go
+// point_transfer_interactor.go:130-173
+// UUID比較: 小さい方を先にロック
+if req.ToUserID.String() < req.FromUserID.String() {
+    firstUserID = req.ToUserID
+    secondUserID = req.FromUserID
+}
+```
+
+### データ整合性
+
+#### 残高保護
+```sql
+-- DB制約で負の値を防止
+balance BIGINT NOT NULL DEFAULT 0 CHECK (balance >= 0)
+```
+
+#### 楽観的ロック (Version列)
+```go
+// 更新時にversionをチェック
+WHERE id = ? AND version = ?
+```
+
+#### 自己送金防止
+```sql
+-- DB制約
+CHECK (from_user_id != to_user_id)
+```
+
+### CORSセキュリティ
+
+```go
+// config.go
+AllowedOrigins: []string{
+    "http://localhost:3000",
+    "http://localhost:5173",
+}
+```
+
+---
+
+## 開発
+
+### ローカル開発環境
+
+#### バックエンド
+
+```bash
+cd backend
+
+# 依存関係インストール
+go mod download
+
+# ビルド
+go build -o bin/clean_server ./cmd/clean_server
+
+# 実行
+./bin/clean_server
+```
+
+#### フロントエンド
+
+```bash
+cd frontend
+
+# 依存関係インストール
+npm install
+
+# 開発サーバー起動
+npm run dev
+```
 
 ### テスト
+
 ```bash
-# バックエンド
+# バックエンド (今後実装予定)
 cd backend
 go test ./...
 
-# フロントエンド
+# フロントエンド (今後実装予定)
 cd frontend
 npm test
 ```
+
+### コードフォーマット
+
+```bash
+# Go
+gofmt -w .
+
+# TypeScript/React
+npm run format
+```
+
+### ディレクトリ構造の追加ルール
+
+- **新しいエンティティ**: `entities/` に追加
+- **新しいユースケース**: `usecases/interactor/` + `usecases/inputport/` に追加
+- **新しいリポジトリ**: `usecases/repository/` (interface) + `gateways/repository/` (実装)
+- **新しいコントローラー**: `controllers/web/` + `controllers/web/presenter/`
+
+---
+
+## ライセンス
+
+MIT License
+
+---
+
 

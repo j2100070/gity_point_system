@@ -1,0 +1,58 @@
+package inputport
+
+import (
+	"github.com/gity/point-system/entities"
+	"github.com/google/uuid"
+)
+
+// PointTransferInputPort はポイント転送のユースケースインターフェース
+type PointTransferInputPort interface {
+	// Transfer はポイントを転送
+	Transfer(req *TransferRequest) (*TransferResponse, error)
+
+	// GetTransactionHistory はトランザクション履歴を取得
+	GetTransactionHistory(req *GetTransactionHistoryRequest) (*GetTransactionHistoryResponse, error)
+
+	// GetBalance は残高を取得
+	GetBalance(req *GetBalanceRequest) (*GetBalanceResponse, error)
+}
+
+// TransferRequest はポイント転送リクエスト
+type TransferRequest struct {
+	FromUserID     uuid.UUID
+	ToUserID       uuid.UUID
+	Amount         int64
+	IdempotencyKey string // 冪等性キー（クライアントが生成）
+	Description    string
+}
+
+// TransferResponse はポイント転送レスポンス
+type TransferResponse struct {
+	Transaction *entities.Transaction
+	FromUser    *entities.User
+	ToUser      *entities.User
+}
+
+// GetTransactionHistoryRequest はトランザクション履歴取得リクエスト
+type GetTransactionHistoryRequest struct {
+	UserID uuid.UUID
+	Offset int
+	Limit  int
+}
+
+// GetTransactionHistoryResponse はトランザクション履歴取得レスポンス
+type GetTransactionHistoryResponse struct {
+	Transactions []*entities.Transaction
+	Total        int64
+}
+
+// GetBalanceRequest は残高取得リクエスト
+type GetBalanceRequest struct {
+	UserID uuid.UUID
+}
+
+// GetBalanceResponse は残高取得レスポンス
+type GetBalanceResponse struct {
+	Balance int64
+	User    *entities.User
+}

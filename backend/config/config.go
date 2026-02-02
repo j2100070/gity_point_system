@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Config はアプリケーション設定
@@ -52,10 +53,8 @@ func LoadConfig() *Config {
 			SSLMode:  getEnv("DB_SSL_MODE", "disable"),
 		},
 		Security: SecurityConfig{
-			AllowedOrigins: []string{
-				getEnv("ALLOWED_ORIGIN", "http://localhost:3000"),
-			},
-			SessionSecret: getEnv("SESSION_SECRET", "change-this-in-production-very-secret-key-32bytes"),
+			AllowedOrigins: getAllowedOrigins(),
+			SessionSecret:  getEnv("SESSION_SECRET", "change-this-in-production-very-secret-key-32bytes"),
 		},
 	}
 }
@@ -75,4 +74,17 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+// getAllowedOrigins はALLOWED_ORIGINS環境変数からオリジンリストを取得
+func getAllowedOrigins() []string {
+	originsStr := getEnv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
+	origins := strings.Split(originsStr, ",")
+
+	// 空白を削除
+	for i, origin := range origins {
+		origins[i] = strings.TrimSpace(origin)
+	}
+
+	return origins
 }

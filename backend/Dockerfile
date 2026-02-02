@@ -1,7 +1,10 @@
 # ビルドステージ
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
+
+# 必要なツールのインストール
+RUN apk add --no-cache git
 
 # 依存関係のキャッシュ
 COPY go.mod go.sum ./
@@ -10,22 +13,21 @@ RUN go mod download
 # ソースコードのコピー
 COPY . .
 
-# ビルド
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
+# Clean Architecture版のビルド
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/clean_server ./cmd/clean_server
 
-# 実行ステージ
+# 本番ステージ
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+WORKDIR /app
 
-WORKDIR /root/
+RUN apk add --no-cache ca-certificates tzdata
 
-# ビルド成果物のコピー
-COPY --from=builder /app/main .
-COPY --from=builder /app/migrations ./migrations
+# タイムゾーン設定
+ENV TZ=Asia/Tokyo
 
-# ポート公開
+COPY --from=builder /app/bin/clean_server ./clean_server
+
 EXPOSE 8080
 
-# 実行
-CMD ["./main"]
+CMD ["./clean_server"]
