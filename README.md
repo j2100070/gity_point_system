@@ -1044,6 +1044,27 @@ QR履歴取得
 
 ### トランザクション保護
 
+#### 0. トランザクション分離レベル (金融システム要件)
+
+**REPEATABLE READ を採用**
+
+PostgreSQLでは、REPEATABLE READ分離レベルを設定することで:
+- **Non-Repeatable Read防止**: 同じトランザクション内で同じデータを読むと常に同じ値
+- **ファントムリード防止**: PostgreSQL特有の実装により、他DBMSと異なりファントムリードも発生しない
+- **スナップショット分離**: トランザクション開始時点のデータベーススナップショットを使用
+
+```go
+// inframysql/postgres.go:67-72
+// セッション全体でREPEATABLE READを設定
+db.Exec("SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+```
+
+**なぜREPEATABLE READを選択したか:**
+1. **金融要件**: トランザクション内でのデータ一貫性が保証される
+2. **PostgreSQL最適化**: ファントムリードも防止（他DBMSのREPEATABLE READより強力）
+3. **パフォーマンス**: SERIALIZABLEより高速で、実用的
+4. **デッドロック対策**: UUID順序ロックと組み合わせて安全性を確保
+
 #### 1. 冪等性保証
 ```go
 // Idempotency Keyで重複送金を防止
@@ -1066,8 +1087,9 @@ if toUserID < fromUserID {
 ```
 
 #### 3. トランザクション分離
-- **分離レベル**: READ COMMITTED (PostgreSQLデフォルト)
-- **ロック戦略**: 行レベル悲観的ロック
+- **分離レベル**: REPEATABLE READ (金融システム要件)
+- **ロック戦略**: 行レベル悲観的ロック + UUID順序ロック
+- **PostgreSQLの特性**: REPEATABLE READでファントムリードも防止
 
 #### 4. デッドロック対策 (NEW)
 - **UUID順序ロック**: 小さいUUIDから順にロック取得

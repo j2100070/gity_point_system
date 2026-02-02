@@ -49,9 +49,10 @@ func NewPointTransferInteractor(
 // 5. 友達チェック: 友達関係がある場合のみ転送可能（オプション）
 //
 // 技術的説明:
-// - PostgreSQLのトランザクション分離レベル: READ COMMITTED
-// - ロック戦略: SELECT FOR UPDATE（行レベル悲観的ロック）
+// - PostgreSQLのトランザクション分離レベル: REPEATABLE READ（金融システム要件）
+// - ロック戦略: SELECT FOR UPDATE + UUID順序ロック（デッドロック回避）
 // - エラーハンドリング: ロールバック処理を確実に実行
+// - REPEATABLE READにより、トランザクション内で一貫したスナップショットを保証
 func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
 	i.logger.Info("Starting point transfer",
 		entities.NewField("from_user_id", req.FromUserID),

@@ -64,6 +64,12 @@ func NewPostgresDB(cfg *Config) (DB, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
+	// トランザクション分離レベルをREPEATABLE READに設定
+	// PostgreSQLのREPEATABLE READは、ファントムリードも防止する
+	if err := db.Exec("SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE READ").Error; err != nil {
+		return nil, fmt.Errorf("failed to set transaction isolation level: %w", err)
+	}
+
 	return &PostgresDB{db: db}, nil
 }
 
