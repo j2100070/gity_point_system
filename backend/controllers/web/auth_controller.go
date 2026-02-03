@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -58,12 +57,15 @@ func (c *AuthController) Register(ctx *gin.Context, currentTime time.Time) {
 	}
 
 	// セッショントークンをCookieに設定
-	// SameSite=Laxで同一オリジン扱い（localhost同士）
-	cookieValue := fmt.Sprintf("session_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax",
+	ctx.SetCookie(
+		"session_token",
 		resp.Session.SessionToken,
-		24*60*60,
+		24*60*60, // 24時間
+		"/",
+		"",
+		false, // HTTPS only in production
+		true,  // HttpOnly
 	)
-	ctx.Header("Set-Cookie", cookieValue)
 
 	output := c.presenter.PresentRegisterResponse(resp)
 	ctx.JSON(http.StatusCreated, output)
@@ -83,7 +85,7 @@ func (c *AuthController) Login(ctx *gin.Context, currentTime time.Time) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Printf("test:")
+
 	resp, err := c.authUC.Login(&inputport.LoginRequest{
 		Username:  req.Username,
 		Password:  req.Password,
@@ -97,13 +99,15 @@ func (c *AuthController) Login(ctx *gin.Context, currentTime time.Time) {
 	}
 
 	// セッショントークンをCookieに設定
-	// セッショントークンをCookieに設定
-	// SameSite=Laxで同一オリジン扱い（localhost同士）
-	cookieValue := fmt.Sprintf("session_token=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax",
+	ctx.SetCookie(
+		"session_token",
 		resp.Session.SessionToken,
 		24*60*60,
+		"/",
+		"",
+		false,
+		true,
 	)
-	ctx.Header("Set-Cookie", cookieValue)
 
 	output := c.presenter.PresentLoginResponse(resp)
 	ctx.JSON(http.StatusOK, output)
@@ -128,8 +132,7 @@ func (c *AuthController) Logout(ctx *gin.Context, currentTime time.Time) {
 	}
 
 	// Cookieをクリア
-	// Cookieを削除
-	ctx.Header("Set-Cookie", "session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+	ctx.SetCookie("session_token", "", -1, "/", "", false, true)
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
