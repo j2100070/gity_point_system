@@ -1,0 +1,80 @@
+services:
+  # PostgreSQL データベース
+  db:
+    image: postgres:15-alpine
+    container_name: point_system_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: point_system
+      TZ: Asia/Tokyo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - point_system_network
+
+  # Go バックエンド
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: point_system_backend
+    ports:
+      - "8080:8080"
+    environment:
+      # データベース設定
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: point_system
+      DB_SSLMODE: disable
+      # サーバー設定
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_ENV: development
+      # セキュリティ設定
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,http://frontend:3000,http://frontend:5173
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - point_system_network
+
+  # React フロントエンド (シンプル版)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: point_system_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8080
+      NODE_ENV: development
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src:ro  # ソースコードのみマウント（読み取り専用）
+      - ./frontend/public:/app/public:ro  # publicディレクトリ（読み取り専用）
+      # node_modulesはコンテナ内のものを使用（マウントしない）
+    restart: unless-stopped
+    networks:
+      - point_system_network
+    command: sh -c "npm run dev -- --host 0.0.0.0 --port 5173"
+
+networks:
+  point_system_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

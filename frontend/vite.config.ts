@@ -16,9 +16,16 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
+    strictPort: true, // ポートが使用中の場合エラーにする
+    watch: {
+      usePolling: true, // Dockerコンテナ内でのファイル監視を改善
+    },
+    hmr: {
+      host: 'localhost', // HMR用のホスト
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://backend:8080', // Dockerネットワーク内のサービス名を使用
         changeOrigin: true,
       },
     },
@@ -26,4 +33,5 @@ export default defineConfig({
   define: {
     'process.env': JSON.stringify(process.env),
   },
+  base: '/', // ベースパスを明示的に設定
 });

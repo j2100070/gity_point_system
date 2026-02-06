@@ -1,0 +1,23 @@
+# シンプルな開発用Dockerfile（全アーキテクチャ対応）
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 依存関係のインストール
+COPY package.json package-lock.json* ./
+RUN npm install || npm install --legacy-peer-deps
+
+# ソースコードをコピー
+COPY . .
+
+# ポートを公開
+EXPOSE 5173
+
+# デバッグ用の情報を出力
+RUN echo "Architecture: $(uname -m)" && \
+    echo "Node version: $(node --version)" && \
+    echo "NPM version: $(npm --version)" && \
+    ls -la /app/
+
+# Vite開発サーバーを起動
+CMD ["sh", "-c", "echo 'Starting Vite dev server...' && npm run dev -- --host 0.0.0.0 --port 5173 --debug"]
