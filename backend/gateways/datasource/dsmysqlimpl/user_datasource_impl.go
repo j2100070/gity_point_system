@@ -217,6 +217,80 @@ func (ds *UserDataSourceImpl) UpdateBalanceWithLock(tx interface{}, userID uuid.
 	return err
 }
 
+// UpdateBalancesWithLock は複数ユーザーの残高を一括更新（悲観的ロック、デッドロック回避）
+// デッドロック回避のために、常にUUID順（小さい順）にSELECT FOR UPDATEを実行します
+func (ds *UserDataSourceImpl) UpdateBalancesWithLock(tx interface{}, updates []dsmysql.BalanceUpdate) error {
+	db := ds.db.GetDB()
+	if tx != nil {
+		db = tx.(*gorm.DB)
+	}
+
+	if len(updates) == 0 {
+		return errors.New("no updates provided")
+	}
+
+	// ID順にソート（デッドロック回避のため）
+	sortedUpdates := make([]dsmysql.BalanceUpdate, len(updates))
+	copy(sortedUpdates, updates)
+
+	// UUID文字列で比較してソート
+	for i := 0; i < len(sortedUpdates)-1; i++ {
+		for j := i + 1; j < len(sortedUpdates); j++ {
+			if sortedUpdates[j].UserID.String() < sortedUpdates[i].UserID.String() {
+				sortedUpdates[i], sortedUpdates[j] = sortedUpdates[j], sortedUpdates[i]
+			}
+		}
+	}
+
+	// ソート順にロックを取得し、残高を更新
+	for _, update := range sortedUpdates {
+		var model UserModel
+
+		// SELECT FOR UPDATE で行ロック
+		err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND deleted_at IS NULL", update.UserID).
+			First(&model).Error
+
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("user not found")
+			}
+			return err
+		}
+
+		// 残高チェック（減算の場合）
+		if update.IsDeduct && model.Balance < update.Amount {
+			return errors.New("insufficient balance")
+		}
+
+		// 残高更新
+		newBalance := model.Balance
+		if update.IsDeduct {
+			newBalance -= update.Amount
+		} else {
+			newBalance += update.Amount
+		}
+
+		// 負の値チェック
+		if newBalance < 0 {
+			return errors.New("balance cannot be negative")
+		}
+
+		// 更新実行
+		err = db.Model(&model).Updates(map[string]interface{}{
+			"balance":    newBalance,
+			"version":    gorm.Expr("version + 1"),
+			"updated_at": time.Now(),
+		}).Error
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // SelectList はユーザー一覧を取得
 func (ds *UserDataSourceImpl) SelectList(offset, limit int) ([]*entities.User, error) {
 	var models []UserModel

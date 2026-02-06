@@ -58,6 +58,24 @@ func (r *RepositoryImpl) UpdateBalanceWithLock(tx interface{}, userID uuid.UUID,
 	return r.userDS.UpdateBalanceWithLock(tx, userID, amount, isDeduct)
 }
 
+// UpdateBalancesWithLock は複数ユーザーの残高を一括更新（悲観的ロック、デッドロック回避）
+func (r *RepositoryImpl) UpdateBalancesWithLock(tx interface{}, updates []repository.BalanceUpdate) error {
+	r.logger.Debug("Updating multiple balances with lock",
+		entities.NewField("count", len(updates)))
+
+	// repository.BalanceUpdate を dsmysql.BalanceUpdate に変換
+	dsUpdates := make([]dsmysql.BalanceUpdate, len(updates))
+	for i, update := range updates {
+		dsUpdates[i] = dsmysql.BalanceUpdate{
+			UserID:   update.UserID,
+			Amount:   update.Amount,
+			IsDeduct: update.IsDeduct,
+		}
+	}
+
+	return r.userDS.UpdateBalancesWithLock(tx, dsUpdates)
+}
+
 // ReadList はユーザー一覧を取得
 func (r *RepositoryImpl) ReadList(offset, limit int) ([]*entities.User, error) {
 	return r.userDS.SelectList(offset, limit)

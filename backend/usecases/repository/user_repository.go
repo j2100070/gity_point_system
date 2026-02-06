@@ -5,6 +5,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// BalanceUpdate は残高更新のパラメータ
+type BalanceUpdate struct {
+	UserID   uuid.UUID
+	Amount   int64
+	IsDeduct bool // true: 減算, false: 加算
+}
+
 // UserRepository はユーザーのリポジトリインターフェース
 // Interactorが要求するリポジトリの仕様を定義
 type UserRepository interface {
@@ -27,6 +34,10 @@ type UserRepository interface {
 	// UpdateBalanceWithLock は残高を更新（悲観的ロック: SELECT FOR UPDATE）
 	// トランザクション内で使用する
 	UpdateBalanceWithLock(tx interface{}, userID uuid.UUID, amount int64, isDeduct bool) error
+
+	// UpdateBalancesWithLock は複数ユーザーの残高を一括更新（悲観的ロック、デッドロック回避）
+	// 内部でID順にロックを取得することでデッドロックを回避します
+	UpdateBalancesWithLock(tx interface{}, updates []BalanceUpdate) error
 
 	// ReadList はユーザー一覧を取得（ページネーション対応）
 	ReadList(offset, limit int) ([]*entities.User, error)

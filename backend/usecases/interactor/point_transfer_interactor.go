@@ -128,40 +128,14 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 		}
 
 		// 3. 残高更新（SELECT FOR UPDATEで悲観的ロック）
-		// デッドロック回避: UUIDの小さい順にロックを取得
-		firstUserID, secondUserID := req.FromUserID, req.ToUserID
-		firstIsFrom := true
-
-		// UUID比較: 小さい方を先にロック
-		if req.ToUserID.String() < req.FromUserID.String() {
-			firstUserID, secondUserID = req.ToUserID, req.FromUserID
-			firstIsFrom = false
+		// デッドロック回避: UpdateBalancesWithLockが内部でUUIDの小さい順にロックを取得
+		updates := []repository.BalanceUpdate{
+			{UserID: req.FromUserID, Amount: req.Amount, IsDeduct: true},  // 送信者から減算
+			{UserID: req.ToUserID, Amount: req.Amount, IsDeduct: false},   // 受信者に加算
 		}
 
-		// 1番目のユーザーをロック
-		if firstIsFrom {
-			// FromUserを先にロック（減算）
-			if err := i.userRepo.UpdateBalanceWithLock(tx, firstUserID, req.Amount, true); err != nil {
-				return fmt.Errorf("failed to deduct from sender: %w", err)
-			}
-		} else {
-			// ToUserを先にロック（加算）
-			if err := i.userRepo.UpdateBalanceWithLock(tx, firstUserID, req.Amount, false); err != nil {
-				return fmt.Errorf("failed to add to receiver: %w", err)
-			}
-		}
-
-		// 2番目のユーザーをロック
-		if firstIsFrom {
-			// ToUserを後にロック（加算）
-			if err := i.userRepo.UpdateBalanceWithLock(tx, secondUserID, req.Amount, false); err != nil {
-				return fmt.Errorf("failed to add to receiver: %w", err)
-			}
-		} else {
-			// FromUserを後にロック（減算）
-			if err := i.userRepo.UpdateBalanceWithLock(tx, secondUserID, req.Amount, true); err != nil {
-				return fmt.Errorf("failed to deduct from sender: %w", err)
-			}
+		if err := i.userRepo.UpdateBalancesWithLock(tx, updates); err != nil {
+			return fmt.Errorf("failed to update balances: %w", err)
 		}
 
 		// 4. トランザクション記録作成

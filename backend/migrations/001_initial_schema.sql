@@ -166,15 +166,16 @@ WHERE deleted_at IS NULL;
 -- ================================================
 -- 初期データ（開発用）
 -- ================================================
--- 管理者ユーザー: admin / Admin@123456
--- パスワードハッシュ: bcrypt cost=12
+-- 管理者ユーザー: admin / admin123
+-- パスワードハッシュ: bcrypt cost=10
 INSERT INTO users (username, email, password_hash, display_name, role, balance) VALUES
-('admin', 'admin@example.com', '$2a$12$PfdM5axZya0l4BjOFAFHmOjJ5jMdBHFB9AxWiPp2m8loGeNQasFcy', 'System Admin', 'admin', 1000000);
+('admin', 'admin@example.com', '$2a$10$Rw0nZrWoh7CvWW9HbwYM6.P251lNv94/jmhuLLhWF70Qt2vH8dthO', 'System Administrator', 'admin', 1000000)
+ON CONFLICT (username) DO NOTHING;
 
--- テストユーザー: user1 / User@123456
+-- テストユーザー: testuser / test123
 INSERT INTO users (username, email, password_hash, display_name, balance) VALUES
-('user1', 'user1@example.com', '$2a$12$AxWMf8Kz0kSXCwJyrI0ocOIaIEDv08pgoBT.HpzhQFDevNTnSGQwC', 'Test User 1', 10000),
-('user2', 'user2@example.com', '$2a$12$dKRlmmjYq46Yg3IyaOinl.Q526YOa8JlLxH9Sty4748TOB3k47G32', 'Test User 2', 5000);
+('testuser', 'test@example.com', '$2a$10$Icg8iyLTgkbpAT8TNLIxG.HigjDo4EjmqyLjELlu1XBlU0uyx8emy', 'Test User', 10000)
+ON CONFLICT (username) DO NOTHING;
 
 COMMENT ON TABLE users IS 'ユーザーマスタ。楽観的ロック(version)とソフトデリート対応';
 COMMENT ON COLUMN users.balance IS 'ポイント残高（負の値は制約で禁止）';
@@ -185,3 +186,16 @@ COMMENT ON TABLE transactions IS 'ポイント移動履歴。全ての残高変�
 COMMENT ON TABLE friendships IS '友達関係。双方向の関係性を管理';
 COMMENT ON TABLE qr_codes IS 'QRコード管理。一時的な受取・送信用';
 COMMENT ON TABLE audit_logs IS '監査ログ。管理者操作の完全な記録';
+
+-- ================================================
+-- 完了メッセージ
+-- ================================================
+DO $$
+BEGIN
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Database schema initialized successfully!';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Admin user: admin / admin123';
+    RAISE NOTICE 'Test user: testuser / test123';
+    RAISE NOTICE '========================================';
+END $$;
