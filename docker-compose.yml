@@ -55,6 +55,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development  # 開発ステージを明示的に指定
     container_name: point_system_frontend
     ports:
       - "5173:5173"
