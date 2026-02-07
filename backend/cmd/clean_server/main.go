@@ -11,6 +11,7 @@ import (
 	"github.com/gity/point-system/gateways/infra/infralogger"
 	"github.com/gity/point-system/gateways/infra/inframysql"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
+	productrepo "github.com/gity/point-system/gateways/repository/product"
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
 	sessionrepo "github.com/gity/point-system/gateways/repository/session"
 	transactionrepo "github.com/gity/point-system/gateways/repository/transaction"
@@ -44,6 +45,8 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	sessionDS := dsmysqlimpl.NewSessionDataSource(db)
 	friendshipDS := dsmysqlimpl.NewFriendshipDataSource(db)
 	qrcodeDS := dsmysqlimpl.NewQRCodeDataSource(db)
+	productDS := dsmysqlimpl.NewProductDataSource(db)
+	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -52,6 +55,8 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	sessionRepo := sessionrepo.NewSessionRepository(sessionDS, logger)
 	friendshipRepo := friendshiprepo.NewFriendshipRepository(friendshipDS, logger)
 	qrcodeRepo := qrcoderepo.NewQRCodeRepository(qrcodeDS, logger)
+	productRepo := productrepo.NewProductRepository(productDS, logger)
+	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
 
 	// === Interactor層 ===
 	authUC := interactor.NewAuthInteractor(
@@ -89,6 +94,20 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
+	productManagementUC := interactor.NewProductManagementInteractor(
+		productRepo,
+		logger,
+	)
+
+	productExchangeUC := interactor.NewProductExchangeInteractor(
+		db.GetDB(),
+		productRepo,
+		productExchangeRepo,
+		userRepo,
+		transactionRepo,
+		logger,
+	)
+
 	// === Presenter層 ===
 	authPresenter := presenter.NewAuthPresenter()
 	pointPresenter := presenter.NewPointPresenter()
@@ -102,6 +121,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	friendController := web.NewFriendController(friendshipUC, friendPresenter)
 	qrcodeController := web.NewQRCodeController(qrcodeUC, qrcodePresenter)
 	adminController := web.NewAdminController(adminUC, adminPresenter)
+	productController := web.NewProductController(productManagementUC, productExchangeUC, logger)
 
 	// === Middleware層 ===
 	authMiddleware := middleware.NewAuthMiddleware(authUC)
@@ -118,6 +138,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		friendController,
 		qrcodeController,
 		adminController,
+		productController,
 		authMiddleware,
 		csrfMiddleware,
 	)

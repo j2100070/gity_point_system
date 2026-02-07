@@ -131,10 +131,12 @@ func (i *AuthInteractor) ValidateSession(sessionToken string) (*entities.Session
 		return nil, errors.New("session expired")
 	}
 
-	// セッションをリフレッシュ
+	// セッションをリフレッシュ（並行更新エラーは無視）
+	// 複数のリクエストが同時に来た場合、いずれかが成功すれば良い
 	session.Refresh()
 	if err := i.sessionRepo.Update(session); err != nil {
-		i.logger.Warn("Failed to refresh session", entities.NewField("error", err))
+		// 並行更新エラーやその他のエラーでも、セッション自体は有効なので認証は継続
+		i.logger.Debug("Failed to refresh session (ignoring)", entities.NewField("error", err))
 	}
 
 	return session, nil

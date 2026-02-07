@@ -1,8 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// Viteのプロキシを使用するため、baseURLは空文字にする
+// これにより /api/* へのリクエストは vite.config.ts のプロキシ設定を経由する
+const API_BASE_URL = '';
 
-console.log('API Base URL:', API_BASE_URL);
+console.log('Using Vite proxy for API requests');
 
 class ApiClient {
   private client: AxiosInstance;
@@ -22,8 +24,13 @@ class ApiClient {
       (config: InternalAxiosRequestConfig) => {
         // POST, PUT, DELETE, PATCHにCSRFトークンを付与
         if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase() || '')) {
-          if (this.csrfToken) {
-            config.headers['X-CSRF-Token'] = this.csrfToken;
+          // localStorageから読み込む可能性があるため、getCsrfToken()を使用
+          const token = this.getCsrfToken();
+          if (token) {
+            config.headers['X-CSRF-Token'] = token;
+            console.log(`Adding CSRF token to ${config.method?.toUpperCase()} ${config.url}`);
+          } else {
+            console.warn(`No CSRF token available for ${config.method?.toUpperCase()} ${config.url}`);
           }
         }
         return config;
@@ -52,6 +59,7 @@ class ApiClient {
   }
 
   public setCsrfToken(token: string) {
+    console.log('Setting CSRF token:', token.substring(0, 10) + '...');
     this.csrfToken = token;
     // LocalStorageにも保存（リロード時のため）
     if (typeof window !== 'undefined') {

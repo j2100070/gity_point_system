@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 3000,
     host: '0.0.0.0',
     strictPort: true, // ポートが使用中の場合エラーにする
     watch: {

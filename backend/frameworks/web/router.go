@@ -66,6 +66,7 @@ func (r *Router) RegisterRoutes(
 	friendController *web.FriendController,
 	qrcodeController *web.QRCodeController,
 	adminController *web.AdminController,
+	productController *web.ProductController,
 	authMiddleware *middleware.AuthMiddleware,
 	csrfMiddleware *middleware.CSRFMiddleware,
 ) {
@@ -80,21 +81,38 @@ func (r *Router) RegisterRoutes(
 			auth.POST("/login", func(c *gin.Context) {
 				authController.Login(c, r.timeProvider.Now())
 			})
-			auth.POST("/logout", func(c *gin.Context) {
-				authController.Logout(c, r.timeProvider.Now())
-			})
-			auth.GET("/me", func(c *gin.Context) {
+		}
+
+		// 商品一覧（公開）
+		api.GET("/products", productController.GetProductList)
+
+		// 認証が必要なルート（CSRF保護なし）
+		protected := api.Group("")
+		protected.Use(authMiddleware.Authenticate())
+		{
+			// 認証済みユーザー情報取得
+			protected.GET("/auth/me", func(c *gin.Context) {
 				authController.GetCurrentUser(c, r.timeProvider.Now())
 			})
 		}
 
-		// 認証が必要なルート
-		protected := api.Group("")
-		protected.Use(authMiddleware.Authenticate())
-		protected.Use(csrfMiddleware.Protect())
+		// 認証 + CSRF保護が必要なルート（状態変更あり）
+		protectedAuth := api.Group("/auth")
+		protectedAuth.Use(authMiddleware.Authenticate())
+		protectedAuth.Use(csrfMiddleware.Protect())
+		{
+			protectedAuth.POST("/logout", func(c *gin.Context) {
+				authController.Logout(c, r.timeProvider.Now())
+			})
+		}
+
+		// 認証 + CSRF保護が必要なルート
+		protectedWithCSRF := api.Group("")
+		protectedWithCSRF.Use(authMiddleware.Authenticate())
+		protectedWithCSRF.Use(csrfMiddleware.Protect())
 		{
 			// ポイント
-			points := protected.Group("/points")
+			points := protectedWithCSRF.Group("/points")
 			{
 				// Controllerに時刻情報を渡す
 				points.POST("/transfer", func(c *gin.Context) {
@@ -109,7 +127,7 @@ func (r *Router) RegisterRoutes(
 			}
 
 			// 友達
-			friends := protected.Group("/friends")
+			friends := protectedWithCSRF.Group("/friends")
 			{
 				friends.POST("/requests", friendController.SendFriendRequest)
 				friends.POST("/requests/:id/accept", friendController.AcceptFriendRequest)
@@ -120,7 +138,7 @@ func (r *Router) RegisterRoutes(
 			}
 
 			// QRコード
-			qrcodes := protected.Group("/qrcodes")
+			qrcodes := protectedWithCSRF.Group("/qrcodes")
 			{
 				qrcodes.POST("/receive", qrcodeController.GenerateReceiveQR)
 				qrcodes.POST("/send", qrcodeController.GenerateSendQR)
@@ -128,15 +146,37 @@ func (r *Router) RegisterRoutes(
 				qrcodes.GET("/history", qrcodeController.GetQRCodeHistory)
 			}
 
-			// 管理者
-			admin := protected.Group("/admin")
+			// 商品交換（ユーザー）
+			products := protectedWithCSRF.Group("/products")
 			{
+				products.POST("/exchange", productController.ExchangeProduct)
+				products.GET("/exchanges/history", productController.GetExchangeHistory)
+				products.POST("/exchanges/:id/cancel", productController.CancelExchange)
+			}
+
+			// 管理者
+			admin := protectedWithCSRF.Group("/admin")
+			{
+				// ポイント管理
 				admin.POST("/points/grant", adminController.GrantPoints)
 				admin.POST("/points/deduct", adminController.DeductPoints)
+
+				// ユーザー管理
 				admin.GET("/users", adminController.ListAllUsers)
-				admin.GET("/transactions", adminController.ListAllTransactions)
 				admin.PUT("/users/:id/role", adminController.UpdateUserRole)
 				admin.POST("/users/:id/deactivate", adminController.DeactivateUser)
+
+				// トランザクション管理
+				admin.GET("/transactions", adminController.ListAllTransactions)
+
+				// 商品管理
+				admin.POST("/products", productController.CreateProduct)
+				admin.PUT("/products/:id", productController.UpdateProduct)
+				admin.DELETE("/products/:id", productController.DeleteProduct)
+
+				// 商品交換管理
+				admin.GET("/exchanges", productController.GetAllExchanges)
+				admin.POST("/exchanges/:id/deliver", productController.MarkExchangeDelivered)
 			}
 		}
 	}

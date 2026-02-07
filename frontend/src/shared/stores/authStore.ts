@@ -77,6 +77,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadUser: async () => {
+    // 既に認証済みの場合はスキップ
+    const currentState = useAuthStore.getState();
+    if (currentState.isAuthenticated && currentState.user) {
+      return;
+    }
+
     set({ isLoading: true });
     try {
       const user = await authRepository.getCurrentUser();

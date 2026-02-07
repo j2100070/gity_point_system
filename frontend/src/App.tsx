@@ -22,10 +22,16 @@ import { HistoryPage } from '@/features/points/pages/HistoryPage';
 // Friends
 import { FriendsPage } from '@/features/friends/pages/FriendsPage';
 
+// Products
+import { ProductsPage } from '@/features/products/pages/ProductsPage';
+import { ExchangePage } from '@/features/products/pages/ExchangePage';
+import { ExchangeHistoryPage } from '@/features/products/pages/ExchangeHistoryPage';
+
 // Admin
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
 import { AdminTransactionsPage } from '@/features/admin/pages/AdminTransactionsPage';
+import { AdminProductsPage } from '@/features/products/pages/AdminProductsPage';
 
 function App() {
   const { loadUser, isAuthenticated } = useAuthStore();
@@ -33,7 +39,8 @@ function App() {
   useEffect(() => {
     // アプリ起動時にログイン状態を確認
     loadUser();
-  }, [loadUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <BrowserRouter>
@@ -107,6 +114,32 @@ function App() {
             }
           />
 
+          {/* Product routes */}
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <ProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:productId/exchange"
+            element={
+              <ProtectedRoute>
+                <ExchangePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/exchanges"
+            element={
+              <ProtectedRoute>
+                <ExchangeHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Admin routes */}
           <Route
             path="/admin"
@@ -129,6 +162,14 @@ function App() {
             element={
               <ProtectedRoute adminOnly>
                 <AdminTransactionsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminProductsPage />
               </ProtectedRoute>
             }
           />
