@@ -1,8 +1,6 @@
 package entities
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"time"
 
@@ -23,12 +21,12 @@ type Session struct {
 
 // NewSession は新しいセッションを作成
 func NewSession(userID uuid.UUID, ipAddress, userAgent string) (*Session, error) {
-	sessionToken, err := generateSecureToken(32)
+	sessionToken, err := GenerateSecureTokenBase64(32)
 	if err != nil {
 		return nil, err
 	}
 
-	csrfToken, err := generateSecureToken(32)
+	csrfToken, err := GenerateSecureTokenBase64(32)
 	if err != nil {
 		return nil, err
 	}
@@ -66,11 +64,3 @@ func (s *Session) Refresh() {
 	s.ExpiresAt = time.Now().Add(24 * time.Hour)
 }
 
-// generateSecureToken は安全なランダムトークンを生成
-func generateSecureToken(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(bytes), nil
-}

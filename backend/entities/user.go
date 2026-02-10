@@ -15,20 +15,31 @@ const (
 	RoleAdmin UserRole = "admin"
 )
 
+// AvatarType はアバタータイプを表す型
+type AvatarType string
+
+const (
+	AvatarTypeGenerated AvatarType = "generated" // 自動生成アバター
+	AvatarTypeUploaded  AvatarType = "uploaded"  // ユーザーアップロード
+)
+
 // User はユーザーエンティティ
 type User struct {
-	ID           uuid.UUID
-	Username     string
-	Email        string
-	PasswordHash string
-	DisplayName  string
-	Balance      int64      // ポイント残高
-	Role         UserRole
-	Version      int        // 楽観的ロック用
-	IsActive     bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	DeletedAt    *time.Time // ソフトデリート
+	ID              uuid.UUID
+	Username        string
+	Email           string
+	PasswordHash    string
+	DisplayName     string
+	Balance         int64      // ポイント残高
+	Role            UserRole
+	Version         int        // 楽観的ロック用
+	IsActive        bool
+	AvatarURL       *string    // アバター画像URL
+	AvatarType      AvatarType // アバタータイプ
+	EmailVerified   bool       // メール認証済みか
+	EmailVerifiedAt *time.Time // メール認証日時
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // NewUser は新しいユーザーを作成
@@ -47,17 +58,20 @@ func NewUser(username, email, passwordHash, displayName string) (*User, error) {
 	}
 
 	return &User{
-		ID:           uuid.New(),
-		Username:     username,
-		Email:        email,
-		PasswordHash: passwordHash,
-		DisplayName:  displayName,
-		Balance:      0,
-		Role:         RoleUser,
-		Version:      1,
-		IsActive:     true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:            uuid.New(),
+		Username:      username,
+		Email:         email,
+		PasswordHash:  passwordHash,
+		DisplayName:   displayName,
+		Balance:       0,
+		Role:          RoleUser,
+		Version:       1,
+		IsActive:      true,
+		AvatarURL:     nil,
+		AvatarType:    AvatarTypeGenerated,
+		EmailVerified: false, // 初期は未認証
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}, nil
 }
 
@@ -125,4 +139,85 @@ func (u *User) Activate() {
 	u.IsActive = true
 	u.Version++
 	u.UpdatedAt = time.Now()
+}
+
+// UpdateProfile はプロフィール更新
+func (u *User) UpdateProfile(displayName, email string) error {
+	changed := false
+
+	if displayName != "" && displayName != u.DisplayName {
+		u.DisplayName = displayName
+		changed = true
+	}
+
+	if email != "" && email != u.Email {
+		u.Email = email
+		u.EmailVerified = false // メール変更時は再認証必要
+		u.EmailVerifiedAt = nil
+		changed = true
+	}
+
+	if changed {
+		u.Version++
+		u.UpdatedAt = time.Now()
+	}
+
+	return nil
+}
+
+// UpdateUsername はユーザー名更新
+func (u *User) UpdateUsername(newUsername string) error {
+	if newUsername == "" {
+		return errors.New("username is required")
+	}
+	if newUsername == u.Username {
+		return errors.New("username is the same as current")
+	}
+
+	u.Username = newUsername
+	u.Version++
+	u.UpdatedAt = time.Now()
+	return nil
+}
+
+// UpdateAvatar はアバター更新
+func (u *User) UpdateAvatar(avatarURL string, avatarType AvatarType) error {
+	if avatarType != AvatarTypeGenerated && avatarType != AvatarTypeUploaded {
+		return errors.New("invalid avatar type")
+	}
+
+	u.AvatarURL = &avatarURL
+	u.AvatarType = avatarType
+	u.Version++
+	u.UpdatedAt = time.Now()
+	return nil
+}
+
+// DeleteAvatar はアバター削除（自動生成に戻す）
+func (u *User) DeleteAvatar() {
+	u.AvatarURL = nil
+	u.AvatarType = AvatarTypeGenerated
+	u.Version++
+	u.UpdatedAt = time.Now()
+}
+
+// VerifyEmail はメール認証
+func (u *User) VerifyEmail() {
+	u.EmailVerified = true
+	now := time.Now()
+	u.EmailVerifiedAt = &now
+	u.Version++
+	u.UpdatedAt = now
+}
+
+// UpdatePassword はパスワード更新
+func (u *User) UpdatePassword(newPasswordHash string) error {
+	if newPasswordHash == "" {
+		return errors.New("password hash is required")
+	}
+
+	u.PasswordHash = newPasswordHash
+	u.Version++
+	u.UpdatedAt = time.Now()
+	return nil
 }

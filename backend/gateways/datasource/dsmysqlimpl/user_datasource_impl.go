@@ -14,18 +14,21 @@ import (
 
 // UserModel はGORM用のユーザーモデル
 type UserModel struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Username     string     `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Email        string     `gorm:"type:varchar(255);uniqueIndex;not null"`
-	PasswordHash string     `gorm:"type:varchar(255);not null"`
-	DisplayName  string     `gorm:"type:varchar(255);not null"`
-	Balance      int64      `gorm:"not null;default:0;check:balance >= 0"`
-	Role         string     `gorm:"type:varchar(50);not null;default:'user'"`
-	Version      int        `gorm:"not null;default:1"`
-	IsActive     bool       `gorm:"not null;default:true"`
-	CreatedAt    time.Time  `gorm:"not null;default:now()"`
-	UpdatedAt    time.Time  `gorm:"not null;default:now()"`
-	DeletedAt    *time.Time `gorm:"index"`
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Username        string     `gorm:"type:varchar(255);uniqueIndex;not null"`
+	Email           string     `gorm:"type:varchar(255);uniqueIndex;not null"`
+	PasswordHash    string     `gorm:"type:varchar(255);not null"`
+	DisplayName     string     `gorm:"type:varchar(255);not null"`
+	Balance         int64      `gorm:"not null;default:0;check:balance >= 0"`
+	Role            string     `gorm:"type:varchar(50);not null;default:'user'"`
+	Version         int        `gorm:"not null;default:1"`
+	IsActive        bool       `gorm:"not null;default:true"`
+	AvatarURL       *string    `gorm:"type:varchar(500)"`
+	AvatarType      string     `gorm:"type:varchar(50);default:'generated'"`
+	EmailVerified   bool       `gorm:"not null;default:false"`
+	EmailVerifiedAt *time.Time
+	CreatedAt       time.Time `gorm:"not null;default:now()"`
+	UpdatedAt       time.Time `gorm:"not null;default:now()"`
 }
 
 // TableName はテーブル名を指定
@@ -36,18 +39,21 @@ func (UserModel) TableName() string {
 // ToDomain はドメインモデルに変換
 func (u *UserModel) ToDomain() *entities.User {
 	return &entities.User{
-		ID:           u.ID,
-		Username:     u.Username,
-		Email:        u.Email,
-		PasswordHash: u.PasswordHash,
-		DisplayName:  u.DisplayName,
-		Balance:      u.Balance,
-		Role:         entities.UserRole(u.Role),
-		Version:      u.Version,
-		IsActive:     u.IsActive,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
-		DeletedAt:    u.DeletedAt,
+		ID:              u.ID,
+		Username:        u.Username,
+		Email:           u.Email,
+		PasswordHash:    u.PasswordHash,
+		DisplayName:     u.DisplayName,
+		Balance:         u.Balance,
+		Role:            entities.UserRole(u.Role),
+		Version:         u.Version,
+		IsActive:        u.IsActive,
+		AvatarURL:       u.AvatarURL,
+		AvatarType:      entities.AvatarType(u.AvatarType),
+		EmailVerified:   u.EmailVerified,
+		EmailVerifiedAt: u.EmailVerifiedAt,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 }
 
@@ -62,9 +68,12 @@ func (u *UserModel) FromDomain(user *entities.User) {
 	u.Role = string(user.Role)
 	u.Version = user.Version
 	u.IsActive = user.IsActive
+	u.AvatarURL = user.AvatarURL
+	u.AvatarType = string(user.AvatarType)
+	u.EmailVerified = user.EmailVerified
+	u.EmailVerifiedAt = user.EmailVerifiedAt
 	u.CreatedAt = user.CreatedAt
 	u.UpdatedAt = user.UpdatedAt
-	u.DeletedAt = user.DeletedAt
 }
 
 // UserDataSourceImpl はUserDataSourceの実装
@@ -95,7 +104,7 @@ func (ds *UserDataSourceImpl) Insert(user *entities.User) error {
 func (ds *UserDataSourceImpl) Select(id uuid.UUID) (*entities.User, error) {
 	var model UserModel
 
-	err := ds.db.GetDB().Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
+	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -110,7 +119,7 @@ func (ds *UserDataSourceImpl) Select(id uuid.UUID) (*entities.User, error) {
 func (ds *UserDataSourceImpl) SelectByUsername(username string) (*entities.User, error) {
 	var model UserModel
 
-	err := ds.db.GetDB().Where("username = ? AND deleted_at IS NULL", username).First(&model).Error
+	err := ds.db.GetDB().Where("username = ?", username).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -125,7 +134,7 @@ func (ds *UserDataSourceImpl) SelectByUsername(username string) (*entities.User,
 func (ds *UserDataSourceImpl) SelectByEmail(email string) (*entities.User, error) {
 	var model UserModel
 
-	err := ds.db.GetDB().Where("email = ? AND deleted_at IS NULL", email).First(&model).Error
+	err := ds.db.GetDB().Where("email = ?", email).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -143,17 +152,21 @@ func (ds *UserDataSourceImpl) Update(user *entities.User) (bool, error) {
 
 	// 楽観的ロック: versionが一致する場合のみ更新
 	result := ds.db.GetDB().Model(&UserModel{}).
-		Where("id = ? AND version = ? AND deleted_at IS NULL", user.ID, user.Version-1).
+		Where("id = ? AND version = ?", user.ID, user.Version-1).
 		Updates(map[string]interface{}{
-			"username":      model.Username,
-			"email":         model.Email,
-			"password_hash": model.PasswordHash,
-			"display_name":  model.DisplayName,
-			"balance":       model.Balance,
-			"role":          model.Role,
-			"version":       model.Version,
-			"is_active":     model.IsActive,
-			"updated_at":    time.Now(),
+			"username":          model.Username,
+			"email":             model.Email,
+			"password_hash":     model.PasswordHash,
+			"display_name":      model.DisplayName,
+			"balance":           model.Balance,
+			"role":              model.Role,
+			"version":           model.Version,
+			"is_active":         model.IsActive,
+			"avatar_url":        model.AvatarURL,
+			"avatar_type":       model.AvatarType,
+			"email_verified":    model.EmailVerified,
+			"email_verified_at": model.EmailVerifiedAt,
+			"updated_at":        time.Now(),
 		})
 
 	if result.Error != nil {
@@ -179,7 +192,7 @@ func (ds *UserDataSourceImpl) UpdateBalanceWithLock(tx interface{}, userID uuid.
 
 	// SELECT FOR UPDATE で行ロック
 	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ? AND deleted_at IS NULL", userID).
+		Where("id = ?", userID).
 		First(&model).Error
 
 	if err != nil {
@@ -248,7 +261,7 @@ func (ds *UserDataSourceImpl) UpdateBalancesWithLock(tx interface{}, updates []d
 
 		// SELECT FOR UPDATE で行ロック
 		err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ? AND deleted_at IS NULL", update.UserID).
+			Where("id = ?", update.UserID).
 			First(&model).Error
 
 		if err != nil {
@@ -295,7 +308,7 @@ func (ds *UserDataSourceImpl) UpdateBalancesWithLock(tx interface{}, updates []d
 func (ds *UserDataSourceImpl) SelectList(offset, limit int) ([]*entities.User, error) {
 	var models []UserModel
 
-	err := ds.db.GetDB().Where("deleted_at IS NULL").
+	err := ds.db.GetDB().
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -316,14 +329,11 @@ func (ds *UserDataSourceImpl) SelectList(offset, limit int) ([]*entities.User, e
 // Count はユーザー総数を取得
 func (ds *UserDataSourceImpl) Count() (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&UserModel{}).Where("deleted_at IS NULL").Count(&count).Error
+	err := ds.db.GetDB().Model(&UserModel{}).Count(&count).Error
 	return count, err
 }
 
-// Delete はユーザーを論理削除
+// Delete はユーザーを物理削除（アーカイブ後に使用）
 func (ds *UserDataSourceImpl) Delete(id uuid.UUID) error {
-	now := time.Now()
-	return ds.db.GetDB().Model(&UserModel{}).
-		Where("id = ? AND deleted_at IS NULL", id).
-		Update("deleted_at", now).Error
+	return ds.db.GetDB().Delete(&UserModel{}, "id = ?", id).Error
 }
