@@ -111,12 +111,13 @@ func (p *FriendPresenter) toFriendshipResponse(friendship *entities.Friendship) 
 // toUserResponse はUserエンティティをレスポンスに変換
 func (p *FriendPresenter) toUserResponse(user *entities.User) UserResponse {
 	return UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Balance:   user.Balance,
-		Role:      string(user.Role),
-		IsActive:  user.IsActive,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:          user.ID,
+		Username:    user.Username,
+		DisplayName: user.DisplayName,
+		Balance:     user.Balance,
+		Role:        string(user.Role),
+		IsActive:    user.IsActive,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	}
 }

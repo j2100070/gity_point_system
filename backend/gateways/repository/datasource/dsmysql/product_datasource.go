@@ -23,7 +23,7 @@ type ProductDataSource interface {
 	SelectList(offset, limit int) ([]*entities.Product, error)
 
 	// SelectListByCategory はカテゴリ別の商品一覧を取得
-	SelectListByCategory(category entities.ProductCategory, offset, limit int) ([]*entities.Product, error)
+	SelectListByCategory(categoryCode string, offset, limit int) ([]*entities.Product, error)
 
 	// SelectAvailableList は交換可能な商品一覧を取得
 	SelectAvailableList(offset, limit int) ([]*entities.Product, error)

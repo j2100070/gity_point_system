@@ -7,24 +7,52 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gity/point-system/controllers/web/presenter"
 	"github.com/gity/point-system/usecases/inputport"
+	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
 )
 
 // FriendController は友達機能のコントローラー
 type FriendController struct {
 	friendshipUC inputport.FriendshipInputPort
+	userRepo     repository.UserRepository
 	presenter    *presenter.FriendPresenter
 }
 
 // NewFriendController は新しいFriendControllerを作成
 func NewFriendController(
 	friendshipUC inputport.FriendshipInputPort,
+	userRepo repository.UserRepository,
 	presenter *presenter.FriendPresenter,
 ) *FriendController {
 	return &FriendController{
 		friendshipUC: friendshipUC,
+		userRepo:     userRepo,
 		presenter:    presenter,
 	}
+}
+
+// SearchUserByUsername はユーザー名でユーザーを検索
+// GET /api/users/search?username=xxx
+func (c *FriendController) SearchUserByUsername(ctx *gin.Context) {
+	username := ctx.Query("username")
+	if username == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "username is required"})
+		return
+	}
+
+	user, err := c.userRepo.ReadByUsername(username)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":           user.ID.String(),
+			"username":     user.Username,
+			"display_name": user.DisplayName,
+		},
+	})
 }
 
 // SendFriendRequest は友達申請を送信

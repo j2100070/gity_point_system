@@ -38,7 +38,7 @@ func NewProduct(name, description string, categoryCode string, price int64, stoc
 		ID:          uuid.New(),
 		Name:        name,
 		Description: description,
-		Category:    category,
+		CategoryCode: categoryCode,
 		Price:       price,
 		Stock:       stock,
 		IsAvailable: true,

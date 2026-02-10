@@ -66,7 +66,7 @@ func (i *ProductManagementInteractor) UpdateProduct(req *inputport.UpdateProduct
 	// 商品情報を更新
 	product.Name = req.Name
 	product.Description = req.Description
-	product.Category = req.Category
+	product.CategoryCode = req.Category
 	product.Price = req.Price
 	product.Stock = req.Stock
 	product.ImageURL = req.ImageURL
@@ -104,8 +104,7 @@ func (i *ProductManagementInteractor) GetProductList(req *inputport.GetProductLi
 
 	// カテゴリでフィルタリング
 	if req.Category != "" {
-		category := entities.ProductCategory(req.Category)
-		products, err = i.productRepo.ReadListByCategory(category, req.Offset, req.Limit)
+		products, err = i.productRepo.ReadListByCategory(req.Category, req.Offset, req.Limit)
 	} else if req.AvailableOnly {
 		// 交換可能な商品のみ
 		products, err = i.productRepo.ReadAvailableList(req.Offset, req.Limit)

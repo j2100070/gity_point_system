@@ -67,6 +67,7 @@ func (r *Router) RegisterRoutes(
 	qrcodeController *web.QRCodeController,
 	adminController *web.AdminController,
 	productController *web.ProductController,
+	categoryController *web.CategoryController,
 	authMiddleware *middleware.AuthMiddleware,
 	csrfMiddleware *middleware.CSRFMiddleware,
 ) {
@@ -85,6 +86,9 @@ func (r *Router) RegisterRoutes(
 
 		// 商品一覧（公開）
 		api.GET("/products", productController.GetProductList)
+
+		// カテゴリ一覧（公開）
+		api.GET("/categories", categoryController.GetCategoryList)
 
 		// 認証が必要なルート（CSRF保護なし）
 		protected := api.Group("")
@@ -125,6 +129,9 @@ func (r *Router) RegisterRoutes(
 					pointController.GetTransactionHistory(c, r.timeProvider.Now())
 				})
 			}
+
+			// ユーザー検索
+			protectedWithCSRF.GET("/users/search", friendController.SearchUserByUsername)
 
 			// 友達
 			friends := protectedWithCSRF.Group("/friends")
@@ -177,6 +184,11 @@ func (r *Router) RegisterRoutes(
 				// 商品交換管理
 				admin.GET("/exchanges", productController.GetAllExchanges)
 				admin.POST("/exchanges/:id/deliver", productController.MarkExchangeDelivered)
+
+				// カテゴリ管理
+				admin.POST("/categories", categoryController.CreateCategory)
+				admin.PUT("/categories/:id", categoryController.UpdateCategory)
+				admin.DELETE("/categories/:id", categoryController.DeleteCategory)
 			}
 		}
 	}

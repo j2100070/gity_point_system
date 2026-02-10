@@ -11,7 +11,7 @@ import (
 type CreateProductRequest struct {
 	Name        string
 	Description string
-	Category    entities.ProductCategory
+	Category    string // カテゴリコード
 	Price       int64
 	Stock       int
 	ImageURL    string
@@ -27,7 +27,7 @@ type UpdateProductRequest struct {
 	ProductID   uuid.UUID
 	Name        string
 	Description string
-	Category    entities.ProductCategory
+	Category    string // カテゴリコード
 	Price       int64
 	Stock       int
 	ImageURL    string

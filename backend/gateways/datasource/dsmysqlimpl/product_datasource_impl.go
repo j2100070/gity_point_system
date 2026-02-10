@@ -37,7 +37,7 @@ func (p *ProductModel) ToDomain() *entities.Product {
 		ID:          p.ID,
 		Name:        p.Name,
 		Description: p.Description,
-		Category:    entities.ProductCategory(p.Category),
+		CategoryCode: p.Category,
 		Price:       p.Price,
 		Stock:       p.Stock,
 		ImageURL:    p.ImageURL,
@@ -53,7 +53,7 @@ func (p *ProductModel) FromDomain(product *entities.Product) {
 	p.ID = product.ID
 	p.Name = product.Name
 	p.Description = product.Description
-	p.Category = string(product.Category)
+	p.Category = product.CategoryCode
 	p.Price = product.Price
 	p.Stock = product.Stock
 	p.ImageURL = product.ImageURL
@@ -142,10 +142,10 @@ func (ds *ProductDataSourceImpl) SelectList(offset, limit int) ([]*entities.Prod
 }
 
 // SelectListByCategory はカテゴリ別の商品一覧を取得
-func (ds *ProductDataSourceImpl) SelectListByCategory(category entities.ProductCategory, offset, limit int) ([]*entities.Product, error) {
+func (ds *ProductDataSourceImpl) SelectListByCategory(categoryCode string, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := ds.db.GetDB().Where("category = ? AND deleted_at IS NULL", string(category)).
+	err := ds.db.GetDB().Where("category = ? AND deleted_at IS NULL", categoryCode).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").

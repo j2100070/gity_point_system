@@ -31,10 +31,11 @@ import { ExchangeHistoryPage } from '@/features/products/pages/ExchangeHistoryPa
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
 import { AdminTransactionsPage } from '@/features/admin/pages/AdminTransactionsPage';
+import { AdminCategoriesPage } from '@/features/admin/pages/AdminCategoriesPage';
 import { AdminProductsPage } from '@/features/products/pages/AdminProductsPage';
 
 function App() {
-  const { loadUser, isAuthenticated } = useAuthStore();
+  const { loadUser, isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
     // アプリ起動時にログイン状態を確認
@@ -42,6 +43,14 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 認証状態の確認中はスピナーを表示
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
   return (
     <BrowserRouter>
       <Layout>
@@ -170,6 +179,14 @@ function App() {
             element={
               <ProtectedRoute adminOnly>
                 <AdminProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/categories"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminCategoriesPage />
               </ProtectedRoute>
             }
           />

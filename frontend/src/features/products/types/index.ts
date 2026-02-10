@@ -1,10 +1,11 @@
-export type ProductCategory = 'drink' | 'snack' | 'toy' | 'other';
+// カテゴリは動的に管理されるためstringに変更
+export type ProductCategory = string;
 
 export interface Product {
   ID: string;
   Name: string;
   Description: string;
-  Category: ProductCategory;
+  Category: string; // カテゴリコード（例: drink, snack）
   Price: number;
   Stock: number;
   ImageURL: string;

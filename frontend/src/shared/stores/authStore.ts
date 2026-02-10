@@ -19,7 +19,7 @@ const authRepository = new AuthRepository();
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // 初期状態はローディング中（loadUser完了まで）
   error: null,
 
   login: async (username: string, password: string) => {

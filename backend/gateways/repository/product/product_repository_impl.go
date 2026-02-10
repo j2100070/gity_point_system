@@ -50,8 +50,8 @@ func (r *ProductRepositoryImpl) ReadList(offset, limit int) ([]*entities.Product
 }
 
 // ReadListByCategory はカテゴリ別の商品一覧を取得
-func (r *ProductRepositoryImpl) ReadListByCategory(category entities.ProductCategory, offset, limit int) ([]*entities.Product, error) {
-	return r.productDS.SelectListByCategory(category, offset, limit)
+func (r *ProductRepositoryImpl) ReadListByCategory(categoryCode string, offset, limit int) ([]*entities.Product, error) {
+	return r.productDS.SelectListByCategory(categoryCode, offset, limit)
 }
 
 // ReadAvailableList は交換可能な商品一覧を取得

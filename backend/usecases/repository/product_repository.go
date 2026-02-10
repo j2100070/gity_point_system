@@ -23,7 +23,7 @@ type ProductRepository interface {
 	ReadList(offset, limit int) ([]*entities.Product, error)
 
 	// ReadListByCategory はカテゴリ別の商品一覧を取得
-	ReadListByCategory(category entities.ProductCategory, offset, limit int) ([]*entities.Product, error)
+	ReadListByCategory(categoryCode string, offset, limit int) ([]*entities.Product, error)
 
 	// ReadAvailableList は交換可能な商品一覧を取得
 	ReadAvailableList(offset, limit int) ([]*entities.Product, error)

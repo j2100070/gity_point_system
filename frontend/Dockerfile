@@ -8,9 +8,9 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 5173
+EXPOSE 3000
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
 
 # ビルドステージ
 FROM node:20-alpine AS builder
@@ -32,6 +32,6 @@ RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 5173
+EXPOSE 3000
 
-CMD ["serve", "-s", "dist", "-l", "5173"]
+CMD ["serve", "-s", "dist", "-l", "3000"]

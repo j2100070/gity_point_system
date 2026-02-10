@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: point_system_frontend
     ports:
-      - "5173:5173"
+      - "3000:3000"
     environment:
       VITE_API_URL: http://localhost:8080
       NODE_ENV: development
@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
     networks:
       - point_system_network
-    command: sh -c "npm run dev -- --host 0.0.0.0 --port 5173"
+    command: sh -c "npm run dev -- --host 0.0.0.0 --port 3000"
 
 networks:
   point_system_network:

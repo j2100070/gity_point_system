@@ -10,6 +10,7 @@ import (
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
 	"github.com/gity/point-system/gateways/infra/infralogger"
 	"github.com/gity/point-system/gateways/infra/inframysql"
+	categoryrepo "github.com/gity/point-system/gateways/repository/category"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
@@ -38,6 +39,16 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	logger := infralogger.NewLogger()
 	logger.Info("Database connection established")
 
+	// === AutoMigrate（新規テーブルのみ自動作成） ===
+	// 既存テーブルはSQLマイグレーション(migrations/*.sql)で管理
+	// 新規追加したモデルのみここに記載する
+	if err := db.GetDB().AutoMigrate(
+		&dsmysqlimpl.CategoryModel{},
+	); err != nil {
+		return nil, fmt.Errorf("failed to auto migrate: %w", err)
+	}
+	logger.Info("Database auto migration completed")
+
 	// === DataSource層 ===
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
@@ -47,6 +58,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	qrcodeDS := dsmysqlimpl.NewQRCodeDataSource(db)
 	productDS := dsmysqlimpl.NewProductDataSource(db)
 	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
+	categoryDS := dsmysqlimpl.NewCategoryDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -57,6 +69,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	qrcodeRepo := qrcoderepo.NewQRCodeRepository(qrcodeDS, logger)
 	productRepo := productrepo.NewProductRepository(productDS, logger)
 	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
+	categoryRepo := categoryrepo.NewCategoryRepository(categoryDS, logger)
 
 	// === Interactor層 ===
 	authUC := interactor.NewAuthInteractor(
@@ -108,6 +121,11 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
+	categoryUC := interactor.NewCategoryManagementInteractor(
+		categoryRepo,
+		logger,
+	)
+
 	// === Presenter層 ===
 	authPresenter := presenter.NewAuthPresenter()
 	pointPresenter := presenter.NewPointPresenter()
@@ -118,10 +136,11 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	// === Controller層 ===
 	authController := web.NewAuthController(authUC, authPresenter)
 	pointController := web.NewPointController(pointTransferUC, pointPresenter)
-	friendController := web.NewFriendController(friendshipUC, friendPresenter)
+	friendController := web.NewFriendController(friendshipUC, userRepo, friendPresenter)
 	qrcodeController := web.NewQRCodeController(qrcodeUC, qrcodePresenter)
 	adminController := web.NewAdminController(adminUC, adminPresenter)
 	productController := web.NewProductController(productManagementUC, productExchangeUC, logger)
+	categoryController := web.NewCategoryController(categoryUC, logger)
 
 	// === Middleware層 ===
 	authMiddleware := middleware.NewAuthMiddleware(authUC)
@@ -139,6 +158,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		qrcodeController,
 		adminController,
 		productController,
+		categoryController,
 		authMiddleware,
 		csrfMiddleware,
 	)

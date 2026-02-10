@@ -11,7 +11,7 @@ RUN npm install || npm install --legacy-peer-deps
 COPY . .
 
 # ポートを公開
-EXPOSE 5173
+EXPOSE 3000
 
 # デバッグ用の情報を出力
 RUN echo "Architecture: $(uname -m)" && \
@@ -20,4 +20,4 @@ RUN echo "Architecture: $(uname -m)" && \
     ls -la /app/
 
 # Vite開発サーバーを起動
-CMD ["sh", "-c", "echo 'Starting Vite dev server...' && npm run dev -- --host 0.0.0.0 --port 5173 --debug"]
+CMD ["sh", "-c", "echo 'Starting Vite dev server...' && npm run dev -- --host 0.0.0.0 --port 3000 --debug"]

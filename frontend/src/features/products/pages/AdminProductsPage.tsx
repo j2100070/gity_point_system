@@ -7,14 +7,9 @@ import {
   getAllExchanges,
   markExchangeDelivered,
 } from '../api/productsApi';
-import type { Product, ProductExchange, ProductCategory, CreateProductRequest } from '../types';
-
-const CATEGORIES: { value: ProductCategory; label: string }[] = [
-  { value: 'drink', label: '飲み物' },
-  { value: 'snack', label: 'お菓子' },
-  { value: 'toy', label: 'おもちゃ' },
-  { value: 'other', label: 'その他' },
-];
+import { getCategories } from '@/features/admin/api/categoriesApi';
+import type { Category } from '@/features/admin/types/category';
+import type { Product, ProductExchange, CreateProductRequest } from '../types';
 
 type Tab = 'products' | 'exchanges';
 
@@ -22,10 +17,15 @@ export const AdminProductsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [exchanges, setExchanges] = useState<ProductExchange[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'products') {
@@ -34,6 +34,15 @@ export const AdminProductsPage: React.FC = () => {
       loadExchanges();
     }
   }, [activeTab]);
+
+  const loadCategories = async () => {
+    try {
+      const data = await getCategories(true);
+      setCategories(data.categories || []);
+    } catch (err: any) {
+      console.error('Failed to load categories', err);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -108,21 +117,19 @@ export const AdminProductsPage: React.FC = () => {
         <nav className="flex space-x-8">
           <button
             onClick={() => setActiveTab('products')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'products'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'products'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             商品一覧
           </button>
           <button
             onClick={() => setActiveTab('exchanges')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'exchanges'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'exchanges'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             交換履歴
           </button>
@@ -181,7 +188,7 @@ export const AdminProductsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {CATEGORIES.find((c) => c.value === product.Category)?.label}
+                        {categories.find((c) => c.Code === product.Category)?.Name || product.Category}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -192,11 +199,10 @@ export const AdminProductsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          product.IsAvailable
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
+                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${product.IsAvailable
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}
                       >
                         {product.IsAvailable ? '販売中' : '停止中'}
                       </span>
@@ -248,13 +254,12 @@ export const AdminProductsPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div>
                     <span
-                      className={`px-3 py-1 text-sm font-semibold rounded ${
-                        exchange.Status === 'delivered'
-                          ? 'bg-blue-100 text-blue-800'
-                          : exchange.Status === 'completed'
+                      className={`px-3 py-1 text-sm font-semibold rounded ${exchange.Status === 'delivered'
+                        ? 'bg-blue-100 text-blue-800'
+                        : exchange.Status === 'completed'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-yellow-100 text-yellow-800'
-                      }`}
+                        }`}
                     >
                       {exchange.Status}
                     </span>
@@ -288,6 +293,7 @@ export const AdminProductsPage: React.FC = () => {
       {(showCreateModal || editingProduct) && (
         <ProductFormModal
           product={editingProduct}
+          categories={categories}
           onClose={() => {
             setShowCreateModal(false);
             setEditingProduct(null);
@@ -306,9 +312,10 @@ export const AdminProductsPage: React.FC = () => {
 // 商品フォームモーダルコンポーネント
 const ProductFormModal: React.FC<{
   product: Product | null;
+  categories: Category[];
   onClose: () => void;
   onSuccess: () => void;
-}> = ({ product, onClose, onSuccess }) => {
+}> = ({ product, categories, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<CreateProductRequest & { is_available?: boolean }>({
     name: product?.Name || '',
     description: product?.Description || '',
@@ -381,13 +388,13 @@ const ProductFormModal: React.FC<{
             <select
               value={formData.category}
               onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value as ProductCategory })
+                setFormData({ ...formData, category: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             >
-              {CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
+              {categories.map((cat) => (
+                <option key={cat.Code} value={cat.Code}>
+                  {cat.Name}
                 </option>
               ))}
             </select>
