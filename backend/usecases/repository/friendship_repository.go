@@ -28,6 +28,9 @@ type FriendshipRepository interface {
 	// Delete は友達関係を削除
 	Delete(id uuid.UUID) error
 
+	// ArchiveAndDelete は友達関係をアーカイブテーブルに移動してから削除
+	ArchiveAndDelete(id uuid.UUID, archivedBy uuid.UUID) error
+
 	// CheckAreFriends は2人のユーザーが友達かどうかを確認
 	CheckAreFriends(userID1, userID2 uuid.UUID) (bool, error)
 }

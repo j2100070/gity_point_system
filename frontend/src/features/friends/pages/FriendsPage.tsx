@@ -58,6 +58,17 @@ export const FriendsPage: React.FC = () => {
     }
   };
 
+  const handleRemoveFriend = async (friendshipId: string, friendName: string) => {
+    if (!window.confirm(`${friendName} さんとのフレンド関係を解消しますか？`)) return;
+
+    try {
+      await friendshipRepository.removeFriend({ friendship_id: friendshipId });
+      loadData();
+    } catch (error) {
+      console.error('Failed to remove friend:', error);
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchUsername.trim()) return;
 
@@ -114,8 +125,8 @@ export const FriendsPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('friends')}
           className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === 'friends'
-              ? 'bg-white text-gray-900 shadow'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-white text-gray-900 shadow'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           友達 ({friends.length})
@@ -123,8 +134,8 @@ export const FriendsPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('pending')}
           className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === 'pending'
-              ? 'bg-white text-gray-900 shadow'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-white text-gray-900 shadow'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           申請 ({pendingRequests.length})
@@ -132,8 +143,8 @@ export const FriendsPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('add')}
           className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === 'add'
-              ? 'bg-white text-gray-900 shadow'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-white text-gray-900 shadow'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           追加
@@ -178,21 +189,32 @@ export const FriendsPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => navigate('/transfer', {
-                      state: {
-                        friendId: item.friend?.id,
-                        friendName: item.friend?.display_name,
-                        friendUsername: item.friend?.username,
-                      }
-                    })}
-                    className="flex items-center px-3 py-1.5 bg-primary-50 text-primary-600 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                    送金
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => navigate('/transfer', {
+                        state: {
+                          friendId: item.friend?.id,
+                          friendName: item.friend?.display_name,
+                          friendUsername: item.friend?.username,
+                        }
+                      })}
+                      className="flex items-center px-3 py-1.5 bg-primary-50 text-primary-600 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      送金
+                    </button>
+                    <button
+                      onClick={() => handleRemoveFriend(item.friendship.id, item.friend?.display_name || '')}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="フレンド解散"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

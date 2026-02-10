@@ -170,6 +170,51 @@ func (ds *FriendshipDataSourceImpl) Delete(id uuid.UUID) error {
 	return ds.db.GetDB().Where("id = ?", id).Delete(&FriendshipModel{}).Error
 }
 
+// FriendshipArchiveModel はGORM用のアーカイブモデル
+type FriendshipArchiveModel struct {
+	ID          uuid.UUID `gorm:"type:uuid;primary_key"`
+	RequesterID uuid.UUID `gorm:"type:uuid;not null"`
+	AddresseeID uuid.UUID `gorm:"type:uuid;not null"`
+	Status      string    `gorm:"type:varchar(50);not null"`
+	CreatedAt   time.Time `gorm:"not null"`
+	UpdatedAt   time.Time `gorm:"not null"`
+	ArchivedAt  time.Time `gorm:"not null;default:now()"`
+	ArchivedBy  uuid.UUID `gorm:"type:uuid"`
+}
+
+func (FriendshipArchiveModel) TableName() string {
+	return "friendships_archive"
+}
+
+// ArchiveAndDelete は友達関係をアーカイブしてから削除
+func (ds *FriendshipDataSourceImpl) ArchiveAndDelete(id uuid.UUID, archivedBy uuid.UUID) error {
+	return ds.db.GetDB().Transaction(func(tx *gorm.DB) error {
+		// 1. 元レコードを取得
+		var model FriendshipModel
+		if err := tx.Where("id = ?", id).First(&model).Error; err != nil {
+			return err
+		}
+
+		// 2. アーカイブテーブルにINSERT
+		archive := FriendshipArchiveModel{
+			ID:          model.ID,
+			RequesterID: model.RequesterID,
+			AddresseeID: model.AddresseeID,
+			Status:      model.Status,
+			CreatedAt:   model.CreatedAt,
+			UpdatedAt:   model.UpdatedAt,
+			ArchivedAt:  time.Now(),
+			ArchivedBy:  archivedBy,
+		}
+		if err := tx.Create(&archive).Error; err != nil {
+			return err
+		}
+
+		// 3. 元テーブルから削除
+		return tx.Where("id = ?", id).Delete(&FriendshipModel{}).Error
+	})
+}
+
 // CheckAreFriends は2人のユーザーが友達かどうかを確認
 func (ds *FriendshipDataSourceImpl) CheckAreFriends(userID1, userID2 uuid.UUID) (bool, error) {
 	var count int64

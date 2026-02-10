@@ -56,6 +56,16 @@ func (i *FriendshipInteractor) SendFriendRequest(req *inputport.SendFriendReques
 		if existing.Status == entities.FriendshipStatusBlocked {
 			return nil, errors.New("cannot send friend request")
 		}
+		// rejected の場合は再申請を許可（既存レコードを更新）
+		if existing.Status == entities.FriendshipStatusRejected {
+			existing.Status = entities.FriendshipStatusPending
+			existing.RequesterID = req.RequesterID
+			existing.AddresseeID = req.AddresseeID
+			if err := i.friendshipRepo.Update(existing); err != nil {
+				return nil, err
+			}
+			return &inputport.SendFriendRequestResponse{Friendship: existing}, nil
+		}
 	}
 
 	// 友達申請作成
@@ -166,7 +176,7 @@ func (i *FriendshipInteractor) GetPendingRequests(req *inputport.GetPendingReque
 	return &inputport.GetPendingRequestsResponse{Requests: requests}, nil
 }
 
-// RemoveFriend は友達を削除
+// RemoveFriend は友達を削除（アーカイブに移動）
 func (i *FriendshipInteractor) RemoveFriend(req *inputport.RemoveFriendRequest) (*inputport.RemoveFriendResponse, error) {
 	friendship, err := i.friendshipRepo.Read(req.FriendshipID)
 	if err != nil {
@@ -177,7 +187,7 @@ func (i *FriendshipInteractor) RemoveFriend(req *inputport.RemoveFriendRequest) 
 		return nil, errors.New("unauthorized to remove this friendship")
 	}
 
-	if err := i.friendshipRepo.Delete(req.FriendshipID); err != nil {
+	if err := i.friendshipRepo.ArchiveAndDelete(req.FriendshipID, req.UserID); err != nil {
 		return nil, err
 	}
 

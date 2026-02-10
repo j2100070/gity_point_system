@@ -160,17 +160,23 @@ func (ds *ArchivedUserDataSourceImpl) Delete(id uuid.UUID) error {
 }
 
 // Restore はアーカイブユーザーを復元（トランザクション内で使用）
-func (ds *ArchivedUserDataSourceImpl) Restore(tx *gorm.DB, archivedUser *entities.ArchivedUser, user *entities.User) error {
+func (ds *ArchivedUserDataSourceImpl) Restore(tx interface{}, archivedUser *entities.ArchivedUser, user *entities.User) error {
+	// トランザクションを*gorm.DBにキャスト
+	gormTx, ok := tx.(*gorm.DB)
+	if !ok {
+		return errors.New("invalid transaction type")
+	}
+
 	// アーカイブからユーザーを作成
 	userModel := &UserModel{}
 	userModel.FromDomain(user)
 
-	if err := tx.Create(userModel).Error; err != nil {
+	if err := gormTx.Create(userModel).Error; err != nil {
 		return err
 	}
 
 	// アーカイブから削除
-	if err := tx.Delete(&ArchivedUserModel{}, "id = ?", archivedUser.ID).Error; err != nil {
+	if err := gormTx.Delete(&ArchivedUserModel{}, "id = ?", archivedUser.ID).Error; err != nil {
 		return err
 	}
 

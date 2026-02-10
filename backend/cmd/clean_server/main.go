@@ -8,8 +8,11 @@ import (
 	"github.com/gity/point-system/controllers/web"
 	"github.com/gity/point-system/controllers/web/presenter"
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/infra/infraemail"
 	"github.com/gity/point-system/gateways/infra/infralogger"
 	"github.com/gity/point-system/gateways/infra/inframysql"
+	"github.com/gity/point-system/gateways/infra/infrapassword"
+	"github.com/gity/point-system/gateways/infra/infrastorage"
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
@@ -17,6 +20,7 @@ import (
 	sessionrepo "github.com/gity/point-system/gateways/repository/session"
 	transactionrepo "github.com/gity/point-system/gateways/repository/transaction"
 	userrepo "github.com/gity/point-system/gateways/repository/user"
+	usersettingsrepo "github.com/gity/point-system/gateways/repository/user_settings"
 	frameworksweb "github.com/gity/point-system/frameworks/web"
 	"github.com/gity/point-system/frameworks/web/middleware"
 	"github.com/gity/point-system/usecases/interactor"
@@ -59,6 +63,10 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	productDS := dsmysqlimpl.NewProductDataSource(db)
 	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
 	categoryDS := dsmysqlimpl.NewCategoryDataSource(db)
+	archivedUserDS := dsmysqlimpl.NewArchivedUserDataSource(db)
+	emailVerificationDS := dsmysqlimpl.NewEmailVerificationDataSource(db)
+	usernameChangeHistoryDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
+	passwordChangeHistoryDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -70,6 +78,11 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	productRepo := productrepo.NewProductRepository(productDS, logger)
 	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
 	categoryRepo := categoryrepo.NewCategoryRepository(categoryDS, logger)
+	userSettingsRepo := usersettingsrepo.NewUserSettingsRepository(userDS, logger)
+	archivedUserRepo := usersettingsrepo.NewArchivedUserRepository(archivedUserDS, logger)
+	emailVerificationRepo := usersettingsrepo.NewEmailVerificationRepository(emailVerificationDS, logger)
+	usernameChangeHistoryRepo := usersettingsrepo.NewUsernameChangeHistoryRepository(usernameChangeHistoryDS, logger)
+	passwordChangeHistoryRepo := usersettingsrepo.NewPasswordChangeHistoryRepository(passwordChangeHistoryDS, logger)
 
 	// === Interactor層 ===
 	authUC := interactor.NewAuthInteractor(
@@ -126,12 +139,39 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
+	// === Service層 ===
+	fileStorageService, err := infrastorage.NewLocalStorage(&infrastorage.Config{
+		BaseDir:   "./uploads/avatars",
+		BaseURL:   "/uploads/avatars",
+		MaxSizeMB: 5,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file storage service: %w", err)
+	}
+	passwordService := infrapassword.NewBcryptPasswordService()
+	emailService := infraemail.NewConsoleEmailService(logger)
+
+	userSettingsUC := interactor.NewUserSettingsInteractor(
+		db.GetDB(),
+		userRepo,
+		userSettingsRepo,
+		archivedUserRepo,
+		emailVerificationRepo,
+		usernameChangeHistoryRepo,
+		passwordChangeHistoryRepo,
+		fileStorageService,
+		passwordService,
+		emailService,
+		logger,
+	)
+
 	// === Presenter層 ===
 	authPresenter := presenter.NewAuthPresenter()
 	pointPresenter := presenter.NewPointPresenter()
 	friendPresenter := presenter.NewFriendPresenter()
 	qrcodePresenter := presenter.NewQRCodePresenter()
 	adminPresenter := presenter.NewAdminPresenter()
+	userSettingsPresenter := presenter.NewUserSettingsPresenter()
 
 	// === Controller層 ===
 	authController := web.NewAuthController(authUC, authPresenter)
@@ -141,6 +181,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	adminController := web.NewAdminController(adminUC, adminPresenter)
 	productController := web.NewProductController(productManagementUC, productExchangeUC, logger)
 	categoryController := web.NewCategoryController(categoryUC, logger)
+	userSettingsController := web.NewUserSettingsController(userSettingsUC, userSettingsPresenter)
 
 	// === Middleware層 ===
 	authMiddleware := middleware.NewAuthMiddleware(authUC)
@@ -159,6 +200,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		adminController,
 		productController,
 		categoryController,
+		userSettingsController,
 		authMiddleware,
 		csrfMiddleware,
 	)

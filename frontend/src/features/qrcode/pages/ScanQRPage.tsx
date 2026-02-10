@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { QRCodeRepository } from '@/infrastructure/api/repositories/QRCodeRepository';
 
 const qrRepository = new QRCodeRepository();
@@ -10,6 +11,7 @@ export const ScanQRPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+   const [isCameraActive, setIsCameraActive] = useState(true);
   const navigate = useNavigate();
 
   const generateIdempotencyKey = () => {
@@ -67,13 +69,40 @@ export const ScanQRPage: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow p-6 space-y-4">
-          <div className="bg-gray-100 rounded-lg p-8 text-center">
-            <svg className="w-32 h-32 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-            <p className="mt-4 text-sm text-gray-600">
-              カメラでQRコードをスキャン<br />
-              または手動入力
+          {/* カメラによるQRスキャン */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">カメラでQRコードを読み取る</span>
+              <button
+                type="button"
+                onClick={() => setIsCameraActive((prev) => !prev)}
+                className="text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                {isCameraActive ? 'カメラ停止' : 'カメラ起動'}
+              </button>
+            </div>
+            {isCameraActive && (
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-black">
+                <Scanner
+                  onScan={(detectedCodes) => {
+                    if (detectedCodes && detectedCodes.length > 0) {
+                      setQrData(detectedCodes[0].rawValue);
+                      // 金額はQR内に含まれているケースがあるため、ここでは自動送信はせずユーザーに確認させる
+                    }
+                  }}
+                  onError={(err) => {
+                    console.error(err);
+                    setError('カメラの起動に失敗しました。ブラウザの権限設定を確認してください。');
+                  }}
+                  constraints={{ facingMode: 'environment' }}
+                  styles={{
+                    container: { width: '100%' }
+                  }}
+                />
+              </div>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              カメラが使用できない場合は、下のテキスト欄にQRコード文字列を貼り付けてください。
             </p>
           </div>
 

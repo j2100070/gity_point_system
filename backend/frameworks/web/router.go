@@ -68,6 +68,7 @@ func (r *Router) RegisterRoutes(
 	adminController *web.AdminController,
 	productController *web.ProductController,
 	categoryController *web.CategoryController,
+	userSettingsController *web.UserSettingsController,
 	authMiddleware *middleware.AuthMiddleware,
 	csrfMiddleware *middleware.CSRFMiddleware,
 ) {
@@ -159,6 +160,20 @@ func (r *Router) RegisterRoutes(
 				products.POST("/exchange", productController.ExchangeProduct)
 				products.GET("/exchanges/history", productController.GetExchangeHistory)
 				products.POST("/exchanges/:id/cancel", productController.CancelExchange)
+			}
+
+			// ユーザー設定
+			settings := protectedWithCSRF.Group("/settings")
+			{
+				settings.GET("/profile", userSettingsController.GetProfile)
+				settings.PUT("/profile", userSettingsController.UpdateProfile)
+				settings.PUT("/username", userSettingsController.UpdateUsername)
+				settings.PUT("/password", userSettingsController.ChangePassword)
+				settings.POST("/avatar", userSettingsController.UploadAvatar)
+				settings.DELETE("/avatar", userSettingsController.DeleteAvatar)
+				settings.POST("/email/verify", userSettingsController.SendEmailVerification)
+				settings.POST("/email/verify/confirm", userSettingsController.VerifyEmail)
+				settings.DELETE("/account", userSettingsController.ArchiveAccount)
 			}
 
 			// 管理者

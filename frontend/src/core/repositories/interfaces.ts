@@ -1,7 +1,7 @@
 import { User, LoginRequest, RegisterRequest, AuthResponse } from '../domain/User';
 import { Transaction, TransferRequest, TransferResponse } from '../domain/Transaction';
 import { QRCode, GenerateQRRequest, GenerateQRResponse, ScanQRRequest, ScanQRResponse } from '../domain/QRCode';
-import { Friendship, FriendRequestRequest, FriendActionRequest } from '../domain/Friendship';
+import { Friendship, FriendInfo, PendingRequestInfo, FriendRequestRequest, FriendActionRequest } from '../domain/Friendship';
 
 export interface IAuthRepository {
   login(request: LoginRequest): Promise<AuthResponse>;
@@ -27,8 +27,8 @@ export interface IFriendshipRepository {
   sendRequest(request: FriendRequestRequest): Promise<{ message: string; friendship: Friendship }>;
   acceptRequest(request: FriendActionRequest): Promise<{ message: string }>;
   rejectRequest(request: FriendActionRequest): Promise<{ message: string }>;
-  getFriends(offset?: number, limit?: number): Promise<{ friends: Friendship[] }>;
-  getPendingRequests(offset?: number, limit?: number): Promise<{ requests: Friendship[] }>;
+  getFriends(offset?: number, limit?: number): Promise<{ friends: FriendInfo[] }>;
+  getPendingRequests(offset?: number, limit?: number): Promise<{ requests: PendingRequestInfo[] }>;
   removeFriend(request: FriendActionRequest): Promise<{ message: string }>;
 }
 

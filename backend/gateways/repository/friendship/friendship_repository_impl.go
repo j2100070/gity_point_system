@@ -64,6 +64,14 @@ func (r *RepositoryImpl) Delete(id uuid.UUID) error {
 	return r.friendshipDS.Delete(id)
 }
 
+// ArchiveAndDelete は友達関係をアーカイブしてから削除
+func (r *RepositoryImpl) ArchiveAndDelete(id uuid.UUID, archivedBy uuid.UUID) error {
+	r.logger.Debug("Archiving and deleting friendship",
+		entities.NewField("friendship_id", id),
+		entities.NewField("archived_by", archivedBy))
+	return r.friendshipDS.ArchiveAndDelete(id, archivedBy)
+}
+
 // CheckAreFriends は2人のユーザーが友達かどうかを確認
 func (r *RepositoryImpl) CheckAreFriends(userID1, userID2 uuid.UUID) (bool, error) {
 	return r.friendshipDS.CheckAreFriends(userID1, userID2)
