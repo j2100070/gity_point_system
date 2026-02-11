@@ -43,8 +43,9 @@ Gity Point Systemは、React + Go + PostgreSQLで構築されたポイント管�
 
 #### ポイント転送
 - **直接送金**: ユーザー間でポイント転送
-- **QRコード受取**: QRコード生成して他のユーザーから受取
-- **QRコード送信**: QRコード生成して他のユーザーに送信
+- **PayPay風送金リクエスト**: 個人QRコードをスキャンして送金リクエスト作成、受取人が承認で完了
+- **マイQRコード**: 永続的な個人QRコード（有効期限なし）
+- **送金リクエスト管理**: 受信・送信リクエストの承認、拒否、キャンセル
 - **取引履歴**: 全トランザクションの閲覧
 - **残高確認**: リアルタイム残高表示
 
@@ -54,11 +55,6 @@ Gity Point Systemは、React + Go + PostgreSQLで構築されたポイント管�
 - 友達一覧の表示
 - 保留中の申請表示
 
-#### QRコード機能
-- **受取用QRコード**: 金額指定で生成 (5分間有効)
-- **送信用QRコード**: 金額指定で生成 (5分間有効)
-- QRコードスキャンによる即時送金
-- QR履歴の確認
 
 ### 管理者機能
 
@@ -88,6 +84,7 @@ backend/
 │   ├── user.go                 # ユーザーエンティティ + ビジネスルール
 │   ├── transaction.go          # トランザクションエンティティ
 │   ├── friendship.go           # 友達関係エンティティ
+│   ├── transfer_request.go     # 送金リクエストエンティティ
 │   ├── qrcode.go              # QRコードエンティティ
 │   ├── session.go             # セッションエンティティ
 │   └── logger.go              # ロガーインターフェース
@@ -96,12 +93,14 @@ backend/
 │   ├── inputport/             # 入力ポート (ユースケースインターフェース)
 │   │   ├── auth_inputport.go
 │   │   ├── point_transfer_inputport.go
+│   │   ├── transfer_request_inputport.go
 │   │   ├── qrcode_inputport.go
 │   │   ├── friendship_inputport.go
 │   │   └── admin_inputport.go
 │   ├── interactor/            # インタラクター (ユースケース実装)
 │   │   ├── auth_interactor.go
 │   │   ├── point_transfer_interactor.go
+│   │   ├── transfer_request_interactor.go
 │   │   ├── qrcode_interactor.go
 │   │   ├── friendship_interactor.go
 │   │   └── admin_interactor.go
@@ -109,6 +108,7 @@ backend/
 │       ├── user_repository.go
 │       ├── transaction_repository.go
 │       ├── session_repository.go
+│       ├── transfer_request_repository.go
 │       ├── qrcode_repository.go
 │       └── friendship_repository.go
 │
@@ -117,6 +117,7 @@ backend/
 │   │   ├── user/             # ユーザーリポジトリ実装
 │   │   ├── transaction/      # トランザクションリポジトリ実装
 │   │   ├── session/          # セッションリポジトリ実装
+│   │   ├── transfer_request/ # 送金リクエストリポジトリ実装
 │   │   ├── qrcode/           # QRコードリポジトリ実装
 │   │   └── friendship/       # 友達リポジトリ実装
 │   ├── datasource/           # データソース実装
@@ -129,12 +130,14 @@ backend/
 │   └── web/
 │       ├── auth_controller.go
 │       ├── point_controller.go
+│       ├── transfer_request_controller.go
 │       ├── qrcode_controller.go
 │       ├── friend_controller.go
 │       ├── admin_controller.go
 │       └── presenter/         # プレゼンター (出力フォーマット)
 │           ├── auth_presenter.go
 │           ├── point_presenter.go
+│           ├── transfer_request_presenter.go
 │           ├── qrcode_presenter.go
 │           ├── friend_presenter.go
 │           └── admin_presenter.go
@@ -157,7 +160,8 @@ backend/
 │
 └── migrations/                 # DBマイグレーション
     ├── 001_init_schema.sql
-    └── 002_update_passwords.sql
+    ├── 002_update_passwords.sql
+    └── 006_add_transfer_requests.sql
 ```
 
 #### 依存関係の方向
@@ -196,9 +200,12 @@ frontend/
 │   │   │   └── pages/
 │   │   │       ├── TransferPage.tsx
 │   │   │       └── HistoryPage.tsx
+│   │   ├── transfer-requests/ # 送金リクエスト機能
+│   │   │   └── pages/
+│   │   │       ├── PersonalQRPage.tsx
+│   │   │       └── TransferRequestsPage.tsx
 │   │   ├── qrcode/           # QRコード機能
 │   │   │   └── pages/
-│   │   │       ├── ReceiveQRPage.tsx
 │   │   │       └── ScanQRPage.tsx
 │   │   ├── friends/          # 友達機能
 │   │   │   └── pages/
@@ -213,6 +220,7 @@ frontend/
 │   │   ├── domain/           # ドメインモデル
 │   │   │   ├── User.ts
 │   │   │   ├── Transaction.ts
+│   │   │   ├── TransferRequest.ts
 │   │   │   ├── QRCode.ts
 │   │   │   └── Friendship.ts
 │   │   └── repositories/     # リポジトリインターフェース
@@ -224,6 +232,7 @@ frontend/
 │   │       └── repositories/ # リポジトリ実装
 │   │           ├── AuthRepository.ts
 │   │           ├── PointRepository.ts
+│   │           ├── TransferRequestRepository.ts
 │   │           ├── QRCodeRepository.ts
 │   │           ├── FriendshipRepository.ts
 │   │           └── AdminRepository.ts
@@ -284,6 +293,8 @@ users (1) ─────< (N) transactions (N) ─────> (1) users
   │                                              │
   ├─────< (N) qr_codes                          │
   │                                              │
+  ├─────< (N) transfer_requests (N) ───────────┤
+  │                                              │
   └─────< (N) friendships (N) ─────────────────┘
 ```
 
@@ -302,6 +313,7 @@ users (1) ─────< (N) transactions (N) ─────> (1) users
 | role | VARCHAR(20) | NOT NULL, DEFAULT 'user' | 役割 (user/admin) |
 | version | INTEGER | NOT NULL, DEFAULT 1 | 楽観的ロック用 |
 | is_active | BOOLEAN | NOT NULL, DEFAULT true | アカウント有効フラグ |
+| personal_qr_code | VARCHAR(255) | NOT NULL | 個人固定QRコード (user:{uuid}形式) |
 | created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
 
@@ -407,6 +419,35 @@ users (1) ─────< (N) transactions (N) ─────> (1) users
 - `idx_qrcodes_user` on user_id
 - `idx_qrcodes_code` on code
 - `idx_qrcodes_expires` on expires_at
+
+#### transfer_requests (送金リクエスト)
+
+| カラム | 型 | 制約 | 説明 |
+|-------|------|------|------|
+| id | UUID | PK | リクエストID |
+| from_user_id | UUID | FK users(id), NOT NULL | 送信者ID |
+| to_user_id | UUID | FK users(id), NOT NULL | 受取人ID |
+| amount | BIGINT | NOT NULL, CHECK > 0 | 金額 |
+| message | TEXT | DEFAULT '' | メッセージ |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'pending' | 状態 (pending/approved/rejected/cancelled/expired) |
+| idempotency_key | VARCHAR(255) | UNIQUE, NOT NULL | 冪等性キー |
+| expires_at | TIMESTAMPTZ | NOT NULL | 有効期限 (24時間) |
+| approved_at | TIMESTAMPTZ | - | 承認日時 |
+| rejected_at | TIMESTAMPTZ | - | 拒否日時 |
+| cancelled_at | TIMESTAMPTZ | - | キャンセル日時 |
+| transaction_id | UUID | FK transactions(id) | 関連トランザクションID |
+| created_at | TIMESTAMPTZ | NOT NULL | 作成日時 |
+| updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
+
+**制約:**
+- `from_user_id != to_user_id` (自分自身への送金禁止)
+
+**インデックス:**
+- `idx_transfer_requests_from_user` on from_user_id
+- `idx_transfer_requests_to_user` on to_user_id
+- `idx_transfer_requests_status` on status
+- `idx_transfer_requests_idempotency` on idempotency_key
+- `idx_transfer_requests_expires_at` on expires_at
 
 ---
 
@@ -691,105 +732,195 @@ http://localhost:8080/api
 
 ---
 
-### QRコードAPI (要認証)
+### 送金リクエストAPI (要認証)
 
-#### POST /api/qr/generate/receive
-受取用QRコード生成
-
-**リクエスト:**
-```json
-{
-  "amount": 5000
-}
-```
+#### GET /api/transfer-requests/personal-qr
+個人QRコード取得
 
 **レスポンス (200):**
 ```json
 {
-  "qr_code": {
+  "personal_qr_code": "user:uuid",
+  "user": {
     "id": "uuid",
-    "code": "qr-code-string",
-    "qr_type": "receive",
-    "amount": 5000,
-    "expires_at": "2024-01-01T12:05:00Z"
+    "username": "testuser"
   }
 }
 ```
 
-#### POST /api/qr/generate/send
-送信用QRコード生成
+#### POST /api/transfer-requests
+送金リクエスト作成
 
 **リクエスト:**
 ```json
 {
-  "amount": 3000
+  "to_user_id": "uuid",
+  "amount": 1000,
+  "message": "ランチ代ありがとう",
+  "idempotency_key": "unique-key-123"
 }
 ```
+
+**バリデーション:**
+- amount: 1以上
+- idempotency_key: 必須 (重複送金防止)
 
 **レスポンス (200):**
 ```json
 {
-  "qr_code": {
+  "transfer_request": {
     "id": "uuid",
-    "code": "qr-code-string",
-    "qr_type": "send",
-    "amount": 3000,
-    "expires_at": "2024-01-01T12:05:00Z"
-  }
-}
-```
-
-#### POST /api/qr/scan
-QRコードスキャン
-
-**リクエスト:**
-```json
-{
-  "code": "qr-code-string",
-  "idempotency_key": "unique-key-456"
-}
-```
-
-**レスポンス (200):**
-```json
-{
-  "transaction": {
-    "id": "uuid",
-    "amount": 5000,
-    "transaction_type": "qr_receive",
-    "status": "completed"
+    "from_user_id": "uuid",
+    "to_user_id": "uuid",
+    "amount": 1000,
+    "message": "ランチ代ありがとう",
+    "status": "pending",
+    "expires_at": "2024-01-02T12:00:00Z",
+    "created_at": "2024-01-01T12:00:00Z"
   },
-  "message": "QR code scanned successfully"
+  "from_user": {
+    "id": "uuid",
+    "username": "sender"
+  },
+  "to_user": {
+    "id": "uuid",
+    "username": "receiver"
+  }
 }
 ```
 
-**エラー:**
-- `QR code expired`: 期限切れ
-- `QR code already used`: 使用済み
-- `insufficient balance`: 残高不足
+#### GET /api/transfer-requests/pending
+承認待ちリクエスト取得
 
-#### GET /api/qr/history
-QR履歴取得
+**クエリパラメータ:**
+- `offset`: オフセット (デフォルト: 0)
+- `limit`: 件数 (デフォルト: 20)
+
+**レスポンス (200):**
+```json
+{
+  "requests": [
+    {
+      "transfer_request": {
+        "id": "uuid",
+        "from_user_id": "uuid",
+        "to_user_id": "uuid",
+        "amount": 1000,
+        "message": "ランチ代ありがとう",
+        "status": "pending",
+        "expires_at": "2024-01-02T12:00:00Z",
+        "created_at": "2024-01-01T12:00:00Z"
+      },
+      "from_user": {
+        "id": "uuid",
+        "username": "sender"
+      },
+      "to_user": {
+        "id": "uuid",
+        "username": "receiver"
+      }
+    }
+  ]
+}
+```
+
+#### GET /api/transfer-requests/sent
+送信したリクエスト取得
 
 **クエリパラメータ:**
 - `offset`, `limit`
 
 **レスポンス (200):**
+同上
+
+#### GET /api/transfer-requests/pending/count
+承認待ちリクエスト数取得
+
+**レスポンス (200):**
 ```json
 {
-  "qr_codes": [
-    {
-      "id": "uuid",
-      "code": "qr-code-string",
-      "qr_type": "receive",
-      "amount": 5000,
-      "used_at": "2024-01-01T12:03:00Z",
-      "created_at": "2024-01-01T12:00:00Z"
-    }
-  ],
-  "total": 10
+  "count": 3
 }
 ```
+
+#### GET /api/transfer-requests/:id
+リクエスト詳細取得
+
+**レスポンス (200):**
+```json
+{
+  "transfer_request": { ... },
+  "from_user": { ... },
+  "to_user": { ... }
+}
+```
+
+#### POST /api/transfer-requests/:id/approve
+リクエスト承認
+
+**レスポンス (200):**
+```json
+{
+  "transfer_request": {
+    "id": "uuid",
+    "status": "approved",
+    "approved_at": "2024-01-01T12:05:00Z",
+    "transaction_id": "uuid"
+  },
+  "transaction": {
+    "id": "uuid",
+    "from_user_id": "uuid",
+    "to_user_id": "uuid",
+    "amount": 1000,
+    "transaction_type": "transfer",
+    "status": "completed"
+  },
+  "from_user": {
+    "id": "uuid",
+    "balance": 9000
+  },
+  "to_user": {
+    "id": "uuid",
+    "balance": 11000
+  }
+}
+```
+
+**エラー:**
+- `insufficient balance`: 残高不足
+- `request has expired`: 期限切れ
+- `unauthorized`: 承認権限なし
+
+#### POST /api/transfer-requests/:id/reject
+リクエスト拒否
+
+**レスポンス (200):**
+```json
+{
+  "transfer_request": {
+    "id": "uuid",
+    "status": "rejected",
+    "rejected_at": "2024-01-01T12:05:00Z"
+  }
+}
+```
+
+#### DELETE /api/transfer-requests/:id
+リクエストキャンセル (送信者のみ)
+
+**レスポンス (200):**
+```json
+{
+  "transfer_request": {
+    "id": "uuid",
+    "status": "cancelled",
+    "cancelled_at": "2024-01-01T12:05:00Z"
+  }
+}
+```
+
+**エラー:**
+- `unauthorized`: キャンセル権限なし (送信者のみ可能)
 
 ---
 
@@ -1170,9 +1301,15 @@ npm run dev
 ### テスト
 
 ```bash
-# バックエンド (今後実装予定)
+# バックエンド単体テスト
 cd backend
-go test ./...
+go test ./tests/unit/... -v
+
+# バックエンド統合テスト (PostgreSQL必要)
+go test -tags=integration ./tests/integration/... -v
+
+# バックエンドE2Eテスト (サーバー起動必要)
+go test -tags=e2e ./tests/e2e/... -v
 
 # フロントエンド (今後実装予定)
 cd frontend
