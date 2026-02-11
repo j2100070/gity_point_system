@@ -36,6 +36,7 @@ type User struct {
 	IsActive        bool
 	AvatarURL       *string    // アバター画像URL
 	AvatarType      AvatarType // アバタータイプ
+	PersonalQRCode  string     // 個人固定QRコード（user:{user_id}形式）
 	EmailVerified   bool       // メール認証済みか
 	EmailVerifiedAt *time.Time // メール認証日時
 	CreatedAt       time.Time
@@ -57,22 +58,29 @@ func NewUser(username, email, passwordHash, displayName string) (*User, error) {
 		return nil, errors.New("display name is required")
 	}
 
+	userID := uuid.New()
 	return &User{
-		ID:            uuid.New(),
-		Username:      username,
-		Email:         email,
-		PasswordHash:  passwordHash,
-		DisplayName:   displayName,
-		Balance:       0,
-		Role:          RoleUser,
-		Version:       1,
-		IsActive:      true,
-		AvatarURL:     nil,
-		AvatarType:    AvatarTypeGenerated,
-		EmailVerified: false, // 初期は未認証
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:             userID,
+		Username:       username,
+		Email:          email,
+		PasswordHash:   passwordHash,
+		DisplayName:    displayName,
+		Balance:        0,
+		Role:           RoleUser,
+		Version:        1,
+		IsActive:       true,
+		AvatarURL:      nil,
+		AvatarType:     AvatarTypeGenerated,
+		PersonalQRCode: GeneratePersonalQRCode(userID), // 個人QRコード生成
+		EmailVerified:  false,                           // 初期は未認証
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}, nil
+}
+
+// GeneratePersonalQRCode はユーザーIDから個人QRコードを生成
+func GeneratePersonalQRCode(userID uuid.UUID) string {
+	return "user:" + userID.String()
 }
 
 // IsAdmin はユーザーが管理者かどうかを確認

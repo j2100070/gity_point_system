@@ -1,21 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { QRCodeRepository } from '@/infrastructure/api/repositories/QRCodeRepository';
+import { TransferRequestRepository } from '@/infrastructure/api/repositories/TransferRequestRepository';
 
-const qrRepository = new QRCodeRepository();
+const transferRequestRepository = new TransferRequestRepository();
 
 export const ScanQRPage: React.FC = () => {
   const [qrData, setQrData] = useState('');
   const [amount, setAmount] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-   const [isCameraActive, setIsCameraActive] = useState(true);
+  const [isCameraActive, setIsCameraActive] = useState(true);
   const navigate = useNavigate();
 
   const generateIdempotencyKey = () => {
-    return `qr-scan-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    return `transfer-request-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  };
+
+  // QRコードのタイプを判定
+  const parseQRCode = (code: string) => {
+    if (code.startsWith('user:')) {
+      // 個人QRコード: user:UUID
+      const userId = code.replace('user:', '');
+      return { type: 'user', userId };
+    }
+    return { type: 'unknown' };
   };
 
   const handleScan = async () => {
@@ -24,20 +35,33 @@ export const ScanQRPage: React.FC = () => {
       return;
     }
 
+    if (!amount || parseInt(amount) <= 0) {
+      setError('送金額を入力してください');
+      return;
+    }
+
     setError('');
     setLoading(true);
     try {
-      await qrRepository.scanQR({
-        qr_code: qrData.trim(),
-        amount: amount ? parseInt(amount) : undefined,
-        idempotency_key: generateIdempotencyKey(),
-      });
-      setSuccess(true);
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      const parsed = parseQRCode(qrData.trim());
+
+      if (parsed.type === 'user') {
+        // 個人QRコード → 送金リクエスト作成
+        await transferRequestRepository.createTransferRequest({
+          to_user_id: parsed.userId,
+          amount: parseInt(amount),
+          message: message,
+          idempotency_key: generateIdempotencyKey(),
+        });
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/transfer-requests');
+        }, 2000);
+      } else {
+        setError('無効なQRコードです');
+      }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'QRコードスキャンに失敗しました');
+      setError(err.response?.data?.error || '送金リクエストの作成に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -64,8 +88,9 @@ export const ScanQRPage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900">送信完了!</h2>
-          <p className="text-gray-600">ダッシュボードに戻ります...</p>
+          <h2 className="text-xl font-bold text-gray-900">送金リクエストを送信しました!</h2>
+          <p className="text-gray-600">相手が承認すると送金が完了します</p>
+          <p className="text-sm text-gray-500">リクエスト一覧画面に移動します...</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow p-6 space-y-4">
@@ -87,7 +112,6 @@ export const ScanQRPage: React.FC = () => {
                   onScan={(detectedCodes) => {
                     if (detectedCodes && detectedCodes.length > 0) {
                       setQrData(detectedCodes[0].rawValue);
-                      // 金額はQR内に含まれているケースがあるため、ここでは自動送信はせずユーザーに確認させる
                     }
                   }}
                   onError={(err) => {
@@ -102,7 +126,7 @@ export const ScanQRPage: React.FC = () => {
               </div>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              カメラが使用できない場合は、下のテキスト欄にQRコード文字列を貼り付けてください。
+              相手のマイQRコードをスキャンしてください
             </p>
           </div>
 
@@ -113,29 +137,43 @@ export const ScanQRPage: React.FC = () => {
             <textarea
               value={qrData}
               onChange={(e) => setQrData(e.target.value)}
-              placeholder="receive:CODE:500 または send:CODE:1000"
+              placeholder="user:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               rows={3}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <p className="mt-2 text-xs text-gray-500">
-              例: receive:abc123:500 (受取用、500P指定)
+              例: user:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              金額 (金額未指定QRの場合のみ)
+              送金額 <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="金額が指定されている場合は不要"
+                placeholder="送りたいポイント数を入力"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">P</span>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              メッセージ（任意）
+            </label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="メモを追加できます"
+              rows={2}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
           </div>
 
           {error && (
@@ -144,12 +182,30 @@ export const ScanQRPage: React.FC = () => {
             </div>
           )}
 
+          {/* 説明 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-xs text-blue-800">
+                <div className="font-medium mb-1">送金の流れ</div>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>相手のマイQRコードをスキャン</li>
+                  <li>送りたいポイント数を入力</li>
+                  <li>送金リクエストを送信</li>
+                  <li>相手が「受け取る」を押すと完了</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={handleScan}
             disabled={loading}
             className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? '処理中...' : 'スキャン実行'}
+            {loading ? '送信中...' : '送金リクエストを送信'}
           </button>
         </div>
       )}

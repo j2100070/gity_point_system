@@ -15,6 +15,10 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { ReceiveQRPage } from '@/features/qrcode/pages/ReceiveQRPage';
 import { ScanQRPage } from '@/features/qrcode/pages/ScanQRPage';
 
+// Transfer Requests
+import { PersonalQRPage } from '@/features/transfer-requests/pages/PersonalQRPage';
+import { TransferRequestsPage } from '@/features/transfer-requests/pages/TransferRequestsPage';
+
 // Points
 import { TransferPage } from '@/features/points/pages/TransferPage';
 import { HistoryPage } from '@/features/points/pages/HistoryPage';
@@ -99,6 +103,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <ScanQRPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/qr/personal"
+            element={
+              <ProtectedRoute>
+                <PersonalQRPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transfer-requests"
+            element={
+              <ProtectedRoute>
+                <TransferRequestsPage />
               </ProtectedRoute>
             }
           />

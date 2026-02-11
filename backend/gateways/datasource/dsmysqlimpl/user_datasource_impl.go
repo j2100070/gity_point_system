@@ -25,6 +25,7 @@ type UserModel struct {
 	IsActive        bool       `gorm:"not null;default:true"`
 	AvatarURL       *string    `gorm:"type:varchar(500)"`
 	AvatarType      string     `gorm:"type:varchar(50);default:'generated'"`
+	PersonalQRCode  string     `gorm:"type:varchar(255);uniqueIndex;not null"`
 	EmailVerified   bool       `gorm:"not null;default:false"`
 	EmailVerifiedAt *time.Time
 	CreatedAt       time.Time `gorm:"not null;default:now()"`
@@ -50,6 +51,7 @@ func (u *UserModel) ToDomain() *entities.User {
 		IsActive:        u.IsActive,
 		AvatarURL:       u.AvatarURL,
 		AvatarType:      entities.AvatarType(u.AvatarType),
+		PersonalQRCode:  u.PersonalQRCode,
 		EmailVerified:   u.EmailVerified,
 		EmailVerifiedAt: u.EmailVerifiedAt,
 		CreatedAt:       u.CreatedAt,
@@ -70,6 +72,7 @@ func (u *UserModel) FromDomain(user *entities.User) {
 	u.IsActive = user.IsActive
 	u.AvatarURL = user.AvatarURL
 	u.AvatarType = string(user.AvatarType)
+	u.PersonalQRCode = user.PersonalQRCode
 	u.EmailVerified = user.EmailVerified
 	u.EmailVerifiedAt = user.EmailVerifiedAt
 	u.CreatedAt = user.CreatedAt

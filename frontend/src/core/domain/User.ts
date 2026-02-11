@@ -4,6 +4,7 @@ export interface User {
   email: string;
   display_name: string;
   avatar_url?: string;
+  personal_qr_code?: string;
   balance: number;
   role: 'user' | 'admin';
   is_active?: boolean;

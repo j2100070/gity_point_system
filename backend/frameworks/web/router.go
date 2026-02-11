@@ -71,6 +71,7 @@ func (r *Router) RegisterRoutes(
 	pointController *web.PointController,
 	friendController *web.FriendController,
 	qrcodeController *web.QRCodeController,
+	transferRequestController *web.TransferRequestController,
 	adminController *web.AdminController,
 	productController *web.ProductController,
 	categoryController *web.CategoryController,
@@ -154,13 +155,27 @@ func (r *Router) RegisterRoutes(
 				friends.DELETE("/:id", friendController.RemoveFriend)
 			}
 
-			// QRコード
+			// QRコード（旧機能 - 削除予定）
 			qrcodes := protectedWithCSRF.Group("/qrcodes")
 			{
 				qrcodes.POST("/receive", qrcodeController.GenerateReceiveQR)
 				qrcodes.POST("/send", qrcodeController.GenerateSendQR)
 				qrcodes.POST("/scan", qrcodeController.ScanQR)
 				qrcodes.GET("/history", qrcodeController.GetQRCodeHistory)
+			}
+
+			// 送金リクエスト（PayPay風）
+			transferRequests := protectedWithCSRF.Group("/transfer-requests")
+			{
+				transferRequests.GET("/personal-qr", transferRequestController.GetPersonalQRCode)
+				transferRequests.POST("", transferRequestController.CreateTransferRequest)
+				transferRequests.GET("/pending", transferRequestController.GetPendingRequests)
+				transferRequests.GET("/sent", transferRequestController.GetSentRequests)
+				transferRequests.GET("/pending/count", transferRequestController.GetPendingRequestCount)
+				transferRequests.GET("/:id", transferRequestController.GetRequestDetail)
+				transferRequests.POST("/:id/approve", transferRequestController.ApproveTransferRequest)
+				transferRequests.POST("/:id/reject", transferRequestController.RejectTransferRequest)
+				transferRequests.DELETE("/:id", transferRequestController.CancelTransferRequest)
 			}
 
 			// 商品交換（ユーザー）

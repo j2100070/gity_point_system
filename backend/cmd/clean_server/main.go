@@ -19,6 +19,7 @@ import (
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
 	sessionrepo "github.com/gity/point-system/gateways/repository/session"
 	transactionrepo "github.com/gity/point-system/gateways/repository/transaction"
+	transferrequestrepo "github.com/gity/point-system/gateways/repository/transfer_request"
 	userrepo "github.com/gity/point-system/gateways/repository/user"
 	usersettingsrepo "github.com/gity/point-system/gateways/repository/user_settings"
 	frameworksweb "github.com/gity/point-system/frameworks/web"
@@ -60,6 +61,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	sessionDS := dsmysqlimpl.NewSessionDataSource(db)
 	friendshipDS := dsmysqlimpl.NewFriendshipDataSource(db)
 	qrcodeDS := dsmysqlimpl.NewQRCodeDataSource(db)
+	transferRequestDS := dsmysqlimpl.NewTransferRequestDataSource(db)
 	productDS := dsmysqlimpl.NewProductDataSource(db)
 	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
 	categoryDS := dsmysqlimpl.NewCategoryDataSource(db)
@@ -75,6 +77,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	sessionRepo := sessionrepo.NewSessionRepository(sessionDS, logger)
 	friendshipRepo := friendshiprepo.NewFriendshipRepository(friendshipDS, logger)
 	qrcodeRepo := qrcoderepo.NewQRCodeRepository(qrcodeDS, logger)
+	transferRequestRepo := transferrequestrepo.NewTransferRequestRepository(transferRequestDS, logger)
 	productRepo := productrepo.NewProductRepository(productDS, logger)
 	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
 	categoryRepo := categoryrepo.NewCategoryRepository(categoryDS, logger)
@@ -103,6 +106,13 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	friendshipUC := interactor.NewFriendshipInteractor(
 		friendshipRepo,
 		userRepo,
+		logger,
+	)
+
+	transferRequestUC := interactor.NewTransferRequestInteractor(
+		transferRequestRepo,
+		userRepo,
+		pointTransferUC,
 		logger,
 	)
 
@@ -170,6 +180,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	pointPresenter := presenter.NewPointPresenter()
 	friendPresenter := presenter.NewFriendPresenter()
 	qrcodePresenter := presenter.NewQRCodePresenter()
+	transferRequestPresenter := presenter.NewTransferRequestPresenter()
 	adminPresenter := presenter.NewAdminPresenter()
 	userSettingsPresenter := presenter.NewUserSettingsPresenter()
 
@@ -178,6 +189,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	pointController := web.NewPointController(pointTransferUC, pointPresenter)
 	friendController := web.NewFriendController(friendshipUC, userRepo, friendPresenter)
 	qrcodeController := web.NewQRCodeController(qrcodeUC, qrcodePresenter)
+	transferRequestController := web.NewTransferRequestController(transferRequestUC, userRepo, transferRequestPresenter)
 	adminController := web.NewAdminController(adminUC, adminPresenter)
 	productController := web.NewProductController(productManagementUC, productExchangeUC, logger)
 	categoryController := web.NewCategoryController(categoryUC, logger)
@@ -197,6 +209,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		pointController,
 		friendController,
 		qrcodeController,
+		transferRequestController,
 		adminController,
 		productController,
 		categoryController,

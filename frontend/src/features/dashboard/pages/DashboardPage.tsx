@@ -2,27 +2,34 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { PointRepository } from '@/infrastructure/api/repositories/PointRepository';
+import { TransferRequestRepository } from '@/infrastructure/api/repositories/TransferRequestRepository';
 
 const pointRepository = new PointRepository();
+const transferRequestRepository = new TransferRequestRepository();
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const [balance, setBalance] = useState<number>(0);
+  const [pendingRequestCount, setPendingRequestCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [pointVisible, setPointVisible] = useState(() => {
     return localStorage.getItem('pointVisible') !== 'false';
   });
 
   useEffect(() => {
-    loadBalance();
+    loadData();
   }, []);
 
-  const loadBalance = async () => {
+  const loadData = async () => {
     try {
-      const data = await pointRepository.getBalance();
-      setBalance(data.balance);
+      const [balanceData, countData] = await Promise.all([
+        pointRepository.getBalance(),
+        transferRequestRepository.getPendingRequestCount(),
+      ]);
+      setBalance(balanceData.balance);
+      setPendingRequestCount(countData.count);
     } catch (error) {
-      console.error('Failed to load balance:', error);
+      console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
@@ -69,54 +76,86 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 送金リクエスト通知 */}
+      {pendingRequestCount > 0 && (
+        <Link
+          to="/transfer-requests"
+          className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center justify-between hover:bg-orange-100 transition-colors"
+        >
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center mr-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-orange-900">
+                新しい送金リクエスト
+              </div>
+              <div className="text-xs text-orange-700">
+                {pendingRequestCount}件の承認待ちリクエストがあります
+              </div>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      )}
+
       {/* アクションボタン */}
       <div className="grid grid-cols-2 gap-4">
         <Link
-          to="/qr/receive"
+          to="/qr/personal"
           className="bg-white rounded-xl shadow p-6 flex flex-col items-center justify-center hover:shadow-md transition-shadow"
         >
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           </div>
-          <div className="text-sm font-medium text-gray-900">受け取る</div>
-        </Link>
-
-        <Link
-          to="/qr/send"
-          className="bg-white rounded-xl shadow p-6 flex flex-col items-center justify-center hover:shadow-md transition-shadow"
-        >
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </div>
-          <div className="text-sm font-medium text-gray-900">送る</div>
+          <div className="text-sm font-medium text-gray-900">マイQRコード</div>
         </Link>
 
         <Link
           to="/qr/scan"
           className="bg-white rounded-xl shadow p-6 flex flex-col items-center justify-center hover:shadow-md transition-shadow"
         >
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           </div>
-          <div className="text-sm font-medium text-gray-900">スキャン</div>
+          <div className="text-sm font-medium text-gray-900">QRスキャン</div>
+        </Link>
+
+        <Link
+          to="/transfer-requests"
+          className="bg-white rounded-xl shadow p-6 flex flex-col items-center justify-center hover:shadow-md transition-shadow relative"
+        >
+          {pendingRequestCount > 0 && (
+            <div className="absolute top-2 right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-xs font-bold text-white">{pendingRequestCount > 9 ? '9+' : pendingRequestCount}</span>
+            </div>
+          )}
+          <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+          </div>
+          <div className="text-sm font-medium text-gray-900">送金リクエスト</div>
         </Link>
 
         <Link
           to="/transfer"
           className="bg-white rounded-xl shadow p-6 flex flex-col items-center justify-center hover:shadow-md transition-shadow"
         >
-          <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-3">
-            <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           </div>
-          <div className="text-sm font-medium text-gray-900">送金</div>
+          <div className="text-sm font-medium text-gray-900">友達に送金</div>
         </Link>
       </div>
 
