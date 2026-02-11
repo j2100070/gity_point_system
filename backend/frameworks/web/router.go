@@ -30,6 +30,9 @@ func NewRouter(cfg *RouterConfig, timeProvider TimeProvider) *Router {
 
 	engine := gin.Default()
 
+	// マルチパートフォームのメモリ制限（アバターアップロード用）
+	engine.MaxMultipartMemory = 32 << 20 // 32MB
+
 	// CORS設定
 	corsConfig := cors.Config{
 		AllowOrigins:     cfg.AllowedOrigins,
@@ -46,6 +49,9 @@ func NewRouter(cfg *RouterConfig, timeProvider TimeProvider) *Router {
 
 	// 入力サニタイゼーション
 	engine.Use(middleware.InputSanitizationMiddleware())
+
+	// アバター画像の静的ファイル配信
+	engine.Static("/uploads/avatars", "./uploads/avatars")
 
 	// ヘルスチェック
 	engine.GET("/health", func(c *gin.Context) {

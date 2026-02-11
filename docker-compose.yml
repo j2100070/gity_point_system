@@ -46,6 +46,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - backend_uploads:/app/uploads
     restart: unless-stopped
     networks:
       - point_system_network
@@ -76,3 +78,4 @@ networks:
 
 volumes:
   postgres_data:
+  backend_uploads:

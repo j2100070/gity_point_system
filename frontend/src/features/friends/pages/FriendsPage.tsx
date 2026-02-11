@@ -175,10 +175,18 @@ export const FriendsPage: React.FC = () => {
               <div key={item.friendship.id} className="p-4 hover:bg-gray-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-primary-600 font-medium">
-                        {item.friend?.display_name?.charAt(0) || '?'}
-                      </span>
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center mr-3">
+                      {item.friend?.avatar_url ? (
+                        <img
+                          src={item.friend.avatar_url}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-primary-600 font-medium">
+                          {item.friend?.display_name?.charAt(0) || '?'}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">
@@ -234,10 +242,18 @@ export const FriendsPage: React.FC = () => {
               <div key={item.friendship.id} className="p-4 hover:bg-gray-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center flex-1">
-                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-orange-600 font-medium">
-                        {item.requester?.display_name?.charAt(0) || '?'}
-                      </span>
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center mr-3">
+                      {item.requester?.avatar_url ? (
+                        <img
+                          src={item.requester.avatar_url}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-orange-600 font-medium">
+                          {item.requester?.display_name?.charAt(0) || '?'}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">

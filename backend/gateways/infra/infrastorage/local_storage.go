@@ -26,7 +26,7 @@ type LocalStorage struct {
 type Config struct {
 	BaseDir    string   // 例: "./uploads/avatars"
 	BaseURL    string   // 例: "/uploads/avatars"
-	MaxSizeMB  int64    // 例: 5 (5MB)
+	MaxSizeMB  int64    // 例: 20 (20MB)
 	AllowedExt []string // 例: []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
 }
 
@@ -39,7 +39,7 @@ func NewLocalStorage(cfg *Config) (service.FileStorageService, error) {
 		return nil, errors.New("base URL is required")
 	}
 	if cfg.MaxSizeMB <= 0 {
-		cfg.MaxSizeMB = 5 // デフォルト5MB
+		cfg.MaxSizeMB = 20 // デフォルト20MB
 	}
 
 	// 許可する拡張子のマップを作成

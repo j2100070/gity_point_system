@@ -28,6 +28,10 @@ export default defineConfig({
         target: 'http://backend:8080', // Dockerネットワーク内のサービス名を使用
         changeOrigin: true,
       },
+      '/uploads': {
+        target: 'http://backend:8080',
+        changeOrigin: true,
+      },
     },
   },
   define: {

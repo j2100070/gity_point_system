@@ -3,6 +3,7 @@ export interface User {
   username: string;
   email: string;
   display_name: string;
+  avatar_url?: string;
   balance: number;
   role: 'user' | 'admin';
   is_active?: boolean;

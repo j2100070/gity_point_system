@@ -143,7 +143,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	fileStorageService, err := infrastorage.NewLocalStorage(&infrastorage.Config{
 		BaseDir:   "./uploads/avatars",
 		BaseURL:   "/uploads/avatars",
-		MaxSizeMB: 5,
+		MaxSizeMB: 20,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file storage service: %w", err)

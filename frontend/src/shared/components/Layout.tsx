@@ -25,7 +25,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 Gity Point
               </Link>
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">{user?.display_name}</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200">
+                    {user?.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-semibold">
+                        {user?.display_name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-600">{user?.display_name}</span>
+                </div>
                 <Link
                   to="/settings"
                   className="text-sm text-gray-600 hover:text-gray-900"

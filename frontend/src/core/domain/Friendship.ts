@@ -12,6 +12,7 @@ export interface FriendInfo {
     id: string;
     username: string;
     display_name: string;
+    avatar_url?: string;
   };
 }
 
@@ -29,6 +30,7 @@ export interface PendingRequestInfo {
     id: string;
     username: string;
     display_name: string;
+    avatar_url?: string;
   };
 }
 
@@ -44,11 +46,13 @@ export interface Friendship {
     id: string;
     username: string;
     display_name: string;
+    avatar_url?: string;
   };
   addressee?: {
     id: string;
     username: string;
     display_name: string;
+    avatar_url?: string;
   };
 }
 

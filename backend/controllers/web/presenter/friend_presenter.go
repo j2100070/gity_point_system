@@ -114,6 +114,7 @@ func (p *FriendPresenter) toUserResponse(user *entities.User) UserResponse {
 		ID:          user.ID,
 		Username:    user.Username,
 		DisplayName: user.DisplayName,
+		AvatarURL:   user.AvatarURL,
 		Balance:     user.Balance,
 		Role:        string(user.Role),
 		IsActive:    user.IsActive,

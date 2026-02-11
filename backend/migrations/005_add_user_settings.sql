@@ -142,5 +142,4 @@ DROP INDEX IF EXISTS idx_users_deleted_at;
 -- 既存ユーザーのメール認証状態を全てtrueに設定（既存ユーザーは認証済みとみなす）
 UPDATE users SET email_verified = true, email_verified_at = created_at WHERE email_verified = false;
 
--- 既存ユーザーにデフォルトのアバタータイプを設定
-UPDATE users SET avatar_type = 'generated' WHERE avatar_type IS NULL;
+

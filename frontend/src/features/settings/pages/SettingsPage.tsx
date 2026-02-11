@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SettingsRepository } from '../api/SettingsRepository';
 import { UserProfile } from '../types';
+import { useAuthStore } from '@/shared/stores/authStore';
 
 const settingsRepo = new SettingsRepository();
 
@@ -10,6 +11,7 @@ export const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { loadUser } = useAuthStore();
 
   // タブ状態
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'account'>('profile');
@@ -180,6 +182,8 @@ export const SettingsPage: React.FC = () => {
       setEmail(updatedProfile.email);
       setAvatarFile(null);
       setAvatarPreview(null);
+      // authStoreのユーザー情報も更新（ヘッダーのアバター表示用）
+      await loadUser();
     } catch (err: any) {
       console.error('[SettingsPage] Avatar upload failed:', err);
       setError(err.response?.data?.error || 'アバターのアップロードに失敗しました');
@@ -199,6 +203,8 @@ export const SettingsPage: React.FC = () => {
       // フォームの値も更新されたプロフィールで同期
       setDisplayName(updatedProfile.display_name);
       setEmail(updatedProfile.email);
+      // authStoreのユーザー情報も更新（ヘッダーのアバター表示用）
+      await loadUser();
     } catch (err: any) {
       setError(err.response?.data?.error || 'アバターの削除に失敗しました');
     } finally {

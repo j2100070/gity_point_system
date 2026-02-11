@@ -11,6 +11,7 @@ type UserResponse struct {
 	ID          uuid.UUID `json:"id"`
 	Username    string    `json:"username"`
 	DisplayName string    `json:"display_name"`
+	AvatarURL   *string   `json:"avatar_url,omitempty"`
 	Balance     int64     `json:"balance"`
 	Role        string    `json:"role"`
 	IsActive    bool      `json:"is_active"`

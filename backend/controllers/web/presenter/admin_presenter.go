@@ -24,13 +24,15 @@ func (p *AdminPresenter) PresentGrantPoints(resp *inputport.GrantPointsResponse)
 			CreatedAt:   resp.Transaction.CreatedAt,
 		},
 		"user": UserResponse{
-			ID:        resp.User.ID,
-			Username:  resp.User.Username,
-			Balance:   resp.User.Balance,
-			Role:      string(resp.User.Role),
-			IsActive:  resp.User.IsActive,
-			CreatedAt: resp.User.CreatedAt,
-			UpdatedAt: resp.User.UpdatedAt,
+			ID:          resp.User.ID,
+			Username:    resp.User.Username,
+			DisplayName: resp.User.DisplayName,
+			AvatarURL:   resp.User.AvatarURL,
+			Balance:     resp.User.Balance,
+			Role:        string(resp.User.Role),
+			IsActive:    resp.User.IsActive,
+			CreatedAt:   resp.User.CreatedAt,
+			UpdatedAt:   resp.User.UpdatedAt,
 		},
 	}
 }
@@ -47,13 +49,15 @@ func (p *AdminPresenter) PresentDeductPoints(resp *inputport.DeductPointsRespons
 			CreatedAt:   resp.Transaction.CreatedAt,
 		},
 		"user": UserResponse{
-			ID:        resp.User.ID,
-			Username:  resp.User.Username,
-			Balance:   resp.User.Balance,
-			Role:      string(resp.User.Role),
-			IsActive:  resp.User.IsActive,
-			CreatedAt: resp.User.CreatedAt,
-			UpdatedAt: resp.User.UpdatedAt,
+			ID:          resp.User.ID,
+			Username:    resp.User.Username,
+			DisplayName: resp.User.DisplayName,
+			AvatarURL:   resp.User.AvatarURL,
+			Balance:     resp.User.Balance,
+			Role:        string(resp.User.Role),
+			IsActive:    resp.User.IsActive,
+			CreatedAt:   resp.User.CreatedAt,
+			UpdatedAt:   resp.User.UpdatedAt,
 		},
 	}
 }
@@ -63,13 +67,15 @@ func (p *AdminPresenter) PresentListAllUsers(resp *inputport.ListAllUsersRespons
 	users := make([]UserResponse, 0, len(resp.Users))
 	for _, user := range resp.Users {
 		users = append(users, UserResponse{
-			ID:        user.ID,
-			Username:  user.Username,
-			Balance:   user.Balance,
-			Role:      string(user.Role),
-			IsActive:  user.IsActive,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
+			ID:          user.ID,
+			Username:    user.Username,
+			DisplayName: user.DisplayName,
+			AvatarURL:   user.AvatarURL,
+			Balance:     user.Balance,
+			Role:        string(user.Role),
+			IsActive:    user.IsActive,
+			CreatedAt:   user.CreatedAt,
+			UpdatedAt:   user.UpdatedAt,
 		})
 	}
 
@@ -103,13 +109,15 @@ func (p *AdminPresenter) PresentListAllTransactions(resp *inputport.ListAllTrans
 func (p *AdminPresenter) PresentUpdateUserRole(resp *inputport.UpdateUserRoleResponse) map[string]interface{} {
 	return map[string]interface{}{
 		"user": UserResponse{
-			ID:        resp.User.ID,
-			Username:  resp.User.Username,
-			Balance:   resp.User.Balance,
-			Role:      string(resp.User.Role),
-			IsActive:  resp.User.IsActive,
-			CreatedAt: resp.User.CreatedAt,
-			UpdatedAt: resp.User.UpdatedAt,
+			ID:          resp.User.ID,
+			Username:    resp.User.Username,
+			DisplayName: resp.User.DisplayName,
+			AvatarURL:   resp.User.AvatarURL,
+			Balance:     resp.User.Balance,
+			Role:        string(resp.User.Role),
+			IsActive:    resp.User.IsActive,
+			CreatedAt:   resp.User.CreatedAt,
+			UpdatedAt:   resp.User.UpdatedAt,
 		},
 	}
 }
@@ -118,13 +126,15 @@ func (p *AdminPresenter) PresentUpdateUserRole(resp *inputport.UpdateUserRoleRes
 func (p *AdminPresenter) PresentDeactivateUser(resp *inputport.DeactivateUserResponse) map[string]interface{} {
 	return map[string]interface{}{
 		"user": UserResponse{
-			ID:        resp.User.ID,
-			Username:  resp.User.Username,
-			Balance:   resp.User.Balance,
-			Role:      string(resp.User.Role),
-			IsActive:  resp.User.IsActive,
-			CreatedAt: resp.User.CreatedAt,
-			UpdatedAt: resp.User.UpdatedAt,
+			ID:          resp.User.ID,
+			Username:    resp.User.Username,
+			DisplayName: resp.User.DisplayName,
+			AvatarURL:   resp.User.AvatarURL,
+			Balance:     resp.User.Balance,
+			Role:        string(resp.User.Role),
+			IsActive:    resp.User.IsActive,
+			CreatedAt:   resp.User.CreatedAt,
+			UpdatedAt:   resp.User.UpdatedAt,
 		},
 	}
 }
