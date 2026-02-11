@@ -43,8 +43,9 @@ func (p *PointPresenter) PresentBalanceResponse(resp *inputport.GetBalanceRespon
 // PresentTransactionHistoryResponse はTransactionHistoryResponseをJSON形式に変換
 func (p *PointPresenter) PresentTransactionHistoryResponse(resp *inputport.GetTransactionHistoryResponse) gin.H {
 	transactions := make([]gin.H, len(resp.Transactions))
-	for i, tx := range resp.Transactions {
-		transactions[i] = gin.H{
+	for i, txWithUsers := range resp.Transactions {
+		tx := txWithUsers.Transaction
+		txData := gin.H{
 			"id":               tx.ID,
 			"from_user_id":     tx.FromUserID,
 			"to_user_id":       tx.ToUserID,
@@ -54,6 +55,28 @@ func (p *PointPresenter) PresentTransactionHistoryResponse(resp *inputport.GetTr
 			"description":      tx.Description,
 			"created_at":       tx.CreatedAt,
 		}
+
+		// 送信者情報を追加
+		if txWithUsers.FromUser != nil {
+			txData["from_user"] = gin.H{
+				"id":           txWithUsers.FromUser.ID,
+				"username":     txWithUsers.FromUser.Username,
+				"display_name": txWithUsers.FromUser.DisplayName,
+				"avatar_url":   txWithUsers.FromUser.AvatarURL,
+			}
+		}
+
+		// 受信者情報を追加
+		if txWithUsers.ToUser != nil {
+			txData["to_user"] = gin.H{
+				"id":           txWithUsers.ToUser.ID,
+				"username":     txWithUsers.ToUser.Username,
+				"display_name": txWithUsers.ToUser.DisplayName,
+				"avatar_url":   txWithUsers.ToUser.AvatarURL,
+			}
+		}
+
+		transactions[i] = txData
 	}
 
 	return gin.H{

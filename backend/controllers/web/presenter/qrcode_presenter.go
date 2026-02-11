@@ -50,12 +50,14 @@ func (p *QRCodePresenter) PresentGenerateSendQR(resp *inputport.GenerateSendQRRe
 func (p *QRCodePresenter) PresentScanQR(resp *inputport.ScanQRResponse) map[string]interface{} {
 	return map[string]interface{}{
 		"transaction": TransactionResponse{
-			ID:          resp.Transaction.ID,
-			FromUserID:  resp.Transaction.FromUserID,
-			ToUserID:    resp.Transaction.ToUserID,
-			Amount:      resp.Transaction.Amount,
-			Description: resp.Transaction.Description,
-			CreatedAt:   resp.Transaction.CreatedAt,
+			ID:              resp.Transaction.ID,
+			FromUserID:      resp.Transaction.FromUserID,
+			ToUserID:        resp.Transaction.ToUserID,
+			Amount:          resp.Transaction.Amount,
+			TransactionType: string(resp.Transaction.TransactionType),
+			Status:          string(resp.Transaction.Status),
+			Description:     resp.Transaction.Description,
+			CreatedAt:       resp.Transaction.CreatedAt,
 		},
 		"qr_code": p.toQRCodeResponse(resp.QRCode),
 		"from_user": UserResponse{

@@ -40,9 +40,16 @@ type GetTransactionHistoryRequest struct {
 	Limit  int
 }
 
+// TransactionWithUsersForHistory はユーザー情報付きトランザクション（履歴用）
+type TransactionWithUsersForHistory struct {
+	Transaction *entities.Transaction
+	FromUser    *entities.User
+	ToUser      *entities.User
+}
+
 // GetTransactionHistoryResponse はトランザクション履歴取得レスポンス
 type GetTransactionHistoryResponse struct {
-	Transactions []*entities.Transaction
+	Transactions []*TransactionWithUsersForHistory
 	Total        int64
 }
 

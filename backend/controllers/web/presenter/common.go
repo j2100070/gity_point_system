@@ -21,10 +21,14 @@ type UserResponse struct {
 
 // TransactionResponse は取引の共通レスポンス型
 type TransactionResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	FromUserID  *uuid.UUID `json:"from_user_id"`
-	ToUserID    *uuid.UUID `json:"to_user_id"`
-	Amount      int64      `json:"amount"`
-	Description string     `json:"description"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID              uuid.UUID     `json:"id"`
+	FromUserID      *uuid.UUID    `json:"from_user_id"`
+	ToUserID        *uuid.UUID    `json:"to_user_id"`
+	Amount          int64         `json:"amount"`
+	TransactionType string        `json:"transaction_type"`
+	Status          string        `json:"status"`
+	Description     string        `json:"description"`
+	FromUser        *UserResponse `json:"from_user,omitempty"`
+	ToUser          *UserResponse `json:"to_user,omitempty"`
+	CreatedAt       time.Time     `json:"created_at"`
 }

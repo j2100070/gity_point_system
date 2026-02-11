@@ -248,8 +248,34 @@ func (i *AdminInteractor) ListAllTransactions(req *inputport.ListAllTransactions
 		return nil, err
 	}
 
+	// 各トランザクションにユーザー情報を付与
+	transactionsWithUsers := make([]*inputport.TransactionWithUsers, 0, len(transactions))
+	for _, tx := range transactions {
+		txWithUsers := &inputport.TransactionWithUsers{
+			Transaction: tx,
+		}
+
+		// 送信者情報を取得
+		if tx.FromUserID != nil {
+			fromUser, err := i.userRepo.Read(*tx.FromUserID)
+			if err == nil {
+				txWithUsers.FromUser = fromUser
+			}
+		}
+
+		// 受信者情報を取得
+		if tx.ToUserID != nil {
+			toUser, err := i.userRepo.Read(*tx.ToUserID)
+			if err == nil {
+				txWithUsers.ToUser = toUser
+			}
+		}
+
+		transactionsWithUsers = append(transactionsWithUsers, txWithUsers)
+	}
+
 	return &inputport.ListAllTransactionsResponse{
-		Transactions: transactions,
+		Transactions: transactionsWithUsers,
 		Total:        len(transactions),
 	}, nil
 }

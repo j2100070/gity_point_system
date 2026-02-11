@@ -38,22 +38,45 @@ export const HistoryPage: React.FC = () => {
     });
   };
 
-  const getTransactionLabel = (tx: Transaction) => {
-    if (tx.from_user_id === user?.id) {
+  const getTransactionInfo = (tx: Transaction) => {
+    const isSent = tx.from_user_id === user?.id;
+    const isReceived = tx.to_user_id === user?.id;
+
+    // 送信の場合
+    if (isSent) {
+      const toUserName = tx.to_user?.display_name || tx.to_user?.username || '不明なユーザー';
       return {
         label: '送信',
-        name: tx.to_user?.display_name || '不明',
+        description: `${toUserName} へ送信`,
+        fromUser: user?.display_name || user?.username || 'あなた',
+        toUser: toUserName,
         color: 'text-red-600',
         sign: '-',
       };
-    } else {
+    }
+
+    // 受信の場合
+    if (isReceived) {
+      const fromUserName = tx.from_user?.display_name || tx.from_user?.username || 'システム';
       return {
         label: '受信',
-        name: tx.from_user?.display_name || 'システム',
+        description: `${fromUserName} から受信`,
+        fromUser: fromUserName,
+        toUser: user?.display_name || user?.username || 'あなた',
         color: 'text-green-600',
         sign: '+',
       };
     }
+
+    // その他（通常は発生しない）
+    return {
+      label: '取引',
+      description: '取引',
+      fromUser: tx.from_user?.display_name || 'システム',
+      toUser: tx.to_user?.display_name || '不明',
+      color: 'text-gray-600',
+      sign: '',
+    };
   };
 
   return (
@@ -84,13 +107,18 @@ export const HistoryPage: React.FC = () => {
       ) : (
         <div className="bg-white rounded-xl shadow divide-y divide-gray-200">
           {transactions.map((tx) => {
-            const info = getTransactionLabel(tx);
+            const info = getTransactionInfo(tx);
             return (
-              <div key={tx.id} className="p-4 hover:bg-gray-50">
-                <div className="flex justify-between items-start mb-2">
+              <div key={tx.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                    {/* ラベルとステータス */}
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`text-xs px-2 py-1 rounded font-medium ${
+                        info.label === '送信'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-green-50 text-green-700'
+                      }`}>
                         {info.label}
                       </span>
                       {tx.status === 'completed' ? (
@@ -103,16 +131,34 @@ export const HistoryPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="font-medium text-gray-900">{info.name}</div>
+
+                    {/* 送信者 → 受信者 */}
+                    <div className="mb-2">
+                      <div className="flex items-center text-sm text-gray-700">
+                        <span className="font-medium">{info.fromUser}</span>
+                        <svg className="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                        <span className="font-medium">{info.toUser}</span>
+                      </div>
+                    </div>
+
+                    {/* 説明文 */}
                     {tx.description && (
-                      <div className="text-sm text-gray-500 mt-1">{tx.description}</div>
+                      <div className="text-sm text-gray-500 mb-1">{tx.description}</div>
                     )}
-                    <div className="text-xs text-gray-400 mt-1">
+
+                    {/* 日時 */}
+                    <div className="text-xs text-gray-400">
                       {formatDate(tx.created_at)}
                     </div>
                   </div>
-                  <div className={`text-lg font-bold ${info.color}`}>
-                    {info.sign}{tx.amount.toLocaleString()} P
+
+                  {/* 金額 */}
+                  <div className="ml-4 text-right">
+                    <div className={`text-xl font-bold ${info.color}`}>
+                      {info.sign}{tx.amount.toLocaleString()} P
+                    </div>
                   </div>
                 </div>
               </div>

@@ -74,9 +74,16 @@ type ListAllTransactionsRequest struct {
 	Limit  int
 }
 
+// TransactionWithUsers はユーザー情報付きトランザクション
+type TransactionWithUsers struct {
+	Transaction *entities.Transaction
+	FromUser    *entities.User
+	ToUser      *entities.User
+}
+
 // ListAllTransactionsResponse は取引履歴一覧取得レスポンス
 type ListAllTransactionsResponse struct {
-	Transactions []*entities.Transaction
+	Transactions []*TransactionWithUsers
 	Total        int
 }
 

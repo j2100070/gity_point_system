@@ -201,8 +201,34 @@ func (i *PointTransferInteractor) GetTransactionHistory(req *inputport.GetTransa
 		return nil, err
 	}
 
+	// 各トランザクションにユーザー情報を付与
+	transactionsWithUsers := make([]*inputport.TransactionWithUsersForHistory, 0, len(transactions))
+	for _, tx := range transactions {
+		txWithUsers := &inputport.TransactionWithUsersForHistory{
+			Transaction: tx,
+		}
+
+		// 送信者情報を取得
+		if tx.FromUserID != nil {
+			fromUser, err := i.userRepo.Read(*tx.FromUserID)
+			if err == nil {
+				txWithUsers.FromUser = fromUser
+			}
+		}
+
+		// 受信者情報を取得
+		if tx.ToUserID != nil {
+			toUser, err := i.userRepo.Read(*tx.ToUserID)
+			if err == nil {
+				txWithUsers.ToUser = toUser
+			}
+		}
+
+		transactionsWithUsers = append(transactionsWithUsers, txWithUsers)
+	}
+
 	return &inputport.GetTransactionHistoryResponse{
-		Transactions: transactions,
+		Transactions: transactionsWithUsers,
 		Total:        total,
 	}, nil
 }

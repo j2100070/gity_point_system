@@ -18,6 +18,8 @@ import { ScanQRPage } from '@/features/qrcode/pages/ScanQRPage';
 // Transfer Requests
 import { PersonalQRPage } from '@/features/transfer-requests/pages/PersonalQRPage';
 import { TransferRequestsPage } from '@/features/transfer-requests/pages/TransferRequestsPage';
+import { ConfirmTransferRequestPage } from '@/features/transfer-requests/pages/ConfirmTransferRequestPage';
+import { TransferRequestSuccessPage } from '@/features/transfer-requests/pages/TransferRequestSuccessPage';
 
 // Points
 import { TransferPage } from '@/features/points/pages/TransferPage';
@@ -103,6 +105,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <ScanQRPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/qr/confirm"
+            element={
+              <ProtectedRoute>
+                <ConfirmTransferRequestPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/qr/scan/success"
+            element={
+              <ProtectedRoute>
+                <TransferRequestSuccessPage />
               </ProtectedRoute>
             }
           />
