@@ -240,12 +240,12 @@ func TestFriendshipDataSource_ArchiveAndDelete(t *testing.T) {
 			Where("id = ?", friendship.ID).Count(&count)
 		assert.Equal(t, int64(1), count)
 
-		// アーカイブのフィールドを検証
-		var archivedBy uuid.UUID
+		// アーカイブのフィールドを検証（archived_byが正しいか）
+		var archivedByCount int64
 		db.GetDB().Table("friendships_archive").
-			Where("id = ?", friendship.ID).
-			Pluck("archived_by", &archivedBy)
-		assert.Equal(t, userA.ID, archivedBy)
+			Where("id = ? AND archived_by = ?", friendship.ID, userA.ID).
+			Count(&archivedByCount)
+		assert.Equal(t, int64(1), archivedByCount, "archived_byがuserA.IDと一致する")
 	})
 
 	t.Run("存在しないIDのアーカイブはエラー", func(t *testing.T) {

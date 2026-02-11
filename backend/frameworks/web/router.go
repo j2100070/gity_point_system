@@ -99,6 +99,9 @@ func (r *Router) RegisterRoutes(
 			protected.GET("/auth/me", func(c *gin.Context) {
 				authController.GetCurrentUser(c, r.timeProvider.Now())
 			})
+
+			// プロフィール取得（GET）
+			protected.GET("/settings/profile", userSettingsController.GetProfile)
 		}
 
 		// 認証 + CSRF保護が必要なルート（状態変更あり）
@@ -162,10 +165,9 @@ func (r *Router) RegisterRoutes(
 				products.POST("/exchanges/:id/cancel", productController.CancelExchange)
 			}
 
-			// ユーザー設定
+			// ユーザー設定（状態変更のみ - GETは上のprotectedグループ）
 			settings := protectedWithCSRF.Group("/settings")
 			{
-				settings.GET("/profile", userSettingsController.GetProfile)
 				settings.PUT("/profile", userSettingsController.UpdateProfile)
 				settings.PUT("/username", userSettingsController.UpdateUsername)
 				settings.PUT("/password", userSettingsController.ChangePassword)

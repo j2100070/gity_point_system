@@ -36,7 +36,7 @@ type UpdateProfileRequest struct {
 // UpdateProfile はプロフィールを更新
 // PUT /api/settings/profile
 func (c *UserSettingsController) UpdateProfile(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -71,7 +71,7 @@ type UpdateUsernameRequest struct {
 // UpdateUsername はユーザー名を変更
 // PUT /api/settings/username
 func (c *UserSettingsController) UpdateUsername(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -108,7 +108,7 @@ type ChangePasswordRequest struct {
 // ChangePassword はパスワードを変更
 // PUT /api/settings/password
 func (c *UserSettingsController) ChangePassword(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -142,7 +142,7 @@ func (c *UserSettingsController) ChangePassword(ctx *gin.Context) {
 // UploadAvatar はアバターをアップロード
 // POST /api/settings/avatar
 func (c *UserSettingsController) UploadAvatar(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -185,7 +185,7 @@ func (c *UserSettingsController) UploadAvatar(ctx *gin.Context) {
 // DeleteAvatar はアバターを削除（自動生成に戻す）
 // DELETE /api/settings/avatar
 func (c *UserSettingsController) DeleteAvatar(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -207,7 +207,7 @@ func (c *UserSettingsController) DeleteAvatar(ctx *gin.Context) {
 // SendEmailVerification はメール認証メールを送信
 // POST /api/settings/email/verify
 func (c *UserSettingsController) SendEmailVerification(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -274,7 +274,7 @@ type ArchiveAccountRequest struct {
 // ArchiveAccount はアカウントを削除（アーカイブ）
 // DELETE /api/settings/account
 func (c *UserSettingsController) ArchiveAccount(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
@@ -315,7 +315,7 @@ func (c *UserSettingsController) ArchiveAccount(ctx *gin.Context) {
 // GetProfile はプロフィール情報を取得
 // GET /api/settings/profile
 func (c *UserSettingsController) GetProfile(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return

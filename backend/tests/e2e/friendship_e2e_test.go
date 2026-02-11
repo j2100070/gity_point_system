@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const friendBaseURL = "http://localhost:8080/api"
+
 // ========================================
 // Helper functions
 // ========================================
@@ -25,13 +27,18 @@ func createFriendTestUser(t *testing.T, username, displayName string) (userID, s
 	}
 
 	body, _ := json.Marshal(registerReq)
-	resp, err := http.Post(baseURL+"/auth/register", "application/json", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", friendBaseURL+"/auth/register", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-For", "127.0.0.1")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Register request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		t.Fatalf("Register failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
@@ -51,11 +58,22 @@ func createFriendTestUser(t *testing.T, username, displayName string) (userID, s
 	}
 
 	body, _ = json.Marshal(loginReq)
-	resp, err = http.Post(baseURL+"/auth/login", "application/json", bytes.NewBuffer(body))
+	loginHttpReq, _ := http.NewRequest("POST", friendBaseURL+"/auth/login", bytes.NewBuffer(body))
+	loginHttpReq.Header.Set("Content-Type", "application/json")
+	loginHttpReq.Header.Set("X-Forwarded-For", "127.0.0.1")
+
+	resp, err = client.Do(loginHttpReq)
 	if err != nil {
 		t.Fatalf("Login request failed: %v", err)
 	}
 	defer resp.Body.Close()
+
+	// SessionトークンをCookieから取得
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == "session_token" {
+			sessionToken = cookie.Value
+		}
+	}
 
 	var loginResp struct {
 		SessionToken string `json:"session_token"`
@@ -63,14 +81,18 @@ func createFriendTestUser(t *testing.T, username, displayName string) (userID, s
 	}
 	json.NewDecoder(resp.Body).Decode(&loginResp)
 
-	return userID, loginResp.SessionToken, loginResp.CSRFToken
+	if sessionToken == "" {
+		sessionToken = loginResp.SessionToken
+	}
+
+	return userID, sessionToken, loginResp.CSRFToken
 }
 
 func sendFriendRequest(t *testing.T, sessionToken, csrfToken, addresseeID string) string {
 	reqBody := map[string]string{"addressee_id": addresseeID}
 	body, _ := json.Marshal(reqBody)
 
-	req, _ := http.NewRequest("POST", baseURL+"/friends/requests", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", friendBaseURL+"/friends/requests", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Cookie", "session_token="+sessionToken)
 	req.Header.Set("X-CSRF-Token", csrfToken)
@@ -84,7 +106,7 @@ func sendFriendRequest(t *testing.T, sessionToken, csrfToken, addresseeID string
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		t.Fatalf("Send friend request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -99,7 +121,7 @@ func sendFriendRequest(t *testing.T, sessionToken, csrfToken, addresseeID string
 }
 
 func acceptFriendRequest(t *testing.T, sessionToken, csrfToken, friendshipID string) {
-	req, _ := http.NewRequest("POST", baseURL+"/friends/requests/"+friendshipID+"/accept", nil)
+	req, _ := http.NewRequest("POST", friendBaseURL+"/friends/requests/"+friendshipID+"/accept", nil)
 	req.Header.Set("Cookie", "session_token="+sessionToken)
 	req.Header.Set("X-CSRF-Token", csrfToken)
 
@@ -117,7 +139,7 @@ func acceptFriendRequest(t *testing.T, sessionToken, csrfToken, friendshipID str
 }
 
 func rejectFriendRequest(t *testing.T, sessionToken, csrfToken, friendshipID string) {
-	req, _ := http.NewRequest("POST", baseURL+"/friends/requests/"+friendshipID+"/reject", nil)
+	req, _ := http.NewRequest("POST", friendBaseURL+"/friends/requests/"+friendshipID+"/reject", nil)
 	req.Header.Set("Cookie", "session_token="+sessionToken)
 	req.Header.Set("X-CSRF-Token", csrfToken)
 
@@ -135,7 +157,7 @@ func rejectFriendRequest(t *testing.T, sessionToken, csrfToken, friendshipID str
 }
 
 func removeFriend(t *testing.T, sessionToken, csrfToken, friendshipID string) {
-	req, _ := http.NewRequest("DELETE", baseURL+"/friends/"+friendshipID, nil)
+	req, _ := http.NewRequest("DELETE", friendBaseURL+"/friends/"+friendshipID, nil)
 	req.Header.Set("Cookie", "session_token="+sessionToken)
 	req.Header.Set("X-CSRF-Token", csrfToken)
 
@@ -153,7 +175,7 @@ func removeFriend(t *testing.T, sessionToken, csrfToken, friendshipID string) {
 }
 
 func getFriends(t *testing.T, sessionToken, csrfToken string) []map[string]interface{} {
-	req, _ := http.NewRequest("GET", baseURL+"/friends", nil)
+	req, _ := http.NewRequest("GET", friendBaseURL+"/friends", nil)
 	req.Header.Set("Cookie", "session_token="+sessionToken)
 
 	client := &http.Client{}
@@ -177,7 +199,7 @@ func getFriends(t *testing.T, sessionToken, csrfToken string) []map[string]inter
 }
 
 func getPendingRequests(t *testing.T, sessionToken, csrfToken string) []map[string]interface{} {
-	req, _ := http.NewRequest("GET", baseURL+"/friends/requests", nil)
+	req, _ := http.NewRequest("GET", friendBaseURL+"/friends/requests", nil)
 	req.Header.Set("Cookie", "session_token="+sessionToken)
 
 	client := &http.Client{}
@@ -369,11 +391,12 @@ func TestUnauthorizedFriendActions_E2E(t *testing.T) {
 	_, userCSession, userCCSRF := createFriendTestUser(t,
 		fmt.Sprintf("unauth_c_%d", ts), "Unauth C")
 
-	t.Run("申請者自身が承認しようとするとエラー", func(t *testing.T) {
-		friendshipID := sendFriendRequest(t, userASession, userACSRF, userBID)
+	// 共有のfriendshipIDを作成
+	friendshipID := sendFriendRequest(t, userASession, userACSRF, userBID)
 
+	t.Run("申請者自身が承認しようとするとエラー", func(t *testing.T) {
 		// Aが自分の申請を承認しようとする
-		req, _ := http.NewRequest("POST", baseURL+"/friends/requests/"+friendshipID+"/accept", nil)
+		req, _ := http.NewRequest("POST", friendBaseURL+"/friends/requests/"+friendshipID+"/accept", nil)
 		req.Header.Set("Cookie", "session_token="+userASession)
 		req.Header.Set("X-CSRF-Token", userACSRF)
 
@@ -391,14 +414,8 @@ func TestUnauthorizedFriendActions_E2E(t *testing.T) {
 	})
 
 	t.Run("無関係のユーザーが解散しようとするとエラー", func(t *testing.T) {
-		// 既存のフレンドシップ（前のテストで作成済み）を取得
-		friends := getFriends(t, userASession, userACSRF)
-		// この時点でまだpending状態なので友達リストは空
-		// 新しいフレンドシップを作成して承認
-		friendshipID := sendFriendRequest(t, userASession, userACSRF, userBID)
-		// Bはログインしていないので、Cが解散を試みる
-
-		req, _ := http.NewRequest("DELETE", baseURL+"/friends/"+friendshipID, nil)
+		// Cが既存のfriendshipの解散を試みる
+		req, _ := http.NewRequest("DELETE", friendBaseURL+"/friends/"+friendshipID, nil)
 		req.Header.Set("Cookie", "session_token="+userCSession)
 		req.Header.Set("X-CSRF-Token", userCCSRF)
 
@@ -413,7 +430,5 @@ func TestUnauthorizedFriendActions_E2E(t *testing.T) {
 			t.Error("Unrelated user should not be able to remove friendship")
 		}
 		t.Logf("Unauthorized removal correctly rejected with status %d", resp.StatusCode)
-
-		_ = friends // linter
 	})
 }

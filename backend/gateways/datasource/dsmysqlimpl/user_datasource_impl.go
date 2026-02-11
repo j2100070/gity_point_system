@@ -181,6 +181,27 @@ func (ds *UserDataSourceImpl) Update(user *entities.User) (bool, error) {
 	return true, nil
 }
 
+// UpdatePartial は指定されたフィールドのみを更新（楽観的ロックなし）
+func (ds *UserDataSourceImpl) UpdatePartial(userID uuid.UUID, fields map[string]interface{}) (bool, error) {
+	// updated_atを自動追加
+	fields["updated_at"] = time.Now()
+
+	result := ds.db.GetDB().Model(&UserModel{}).
+		Where("id = ?", userID).
+		Updates(fields)
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	// 更新された行数が0の場合は失敗
+	if result.RowsAffected == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // UpdateBalanceWithLock は残高を更新（悲観的ロック: SELECT FOR UPDATE）
 func (ds *UserDataSourceImpl) UpdateBalanceWithLock(tx interface{}, userID uuid.UUID, amount int64, isDeduct bool) error {
 	db := ds.db.GetDB()

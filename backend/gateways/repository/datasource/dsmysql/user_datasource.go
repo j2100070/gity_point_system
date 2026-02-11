@@ -30,6 +30,9 @@ type UserDataSource interface {
 	// Update はユーザー情報を更新（楽観的ロック対応）
 	Update(user *entities.User) (bool, error)
 
+	// UpdatePartial は指定されたフィールドのみを更新（楽観的ロックなし）
+	UpdatePartial(userID uuid.UUID, fields map[string]interface{}) (bool, error)
+
 	// UpdateBalanceWithLock は残高を更新（悲観的ロック）
 	UpdateBalanceWithLock(tx interface{}, userID uuid.UUID, amount int64, isDeduct bool) error
 

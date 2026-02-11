@@ -22,6 +22,10 @@ import { HistoryPage } from '@/features/points/pages/HistoryPage';
 // Friends
 import { FriendsPage } from '@/features/friends/pages/FriendsPage';
 
+// Settings
+import { SettingsPage } from '@/features/settings/pages/SettingsPage';
+import { VerifyEmailPage } from '@/features/settings/pages/VerifyEmailPage';
+
 // Products
 import { ProductsPage } from '@/features/products/pages/ProductsPage';
 import { ExchangePage } from '@/features/products/pages/ExchangePage';
@@ -122,6 +126,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Settings routes */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Product routes */}
           <Route

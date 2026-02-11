@@ -26,6 +26,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </Link>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">{user?.display_name}</span>
+                <Link
+                  to="/settings"
+                  className="text-sm text-gray-600 hover:text-gray-900"
+                >
+                  設定
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-sm text-gray-600 hover:text-gray-900"

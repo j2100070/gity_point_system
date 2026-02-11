@@ -21,10 +21,19 @@ func NewUserSettingsRepository(userDS dsmysql.UserDataSource, logger entities.Lo
 	}
 }
 
-// UpdateProfile はプロフィール情報を更新（楽観的ロック対応）
+// UpdateProfile はプロフィール情報を更新（部分更新、楽観的ロックなし）
 func (r *UserSettingsRepositoryImpl) UpdateProfile(user *entities.User) (bool, error) {
 	r.logger.Debug("Updating user profile", entities.NewField("user_id", user.ID))
-	return r.userDS.Update(user)
+	// プロフィール更新では楽観的ロックを使わず、変更されたフィールドのみ更新
+	// これにより、画像アップロード後のバージョン競合を回避
+	return r.userDS.UpdatePartial(user.ID, map[string]interface{}{
+		"display_name":      user.DisplayName,
+		"email":             user.Email,
+		"email_verified":    user.EmailVerified,
+		"email_verified_at": user.EmailVerifiedAt,
+		"avatar_url":        user.AvatarURL,
+		"avatar_type":       user.AvatarType,
+	})
 }
 
 // UpdateUsername はユーザー名を更新（一意性チェック付き）

@@ -31,6 +31,11 @@ func NewSession(userID uuid.UUID, ipAddress, userAgent string) (*Session, error)
 		return nil, err
 	}
 
+	// IPアドレスが空の場合はフォールバック
+	if ipAddress == "" {
+		ipAddress = "127.0.0.1"
+	}
+
 	return &Session{
 		ID:           uuid.New(),
 		UserID:       userID,

@@ -1,4 +1,4 @@
-package web
+package controllers_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gity/point-system/controllers/web"
 	"github.com/gity/point-system/controllers/web/presenter"
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
@@ -79,10 +80,10 @@ func (m *MockUserSettingsInputPort) GetProfile(req *inputport.GetProfileRequest)
 }
 
 // テスト用のヘルパー関数
-func setupTestController() (*UserSettingsController, *MockUserSettingsInputPort) {
+func setupTestController() (*web.UserSettingsController, *MockUserSettingsInputPort) {
 	mockUC := new(MockUserSettingsInputPort)
 	presenter := presenter.NewUserSettingsPresenter()
-	controller := NewUserSettingsController(mockUC, presenter)
+	controller := web.NewUserSettingsController(mockUC, presenter)
 	return controller, mockUC
 }
 
@@ -110,7 +111,7 @@ func TestUpdateProfile(t *testing.T) {
 
 	t.Run("成功: プロフィール更新", func(t *testing.T) {
 		userID := uuid.New()
-		reqBody := UpdateProfileRequest{
+		reqBody := web.UpdateProfileRequest{
 			DisplayName: "Updated Name",
 			Email:       "updated@example.com",
 		}
@@ -138,7 +139,7 @@ func TestUpdateProfile(t *testing.T) {
 	})
 
 	t.Run("失敗: ユーザー未認証", func(t *testing.T) {
-		reqBody := UpdateProfileRequest{
+		reqBody := web.UpdateProfileRequest{
 			DisplayName: "Updated Name",
 			Email:       "updated@example.com",
 		}
@@ -158,7 +159,7 @@ func TestChangePassword(t *testing.T) {
 
 	t.Run("成功: パスワード変更", func(t *testing.T) {
 		userID := uuid.New()
-		reqBody := ChangePasswordRequest{
+		reqBody := web.ChangePasswordRequest{
 			CurrentPassword: "oldpassword",
 			NewPassword:     "newpassword123",
 		}
@@ -176,7 +177,7 @@ func TestChangePassword(t *testing.T) {
 	})
 
 	t.Run("失敗: ユーザー未認証", func(t *testing.T) {
-		reqBody := ChangePasswordRequest{
+		reqBody := web.ChangePasswordRequest{
 			CurrentPassword: "oldpassword",
 			NewPassword:     "newpassword123",
 		}
