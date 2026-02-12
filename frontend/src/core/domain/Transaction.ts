@@ -3,7 +3,7 @@ export interface Transaction {
   from_user_id?: string;
   to_user_id: string;
   amount: number;
-  transaction_type: 'transfer' | 'admin_grant' | 'admin_deduct' | 'system_grant';
+  transaction_type: 'transfer' | 'admin_grant' | 'admin_deduct' | 'system_grant' | 'daily_bonus';
   status: 'pending' | 'completed' | 'failed' | 'reversed';
   description?: string;
   created_at: string;

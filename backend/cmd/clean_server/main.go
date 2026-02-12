@@ -14,6 +14,7 @@ import (
 	"github.com/gity/point-system/gateways/infra/infrapassword"
 	"github.com/gity/point-system/gateways/infra/infrastorage"
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
+	dailybonusrepo "github.com/gity/point-system/gateways/repository/daily_bonus"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
@@ -62,6 +63,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	friendshipDS := dsmysqlimpl.NewFriendshipDataSource(db)
 	qrcodeDS := dsmysqlimpl.NewQRCodeDataSource(db)
 	transferRequestDS := dsmysqlimpl.NewTransferRequestDataSource(db)
+	dailyBonusDS := dsmysqlimpl.NewDailyBonusDataSource(db)
 	productDS := dsmysqlimpl.NewProductDataSource(db)
 	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
 	categoryDS := dsmysqlimpl.NewCategoryDataSource(db)
@@ -78,6 +80,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	friendshipRepo := friendshiprepo.NewFriendshipRepository(friendshipDS, logger)
 	qrcodeRepo := qrcoderepo.NewQRCodeRepository(qrcodeDS, logger)
 	transferRequestRepo := transferrequestrepo.NewTransferRequestRepository(transferRequestDS, logger)
+	dailyBonusRepo := dailybonusrepo.NewDailyBonusRepository(dailyBonusDS)
 	productRepo := productrepo.NewProductRepository(productDS, logger)
 	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
 	categoryRepo := categoryrepo.NewCategoryRepository(categoryDS, logger)
@@ -116,6 +119,17 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
+	dailyBonusUC := interactor.NewDailyBonusInteractor(
+		dailyBonusRepo,
+		userRepo,
+		transactionRepo,
+		db,
+		logger,
+	)
+
+	// 循環依存を避けるため、DailyBonusPortを後から設定
+	pointTransferUC.SetDailyBonusPort(dailyBonusUC)
+
 	qrcodeUC := interactor.NewQRCodeInteractor(
 		qrcodeRepo,
 		pointTransferUC,
@@ -143,6 +157,9 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		transactionRepo,
 		logger,
 	)
+
+	// 循環依存を避けるため、DailyBonusPortを後から設定
+	productExchangeUC.SetDailyBonusPort(dailyBonusUC)
 
 	categoryUC := interactor.NewCategoryManagementInteractor(
 		categoryRepo,
@@ -181,6 +198,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	friendPresenter := presenter.NewFriendPresenter()
 	qrcodePresenter := presenter.NewQRCodePresenter()
 	transferRequestPresenter := presenter.NewTransferRequestPresenter()
+	dailyBonusPresenter := presenter.NewDailyBonusPresenter()
 	adminPresenter := presenter.NewAdminPresenter()
 	userSettingsPresenter := presenter.NewUserSettingsPresenter()
 
@@ -190,6 +208,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	friendController := web.NewFriendController(friendshipUC, userRepo, friendPresenter)
 	qrcodeController := web.NewQRCodeController(qrcodeUC, qrcodePresenter)
 	transferRequestController := web.NewTransferRequestController(transferRequestUC, userRepo, transferRequestPresenter)
+	dailyBonusController := web.NewDailyBonusController(dailyBonusUC, dailyBonusPresenter)
 	adminController := web.NewAdminController(adminUC, adminPresenter)
 	productController := web.NewProductController(productManagementUC, productExchangeUC, logger)
 	categoryController := web.NewCategoryController(categoryUC, logger)
@@ -210,6 +229,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		friendController,
 		qrcodeController,
 		transferRequestController,
+		dailyBonusController,
 		adminController,
 		productController,
 		categoryController,

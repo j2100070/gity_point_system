@@ -18,6 +18,7 @@ type ProductExchangeInteractor struct {
 	exchangeRepo        repository.ProductExchangeRepository
 	userRepo            repository.UserRepository
 	transactionRepo     repository.TransactionRepository
+	dailyBonusPort      inputport.DailyBonusInputPort
 	logger              entities.Logger
 }
 
@@ -29,15 +30,21 @@ func NewProductExchangeInteractor(
 	userRepo repository.UserRepository,
 	transactionRepo repository.TransactionRepository,
 	logger entities.Logger,
-) inputport.ProductExchangeInputPort {
+) *ProductExchangeInteractor {
 	return &ProductExchangeInteractor{
 		db:              db,
 		productRepo:     productRepo,
 		exchangeRepo:    exchangeRepo,
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
+		dailyBonusPort:  nil, // 後からSetDailyBonusPortで設定
 		logger:          logger,
 	}
+}
+
+// SetDailyBonusPort はデイリーボーナスポートを設定（循環依存回避のため）
+func (i *ProductExchangeInteractor) SetDailyBonusPort(dailyBonusPort inputport.DailyBonusInputPort) {
+	i.dailyBonusPort = dailyBonusPort
 }
 
 // ExchangeProduct はポイントで商品を交換
@@ -161,6 +168,19 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 	i.logger.Info("Product exchange completed successfully",
 		entities.NewField("exchange_id", exchange.ID),
 		entities.NewField("points_used", exchange.PointsUsed))
+
+	// デイリーボーナスチェック（商品交換ボーナス）
+	if i.dailyBonusPort != nil {
+		_, err := i.dailyBonusPort.CheckExchangeBonus(&inputport.CheckExchangeBonusRequest{
+			UserID:     req.UserID,
+			ExchangeID: exchange.ID,
+			Date:       exchange.CreatedAt,
+		})
+		if err != nil {
+			// ボーナス付与失敗してもメイントランザクションは成功扱い
+			i.logger.Error("Failed to check exchange bonus", entities.NewField("error", err))
+		}
+	}
 
 	return &inputport.ExchangeProductResponse{
 		Exchange:    exchange,

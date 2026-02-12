@@ -72,6 +72,7 @@ func (r *Router) RegisterRoutes(
 	friendController *web.FriendController,
 	qrcodeController *web.QRCodeController,
 	transferRequestController *web.TransferRequestController,
+	dailyBonusController *web.DailyBonusController,
 	adminController *web.AdminController,
 	productController *web.ProductController,
 	categoryController *web.CategoryController,
@@ -109,6 +110,13 @@ func (r *Router) RegisterRoutes(
 
 			// プロフィール取得（GET）
 			protected.GET("/settings/profile", userSettingsController.GetProfile)
+
+			// デイリーボーナス（GET - 状態変更なし）
+			dailyBonus := protected.Group("/daily-bonus")
+			{
+				dailyBonus.GET("/today", dailyBonusController.GetTodayBonus)
+				dailyBonus.GET("/recent", dailyBonusController.GetRecentBonuses)
+			}
 		}
 
 		// 認証 + CSRF保護が必要なルート（状態変更あり）
@@ -176,6 +184,12 @@ func (r *Router) RegisterRoutes(
 				transferRequests.POST("/:id/approve", transferRequestController.ApproveTransferRequest)
 				transferRequests.POST("/:id/reject", transferRequestController.RejectTransferRequest)
 				transferRequests.DELETE("/:id", transferRequestController.CancelTransferRequest)
+			}
+
+			// デイリーボーナス（POST - 状態変更あり）
+			dailyBonusWithCSRF := protectedWithCSRF.Group("/daily-bonus")
+			{
+				dailyBonusWithCSRF.POST("/claim-login", dailyBonusController.ClaimLoginBonus)
 			}
 
 			// 商品交換（ユーザー）

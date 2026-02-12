@@ -11,6 +11,7 @@ interface AuthState {
   register: (username: string, email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
+  updateUserBalance: (newBalance: number) => void;
   clearError: () => void;
 }
 
@@ -92,6 +93,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     }
+  },
+
+  updateUserBalance: (newBalance: number) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, balance: newBalance } : null,
+    }));
   },
 
   clearError: () => set({ error: null }),

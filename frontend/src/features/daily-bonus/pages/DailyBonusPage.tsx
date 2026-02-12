@@ -1,0 +1,158 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Calendar, TrendingUp } from "lucide-react";
+import { dailyBonusApi, TodayBonusResponse, RecentBonusesResponse } from "../api/dailyBonusApi";
+import { DailyBonusCard } from "../components/DailyBonusCard";
+
+export const DailyBonusPage = () => {
+  const navigate = useNavigate();
+  const [todayBonus, setTodayBonus] = useState<TodayBonusResponse | null>(null);
+  const [recentBonuses, setRecentBonuses] = useState<RecentBonusesResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [todayData, recentData] = await Promise.all([
+        dailyBonusApi.getTodayBonus(),
+        dailyBonusApi.getRecentBonuses(7),
+      ]);
+      setTodayBonus(todayData);
+      setRecentBonuses(recentData);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "データの取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !todayBonus || !recentBonuses) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-md mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+            <p className="text-red-800">{error || "データの読み込みに失敗しました"}</p>
+            <button
+              onClick={fetchData}
+              className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              再試行
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/")}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-2xl font-bold">デイリーボーナス</h1>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Today's Bonus Card */}
+        <DailyBonusCard
+          dailyBonus={todayBonus.daily_bonus}
+          allCompletedCount={todayBonus.all_completed_count}
+          canClaimLoginBonus={todayBonus.can_claim_login_bonus}
+          onBonusClaimed={fetchData}
+        />
+
+        {/* Recent History */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-gray-600" />
+            <h2 className="text-lg font-bold text-gray-800">最近のボーナス履歴</h2>
+          </div>
+
+          <div className="space-y-2">
+            {recentBonuses.bonuses.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">履歴がありません</p>
+            ) : (
+              recentBonuses.bonuses.map((bonus) => (
+                <div
+                  key={bonus.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <div>
+                    <div className="font-medium text-gray-800">
+                      {new Date(bonus.bonus_date).toLocaleDateString("ja-JP", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      達成: {bonus.completed_count}/3
+                      {bonus.all_completed && (
+                        <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                          全達成
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-purple-600">
+                      +{bonus.total_bonus_points}P
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg shadow-md p-6 text-white">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="w-5 h-5" />
+            <h2 className="text-lg font-bold">統計</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white bg-opacity-20 rounded-lg p-3">
+              <div className="text-sm opacity-90">全達成回数</div>
+              <div className="text-3xl font-bold">{recentBonuses.all_completed_count}</div>
+            </div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-3">
+              <div className="text-sm opacity-90">今週の獲得</div>
+              <div className="text-3xl font-bold">
+                {recentBonuses.bonuses
+                  .slice(0, 7)
+                  .reduce((sum, b) => sum + b.total_bonus_points, 0)}
+                P
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

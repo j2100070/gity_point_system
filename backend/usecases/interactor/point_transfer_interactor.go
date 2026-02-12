@@ -17,6 +17,7 @@ type PointTransferInteractor struct {
 	transactionRepo repository.TransactionRepository
 	idempotencyRepo repository.IdempotencyKeyRepository
 	friendshipRepo  repository.FriendshipRepository
+	dailyBonusPort  inputport.DailyBonusInputPort
 	logger          entities.Logger
 }
 
@@ -28,15 +29,21 @@ func NewPointTransferInteractor(
 	idempotencyRepo repository.IdempotencyKeyRepository,
 	friendshipRepo repository.FriendshipRepository,
 	logger entities.Logger,
-) inputport.PointTransferInputPort {
+) *PointTransferInteractor {
 	return &PointTransferInteractor{
 		db:              db,
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
 		idempotencyRepo: idempotencyRepo,
 		friendshipRepo:  friendshipRepo,
+		dailyBonusPort:  nil, // 後からSetDailyBonusPortで設定
 		logger:          logger,
 	}
+}
+
+// SetDailyBonusPort はデイリーボーナスポートを設定（循環依存回避のため）
+func (i *PointTransferInteractor) SetDailyBonusPort(dailyBonusPort inputport.DailyBonusInputPort) {
+	i.dailyBonusPort = dailyBonusPort
 }
 
 // Transfer はポイントを転送
@@ -181,6 +188,19 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 
 	i.logger.Info("Point transfer completed successfully",
 		entities.NewField("transaction_id", transaction.ID))
+
+	// デイリーボーナスチェック（送金ボーナス）
+	if i.dailyBonusPort != nil {
+		_, err := i.dailyBonusPort.CheckTransferBonus(&inputport.CheckTransferBonusRequest{
+			UserID:        req.FromUserID,
+			TransactionID: transaction.ID,
+			Date:          transaction.CreatedAt,
+		})
+		if err != nil {
+			// ボーナス付与失敗してもメイントランザクションは成功扱い
+			i.logger.Error("Failed to check transfer bonus", entities.NewField("error", err))
+		}
+	}
 
 	return &inputport.TransferResponse{
 		Transaction: transaction,

@@ -42,6 +42,18 @@ export const HistoryPage: React.FC = () => {
     const isSent = tx.from_user_id === user?.id;
     const isReceived = tx.to_user_id === user?.id;
 
+    // デイリーボーナス（from_user_idがnull）
+    if (!tx.from_user_id && isReceived && tx.transaction_type === 'daily_bonus') {
+      return {
+        label: 'ボーナス',
+        description: tx.description || 'デイリーボーナス',
+        fromUser: 'システム',
+        toUser: user?.display_name || user?.username || 'あなた',
+        color: 'text-purple-600',
+        sign: '+',
+      };
+    }
+
     // 送信の場合
     if (isSent) {
       const toUserName = tx.to_user?.display_name || tx.to_user?.username || '不明なユーザー';
@@ -117,6 +129,8 @@ export const HistoryPage: React.FC = () => {
                       <span className={`text-xs px-2 py-1 rounded font-medium ${
                         info.label === '送信'
                           ? 'bg-red-50 text-red-700'
+                          : info.label === 'ボーナス'
+                          ? 'bg-purple-50 text-purple-700'
                           : 'bg-green-50 text-green-700'
                       }`}>
                         {info.label}

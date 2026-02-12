@@ -37,6 +37,9 @@ import { ProductsPage } from '@/features/products/pages/ProductsPage';
 import { ExchangePage } from '@/features/products/pages/ExchangePage';
 import { ExchangeHistoryPage } from '@/features/products/pages/ExchangeHistoryPage';
 
+// Daily Bonus
+import { DailyBonusPage } from '@/features/daily-bonus/pages/DailyBonusPage';
+
 // Admin
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
@@ -175,6 +178,16 @@ function App() {
             }
           />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+          {/* Daily Bonus routes */}
+          <Route
+            path="/daily-bonus"
+            element={
+              <ProtectedRoute>
+                <DailyBonusPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Product routes */}
           <Route
