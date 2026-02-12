@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -74,11 +75,8 @@ func NewProductExchangeDataSource(db inframysql.DB) dsmysql.ProductExchangeDataS
 }
 
 // Insert は新しい交換を挿入
-func (ds *ProductExchangeDataSourceImpl) Insert(tx interface{}, exchange *entities.ProductExchange) error {
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
+func (ds *ProductExchangeDataSourceImpl) Insert(ctx context.Context, exchange *entities.ProductExchange) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	model := &ProductExchangeModel{}
 	model.FromDomain(exchange)
@@ -92,10 +90,10 @@ func (ds *ProductExchangeDataSourceImpl) Insert(tx interface{}, exchange *entiti
 }
 
 // Select はIDで交換を検索
-func (ds *ProductExchangeDataSourceImpl) Select(id uuid.UUID) (*entities.ProductExchange, error) {
+func (ds *ProductExchangeDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.ProductExchange, error) {
 	var model ProductExchangeModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("exchange not found")
@@ -107,11 +105,8 @@ func (ds *ProductExchangeDataSourceImpl) Select(id uuid.UUID) (*entities.Product
 }
 
 // Update は交換情報を更新
-func (ds *ProductExchangeDataSourceImpl) Update(tx interface{}, exchange *entities.ProductExchange) error {
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
+func (ds *ProductExchangeDataSourceImpl) Update(ctx context.Context, exchange *entities.ProductExchange) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	model := &ProductExchangeModel{}
 	model.FromDomain(exchange)
@@ -120,10 +115,10 @@ func (ds *ProductExchangeDataSourceImpl) Update(tx interface{}, exchange *entiti
 }
 
 // SelectListByUserID はユーザーの交換履歴を取得
-func (ds *ProductExchangeDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset, limit int) ([]*entities.ProductExchange, error) {
+func (ds *ProductExchangeDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.ProductExchange, error) {
 	var models []ProductExchangeModel
 
-	err := ds.db.GetDB().Where("user_id = ?", userID).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -142,10 +137,10 @@ func (ds *ProductExchangeDataSourceImpl) SelectListByUserID(userID uuid.UUID, of
 }
 
 // SelectListAll はすべての交換履歴を取得
-func (ds *ProductExchangeDataSourceImpl) SelectListAll(offset, limit int) ([]*entities.ProductExchange, error) {
+func (ds *ProductExchangeDataSourceImpl) SelectListAll(ctx context.Context, offset, limit int) ([]*entities.ProductExchange, error) {
 	var models []ProductExchangeModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -164,15 +159,15 @@ func (ds *ProductExchangeDataSourceImpl) SelectListAll(offset, limit int) ([]*en
 }
 
 // CountByUserID はユーザーの交換総数を取得
-func (ds *ProductExchangeDataSourceImpl) CountByUserID(userID uuid.UUID) (int64, error) {
+func (ds *ProductExchangeDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&ProductExchangeModel{}).Where("user_id = ?", userID).Count(&count).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ProductExchangeModel{}).Where("user_id = ?", userID).Count(&count).Error
 	return count, err
 }
 
 // CountAll は全体の交換総数を取得
-func (ds *ProductExchangeDataSourceImpl) CountAll() (int64, error) {
+func (ds *ProductExchangeDataSourceImpl) CountAll(ctx context.Context) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&ProductExchangeModel{}).Count(&count).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ProductExchangeModel{}).Count(&count).Error
 	return count, err
 }

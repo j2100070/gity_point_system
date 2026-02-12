@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,19 +10,19 @@ import (
 // AuthInputPort は認証のユースケースインターフェース
 type AuthInputPort interface {
 	// Register は新しいユーザーを登録
-	Register(req *RegisterRequest) (*RegisterResponse, error)
+	Register(ctx context.Context, req *RegisterRequest) (*RegisterResponse, error)
 
 	// Login はログイン処理
-	Login(req *LoginRequest) (*LoginResponse, error)
+	Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error)
 
 	// Logout はログアウト処理
-	Logout(req *LogoutRequest) error
+	Logout(ctx context.Context, req *LogoutRequest) error
 
 	// GetCurrentUser は現在のユーザー情報を取得
-	GetCurrentUser(req *GetCurrentUserRequest) (*GetCurrentUserResponse, error)
+	GetCurrentUser(ctx context.Context, req *GetCurrentUserRequest) (*GetCurrentUserResponse, error)
 
 	// ValidateSession はセッションを検証
-	ValidateSession(sessionToken string) (*entities.Session, error)
+	ValidateSession(ctx context.Context, sessionToken string) (*entities.Session, error)
 }
 
 // RegisterRequest は登録リクエスト

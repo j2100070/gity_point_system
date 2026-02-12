@@ -44,7 +44,7 @@ func (c *AuthController) Register(ctx *gin.Context, currentTime time.Time) {
 		return
 	}
 
-	resp, err := c.authUC.Register(&inputport.RegisterRequest{
+	resp, err := c.authUC.Register(ctx, &inputport.RegisterRequest{
 		Username:    req.Username,
 		Email:       req.Email,
 		Password:    req.Password,
@@ -86,7 +86,7 @@ func (c *AuthController) Login(ctx *gin.Context, currentTime time.Time) {
 		return
 	}
 
-	resp, err := c.authUC.Login(&inputport.LoginRequest{
+	resp, err := c.authUC.Login(ctx, &inputport.LoginRequest{
 		Username:  req.Username,
 		Password:  req.Password,
 		IPAddress: ctx.ClientIP(),
@@ -122,7 +122,7 @@ func (c *AuthController) Logout(ctx *gin.Context, currentTime time.Time) {
 		return
 	}
 
-	err := c.authUC.Logout(&inputport.LogoutRequest{
+	err := c.authUC.Logout(ctx, &inputport.LogoutRequest{
 		UserID: userID.(uuid.UUID),
 	})
 
@@ -146,7 +146,7 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context, currentTime time.Time)
 		return
 	}
 
-	resp, err := c.authUC.GetCurrentUser(&inputport.GetCurrentUserRequest{
+	resp, err := c.authUC.GetCurrentUser(ctx, &inputport.GetCurrentUserRequest{
 		UserID: userID.(uuid.UUID),
 	})
 

@@ -36,7 +36,7 @@ func (c *DailyBonusController) GetTodayBonus(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.dailyBonusPort.GetTodayBonus(&inputport.GetTodayBonusRequest{
+	resp, err := c.dailyBonusPort.GetTodayBonus(ctx, &inputport.GetTodayBonusRequest{
 		UserID: userID.(uuid.UUID),
 	})
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *DailyBonusController) GetRecentBonuses(ctx *gin.Context) {
 		}
 	}
 
-	resp, err := c.dailyBonusPort.GetRecentBonuses(&inputport.GetRecentBonusesRequest{
+	resp, err := c.dailyBonusPort.GetRecentBonuses(ctx, &inputport.GetRecentBonusesRequest{
 		UserID: userID.(uuid.UUID),
 		Limit:  limit,
 	})
@@ -82,7 +82,7 @@ func (c *DailyBonusController) ClaimLoginBonus(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.dailyBonusPort.CheckLoginBonus(&inputport.CheckLoginBonusRequest{
+	resp, err := c.dailyBonusPort.CheckLoginBonus(ctx, &inputport.CheckLoginBonusRequest{
 		UserID: userID.(uuid.UUID),
 		Date:   time.Now(),
 	})
@@ -101,4 +101,3 @@ func (c *DailyBonusController) ClaimLoginBonus(ctx *gin.Context) {
 		},
 	))
 }
-

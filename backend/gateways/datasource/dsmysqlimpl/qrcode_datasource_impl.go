@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -13,12 +14,12 @@ import (
 
 // QRCodeModel はGORM用のQRコードモデル
 type QRCodeModel struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID       uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Code         string     `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Amount       *int64     `gorm:"type:bigint"`
-	QRType       string     `gorm:"type:varchar(50);not null"`
-	ExpiresAt    time.Time  `gorm:"not null;index"`
+	ID           uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID       uuid.UUID `gorm:"type:uuid;not null;index"`
+	Code         string    `gorm:"type:varchar(255);uniqueIndex;not null"`
+	Amount       *int64    `gorm:"type:bigint"`
+	QRType       string    `gorm:"type:varchar(50);not null"`
+	ExpiresAt    time.Time `gorm:"not null;index"`
 	UsedAt       *time.Time
 	UsedByUserID *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt    time.Time  `gorm:"not null;default:now()"`
@@ -68,11 +69,11 @@ func NewQRCodeDataSource(db inframysql.DB) dsmysql.QRCodeDataSource {
 }
 
 // Insert は新しいQRコードを挿入
-func (ds *QRCodeDataSourceImpl) Insert(qrCode *entities.QRCode) error {
+func (ds *QRCodeDataSourceImpl) Insert(ctx context.Context, qrCode *entities.QRCode) error {
 	model := &QRCodeModel{}
 	model.FromDomain(qrCode)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -81,10 +82,10 @@ func (ds *QRCodeDataSourceImpl) Insert(qrCode *entities.QRCode) error {
 }
 
 // SelectByCode はコードでQRコードを検索
-func (ds *QRCodeDataSourceImpl) SelectByCode(code string) (*entities.QRCode, error) {
+func (ds *QRCodeDataSourceImpl) SelectByCode(ctx context.Context, code string) (*entities.QRCode, error) {
 	var model QRCodeModel
 
-	err := ds.db.GetDB().Where("code = ?", code).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("code = ?", code).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("qr code not found")
@@ -96,10 +97,10 @@ func (ds *QRCodeDataSourceImpl) SelectByCode(code string) (*entities.QRCode, err
 }
 
 // Select はIDでQRコードを検索
-func (ds *QRCodeDataSourceImpl) Select(id uuid.UUID) (*entities.QRCode, error) {
+func (ds *QRCodeDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.QRCode, error) {
 	var model QRCodeModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("qr code not found")
@@ -111,10 +112,10 @@ func (ds *QRCodeDataSourceImpl) Select(id uuid.UUID) (*entities.QRCode, error) {
 }
 
 // SelectListByUserID はユーザーのQRコード一覧を取得
-func (ds *QRCodeDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset, limit int) ([]*entities.QRCode, error) {
+func (ds *QRCodeDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.QRCode, error) {
 	var models []QRCodeModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
@@ -134,21 +135,21 @@ func (ds *QRCodeDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset, lim
 }
 
 // Update はQRコードを更新
-func (ds *QRCodeDataSourceImpl) Update(qrCode *entities.QRCode) error {
+func (ds *QRCodeDataSourceImpl) Update(ctx context.Context, qrCode *entities.QRCode) error {
 	model := &QRCodeModel{}
 	model.FromDomain(qrCode)
 
-	return ds.db.GetDB().Model(&QRCodeModel{}).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&QRCodeModel{}).
 		Where("id = ?", qrCode.ID).
 		Updates(map[string]interface{}{
-			"used_at":        model.UsedAt,
+			"used_at":         model.UsedAt,
 			"used_by_user_id": model.UsedByUserID,
 		}).Error
 }
 
 // DeleteExpired は期限切れQRコードを削除
-func (ds *QRCodeDataSourceImpl) DeleteExpired() error {
-	return ds.db.GetDB().
+func (ds *QRCodeDataSourceImpl) DeleteExpired(ctx context.Context) error {
+	return inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("expires_at < ?", time.Now()).
 		Delete(&QRCodeModel{}).Error
 }

@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -14,19 +15,19 @@ import (
 
 // UserModel はGORM用のユーザーモデル
 type UserModel struct {
-	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Username        string     `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Email           string     `gorm:"type:varchar(255);uniqueIndex;not null"`
-	PasswordHash    string     `gorm:"type:varchar(255);not null"`
-	DisplayName     string     `gorm:"type:varchar(255);not null"`
-	Balance         int64      `gorm:"not null;default:0;check:balance >= 0"`
-	Role            string     `gorm:"type:varchar(50);not null;default:'user'"`
-	Version         int        `gorm:"not null;default:1"`
-	IsActive        bool       `gorm:"not null;default:true"`
-	AvatarURL       *string    `gorm:"type:varchar(500)"`
-	AvatarType      string     `gorm:"type:varchar(50);default:'generated'"`
-	PersonalQRCode  string     `gorm:"type:varchar(255);uniqueIndex;not null"`
-	EmailVerified   bool       `gorm:"not null;default:false"`
+	ID              uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Username        string    `gorm:"type:varchar(255);uniqueIndex;not null"`
+	Email           string    `gorm:"type:varchar(255);uniqueIndex;not null"`
+	PasswordHash    string    `gorm:"type:varchar(255);not null"`
+	DisplayName     string    `gorm:"type:varchar(255);not null"`
+	Balance         int64     `gorm:"not null;default:0;check:balance >= 0"`
+	Role            string    `gorm:"type:varchar(50);not null;default:'user'"`
+	Version         int       `gorm:"not null;default:1"`
+	IsActive        bool      `gorm:"not null;default:true"`
+	AvatarURL       *string   `gorm:"type:varchar(500)"`
+	AvatarType      string    `gorm:"type:varchar(50);default:'generated'"`
+	PersonalQRCode  string    `gorm:"type:varchar(255);uniqueIndex;not null"`
+	EmailVerified   bool      `gorm:"not null;default:false"`
 	EmailVerifiedAt *time.Time
 	CreatedAt       time.Time `gorm:"not null;default:now()"`
 	UpdatedAt       time.Time `gorm:"not null;default:now()"`
@@ -91,11 +92,12 @@ func NewUserDataSource(db inframysql.DB) dsmysql.UserDataSource {
 }
 
 // Insert は新しいユーザーを挿入
-func (ds *UserDataSourceImpl) Insert(user *entities.User) error {
+func (ds *UserDataSourceImpl) Insert(ctx context.Context, user *entities.User) error {
 	model := &UserModel{}
 	model.FromDomain(user)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	if err := db.Create(model).Error; err != nil {
 		return err
 	}
 
@@ -104,10 +106,11 @@ func (ds *UserDataSourceImpl) Insert(user *entities.User) error {
 }
 
 // Select はIDでユーザーを検索
-func (ds *UserDataSourceImpl) Select(id uuid.UUID) (*entities.User, error) {
+func (ds *UserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.User, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := db.Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -119,10 +122,11 @@ func (ds *UserDataSourceImpl) Select(id uuid.UUID) (*entities.User, error) {
 }
 
 // SelectByUsername はユーザー名でユーザーを検索
-func (ds *UserDataSourceImpl) SelectByUsername(username string) (*entities.User, error) {
+func (ds *UserDataSourceImpl) SelectByUsername(ctx context.Context, username string) (*entities.User, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
-	err := ds.db.GetDB().Where("username = ?", username).First(&model).Error
+	err := db.Where("username = ?", username).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -134,10 +138,11 @@ func (ds *UserDataSourceImpl) SelectByUsername(username string) (*entities.User,
 }
 
 // SelectByEmail はメールアドレスでユーザーを検索
-func (ds *UserDataSourceImpl) SelectByEmail(email string) (*entities.User, error) {
+func (ds *UserDataSourceImpl) SelectByEmail(ctx context.Context, email string) (*entities.User, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
-	err := ds.db.GetDB().Where("email = ?", email).First(&model).Error
+	err := db.Where("email = ?", email).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -149,12 +154,13 @@ func (ds *UserDataSourceImpl) SelectByEmail(email string) (*entities.User, error
 }
 
 // Update はユーザー情報を更新（楽観的ロック対応）
-func (ds *UserDataSourceImpl) Update(user *entities.User) (bool, error) {
+func (ds *UserDataSourceImpl) Update(ctx context.Context, user *entities.User) (bool, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	model := &UserModel{}
 	model.FromDomain(user)
 
 	// 楽観的ロック: versionが一致する場合のみ更新
-	result := ds.db.GetDB().Model(&UserModel{}).
+	result := db.Model(&UserModel{}).
 		Where("id = ? AND version = ?", user.ID, user.Version-1).
 		Updates(map[string]interface{}{
 			"username":          model.Username,
@@ -185,11 +191,12 @@ func (ds *UserDataSourceImpl) Update(user *entities.User) (bool, error) {
 }
 
 // UpdatePartial は指定されたフィールドのみを更新（楽観的ロックなし）
-func (ds *UserDataSourceImpl) UpdatePartial(userID uuid.UUID, fields map[string]interface{}) (bool, error) {
+func (ds *UserDataSourceImpl) UpdatePartial(ctx context.Context, userID uuid.UUID, fields map[string]interface{}) (bool, error) {
 	// updated_atを自動追加
 	fields["updated_at"] = time.Now()
 
-	result := ds.db.GetDB().Model(&UserModel{}).
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	result := db.Model(&UserModel{}).
 		Where("id = ?", userID).
 		Updates(fields)
 
@@ -206,11 +213,8 @@ func (ds *UserDataSourceImpl) UpdatePartial(userID uuid.UUID, fields map[string]
 }
 
 // UpdateBalanceWithLock は残高を更新（悲観的ロック: SELECT FOR UPDATE）
-func (ds *UserDataSourceImpl) UpdateBalanceWithLock(tx interface{}, userID uuid.UUID, amount int64, isDeduct bool) error {
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
+func (ds *UserDataSourceImpl) UpdateBalanceWithLock(ctx context.Context, userID uuid.UUID, amount int64, isDeduct bool) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	var model UserModel
 
@@ -256,11 +260,8 @@ func (ds *UserDataSourceImpl) UpdateBalanceWithLock(tx interface{}, userID uuid.
 
 // UpdateBalancesWithLock は複数ユーザーの残高を一括更新（悲観的ロック、デッドロック回避）
 // デッドロック回避のために、常にUUID順（小さい順）にSELECT FOR UPDATEを実行します
-func (ds *UserDataSourceImpl) UpdateBalancesWithLock(tx interface{}, updates []dsmysql.BalanceUpdate) error {
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
+func (ds *UserDataSourceImpl) UpdateBalancesWithLock(ctx context.Context, updates []dsmysql.BalanceUpdate) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	if len(updates) == 0 {
 		return errors.New("no updates provided")
@@ -329,10 +330,11 @@ func (ds *UserDataSourceImpl) UpdateBalancesWithLock(tx interface{}, updates []d
 }
 
 // SelectList はユーザー一覧を取得
-func (ds *UserDataSourceImpl) SelectList(offset, limit int) ([]*entities.User, error) {
+func (ds *UserDataSourceImpl) SelectList(ctx context.Context, offset, limit int) ([]*entities.User, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var models []UserModel
 
-	err := ds.db.GetDB().
+	err := db.
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -351,13 +353,15 @@ func (ds *UserDataSourceImpl) SelectList(offset, limit int) ([]*entities.User, e
 }
 
 // Count はユーザー総数を取得
-func (ds *UserDataSourceImpl) Count() (int64, error) {
+func (ds *UserDataSourceImpl) Count(ctx context.Context) (int64, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var count int64
-	err := ds.db.GetDB().Model(&UserModel{}).Count(&count).Error
+	err := db.Model(&UserModel{}).Count(&count).Error
 	return count, err
 }
 
 // Delete はユーザーを物理削除（アーカイブ後に使用）
-func (ds *UserDataSourceImpl) Delete(id uuid.UUID) error {
-	return ds.db.GetDB().Delete(&UserModel{}, "id = ?", id).Error
+func (ds *UserDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	return db.Delete(&UserModel{}, "id = ?", id).Error
 }

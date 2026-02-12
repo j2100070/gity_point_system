@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,22 +10,22 @@ import (
 // AdminInputPort は管理者機能のユースケースインターフェース
 type AdminInputPort interface {
 	// GrantPoints はユーザーにポイントを付与
-	GrantPoints(req *GrantPointsRequest) (*GrantPointsResponse, error)
+	GrantPoints(ctx context.Context, req *GrantPointsRequest) (*GrantPointsResponse, error)
 
 	// DeductPoints はユーザーからポイントを減算
-	DeductPoints(req *DeductPointsRequest) (*DeductPointsResponse, error)
+	DeductPoints(ctx context.Context, req *DeductPointsRequest) (*DeductPointsResponse, error)
 
 	// ListAllUsers はすべてのユーザー一覧を取得
-	ListAllUsers(req *ListAllUsersRequest) (*ListAllUsersResponse, error)
+	ListAllUsers(ctx context.Context, req *ListAllUsersRequest) (*ListAllUsersResponse, error)
 
 	// ListAllTransactions はすべての取引履歴を取得
-	ListAllTransactions(req *ListAllTransactionsRequest) (*ListAllTransactionsResponse, error)
+	ListAllTransactions(ctx context.Context, req *ListAllTransactionsRequest) (*ListAllTransactionsResponse, error)
 
 	// UpdateUserRole はユーザーの役割を更新
-	UpdateUserRole(req *UpdateUserRoleRequest) (*UpdateUserRoleResponse, error)
+	UpdateUserRole(ctx context.Context, req *UpdateUserRoleRequest) (*UpdateUserRoleResponse, error)
 
 	// DeactivateUser はユーザーを無効化
-	DeactivateUser(req *DeactivateUserRequest) (*DeactivateUserResponse, error)
+	DeactivateUser(ctx context.Context, req *DeactivateUserRequest) (*DeactivateUserResponse, error)
 }
 
 // GrantPointsRequest はポイント付与リクエスト

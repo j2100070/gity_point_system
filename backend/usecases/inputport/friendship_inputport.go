@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,22 +10,22 @@ import (
 // FriendshipInputPort は友達機能のユースケースインターフェース
 type FriendshipInputPort interface {
 	// SendFriendRequest は友達申請を送信
-	SendFriendRequest(req *SendFriendRequestRequest) (*SendFriendRequestResponse, error)
+	SendFriendRequest(ctx context.Context, req *SendFriendRequestRequest) (*SendFriendRequestResponse, error)
 
 	// AcceptFriendRequest は友達申請を承認
-	AcceptFriendRequest(req *AcceptFriendRequestRequest) (*AcceptFriendRequestResponse, error)
+	AcceptFriendRequest(ctx context.Context, req *AcceptFriendRequestRequest) (*AcceptFriendRequestResponse, error)
 
 	// RejectFriendRequest は友達申請を拒否
-	RejectFriendRequest(req *RejectFriendRequestRequest) (*RejectFriendRequestResponse, error)
+	RejectFriendRequest(ctx context.Context, req *RejectFriendRequestRequest) (*RejectFriendRequestResponse, error)
 
 	// GetFriends は友達一覧を取得
-	GetFriends(req *GetFriendsRequest) (*GetFriendsResponse, error)
+	GetFriends(ctx context.Context, req *GetFriendsRequest) (*GetFriendsResponse, error)
 
 	// GetPendingRequests は保留中の友達申請を取得
-	GetPendingRequests(req *GetPendingRequestsRequest) (*GetPendingRequestsResponse, error)
+	GetPendingRequests(ctx context.Context, req *GetPendingRequestsRequest) (*GetPendingRequestsResponse, error)
 
 	// RemoveFriend は友達を削除
-	RemoveFriend(req *RemoveFriendRequest) (*RemoveFriendResponse, error)
+	RemoveFriend(ctx context.Context, req *RemoveFriendRequest) (*RemoveFriendResponse, error)
 }
 
 // SendFriendRequestRequest は友達申請リクエスト

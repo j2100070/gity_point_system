@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gity/point-system/entities"
@@ -26,7 +27,7 @@ func NewProductManagementInteractor(
 }
 
 // CreateProduct は新しい商品を作成（管理者のみ）
-func (i *ProductManagementInteractor) CreateProduct(req *inputport.CreateProductRequest) (*inputport.CreateProductResponse, error) {
+func (i *ProductManagementInteractor) CreateProduct(ctx context.Context, req *inputport.CreateProductRequest) (*inputport.CreateProductResponse, error) {
 	i.logger.Info("Creating new product", entities.NewField("name", req.Name))
 
 	product, err := entities.NewProduct(
@@ -42,7 +43,7 @@ func (i *ProductManagementInteractor) CreateProduct(req *inputport.CreateProduct
 
 	product.ImageURL = req.ImageURL
 
-	if err := i.productRepo.Create(product); err != nil {
+	if err := i.productRepo.Create(ctx, product); err != nil {
 		i.logger.Error("Failed to create product", entities.NewField("error", err))
 		return nil, fmt.Errorf("failed to save product: %w", err)
 	}
@@ -55,10 +56,10 @@ func (i *ProductManagementInteractor) CreateProduct(req *inputport.CreateProduct
 }
 
 // UpdateProduct は商品情報を更新（管理者のみ）
-func (i *ProductManagementInteractor) UpdateProduct(req *inputport.UpdateProductRequest) (*inputport.UpdateProductResponse, error) {
+func (i *ProductManagementInteractor) UpdateProduct(ctx context.Context, req *inputport.UpdateProductRequest) (*inputport.UpdateProductResponse, error) {
 	i.logger.Info("Updating product", entities.NewField("product_id", req.ProductID))
 
-	product, err := i.productRepo.Read(req.ProductID)
+	product, err := i.productRepo.Read(ctx, req.ProductID)
 	if err != nil {
 		return nil, fmt.Errorf("product not found: %w", err)
 	}
@@ -72,7 +73,7 @@ func (i *ProductManagementInteractor) UpdateProduct(req *inputport.UpdateProduct
 	product.ImageURL = req.ImageURL
 	product.IsAvailable = req.IsAvailable
 
-	if err := i.productRepo.Update(product); err != nil {
+	if err := i.productRepo.Update(ctx, product); err != nil {
 		i.logger.Error("Failed to update product", entities.NewField("error", err))
 		return nil, fmt.Errorf("failed to update product: %w", err)
 	}
@@ -85,10 +86,10 @@ func (i *ProductManagementInteractor) UpdateProduct(req *inputport.UpdateProduct
 }
 
 // DeleteProduct は商品を削除（管理者のみ）
-func (i *ProductManagementInteractor) DeleteProduct(req *inputport.DeleteProductRequest) error {
+func (i *ProductManagementInteractor) DeleteProduct(ctx context.Context, req *inputport.DeleteProductRequest) error {
 	i.logger.Info("Deleting product", entities.NewField("product_id", req.ProductID))
 
-	if err := i.productRepo.Delete(req.ProductID); err != nil {
+	if err := i.productRepo.Delete(ctx, req.ProductID); err != nil {
 		i.logger.Error("Failed to delete product", entities.NewField("error", err))
 		return fmt.Errorf("failed to delete product: %w", err)
 	}
@@ -98,26 +99,26 @@ func (i *ProductManagementInteractor) DeleteProduct(req *inputport.DeleteProduct
 }
 
 // GetProductList は商品一覧を取得
-func (i *ProductManagementInteractor) GetProductList(req *inputport.GetProductListRequest) (*inputport.GetProductListResponse, error) {
+func (i *ProductManagementInteractor) GetProductList(ctx context.Context, req *inputport.GetProductListRequest) (*inputport.GetProductListResponse, error) {
 	var products []*entities.Product
 	var err error
 
 	// カテゴリでフィルタリング
 	if req.Category != "" {
-		products, err = i.productRepo.ReadListByCategory(req.Category, req.Offset, req.Limit)
+		products, err = i.productRepo.ReadListByCategory(ctx, req.Category, req.Offset, req.Limit)
 	} else if req.AvailableOnly {
 		// 交換可能な商品のみ
-		products, err = i.productRepo.ReadAvailableList(req.Offset, req.Limit)
+		products, err = i.productRepo.ReadAvailableList(ctx, req.Offset, req.Limit)
 	} else {
 		// すべての商品
-		products, err = i.productRepo.ReadList(req.Offset, req.Limit)
+		products, err = i.productRepo.ReadList(ctx, req.Offset, req.Limit)
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get product list: %w", err)
 	}
 
-	total, err := i.productRepo.Count()
+	total, err := i.productRepo.Count(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count products: %w", err)
 	}

@@ -1,6 +1,8 @@
 package dsmysql
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,20 +10,20 @@ import (
 // SessionDataSource はMySQLのセッションデータソースインターフェース
 type SessionDataSource interface {
 	// Insert は新しいセッションを挿入
-	Insert(session *entities.Session) error
+	Insert(ctx context.Context, session *entities.Session) error
 
 	// SelectByToken はトークンでセッションを検索
-	SelectByToken(token string) (*entities.Session, error)
+	SelectByToken(ctx context.Context, token string) (*entities.Session, error)
 
 	// Update はセッションを更新
-	Update(session *entities.Session) error
+	Update(ctx context.Context, session *entities.Session) error
 
 	// Delete はセッションを削除
-	Delete(id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
 
 	// DeleteByUserID はユーザーの全セッションを削除
-	DeleteByUserID(userID uuid.UUID) error
+	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
 
 	// DeleteExpired は期限切れセッションを削除
-	DeleteExpired() error
+	DeleteExpired(ctx context.Context) error
 }

@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,23 +9,22 @@ import (
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // ProductExchangeInteractor は商品交換のユースケース実装
 type ProductExchangeInteractor struct {
-	db                  *gorm.DB
-	productRepo         repository.ProductRepository
-	exchangeRepo        repository.ProductExchangeRepository
-	userRepo            repository.UserRepository
-	transactionRepo     repository.TransactionRepository
-	dailyBonusPort      inputport.DailyBonusInputPort
-	logger              entities.Logger
+	txManager       repository.TransactionManager
+	productRepo     repository.ProductRepository
+	exchangeRepo    repository.ProductExchangeRepository
+	userRepo        repository.UserRepository
+	transactionRepo repository.TransactionRepository
+	dailyBonusPort  inputport.DailyBonusInputPort
+	logger          entities.Logger
 }
 
 // NewProductExchangeInteractor は新しいProductExchangeInteractorを作成
 func NewProductExchangeInteractor(
-	db *gorm.DB,
+	txManager repository.TransactionManager,
 	productRepo repository.ProductRepository,
 	exchangeRepo repository.ProductExchangeRepository,
 	userRepo repository.UserRepository,
@@ -32,7 +32,7 @@ func NewProductExchangeInteractor(
 	logger entities.Logger,
 ) *ProductExchangeInteractor {
 	return &ProductExchangeInteractor{
-		db:              db,
+		txManager:       txManager,
 		productRepo:     productRepo,
 		exchangeRepo:    exchangeRepo,
 		userRepo:        userRepo,
@@ -54,7 +54,7 @@ func (i *ProductExchangeInteractor) SetDailyBonusPort(dailyBonusPort inputport.D
 // 2. 悲観的ロック: 在庫とユーザー残高をロック
 // 3. 残高チェック: 十分なポイントがあるか確認
 // 4. 在庫チェック: 十分な在庫があるか確認
-func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProductRequest) (*inputport.ExchangeProductResponse, error) {
+func (i *ProductExchangeInteractor) ExchangeProduct(ctx context.Context, req *inputport.ExchangeProductRequest) (*inputport.ExchangeProductResponse, error) {
 	i.logger.Info("Starting product exchange",
 		entities.NewField("user_id", req.UserID),
 		entities.NewField("product_id", req.ProductID),
@@ -70,10 +70,11 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 	var exchange *entities.ProductExchange
 	var transaction *entities.Transaction
 
-	err := i.db.Transaction(func(tx *gorm.DB) error {
+	err := i.txManager.Do(ctx, func(ctx context.Context) error {
+
 		// 1. 商品情報を取得
 		var err error
-		product, err = i.productRepo.Read(req.ProductID)
+		product, err = i.productRepo.Read(ctx, req.ProductID)
 		if err != nil {
 			return fmt.Errorf("product not found: %w", err)
 		}
@@ -87,7 +88,7 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 		totalPoints := product.Price * int64(req.Quantity)
 
 		// 4. ユーザー情報を取得（残高確認のためロック）
-		user, err = i.userRepo.Read(req.UserID)
+		user, err = i.userRepo.Read(ctx, req.UserID)
 		if err != nil {
 			return fmt.Errorf("user not found: %w", err)
 		}
@@ -105,7 +106,7 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 		if err := product.DeductStock(req.Quantity); err != nil {
 			return fmt.Errorf("failed to deduct stock: %w", err)
 		}
-		if err := i.productRepo.Update(product); err != nil {
+		if err := i.productRepo.Update(ctx, product); err != nil {
 			return fmt.Errorf("failed to update product stock: %w", err)
 		}
 
@@ -113,7 +114,7 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 		updates := []repository.BalanceUpdate{
 			{UserID: req.UserID, Amount: totalPoints, IsDeduct: true},
 		}
-		if err := i.userRepo.UpdateBalancesWithLock(tx, updates); err != nil {
+		if err := i.userRepo.UpdateBalancesWithLock(ctx, updates); err != nil {
 			return fmt.Errorf("failed to deduct balance: %w", err)
 		}
 
@@ -129,7 +130,7 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 			return fmt.Errorf("failed to create transaction: %w", err)
 		}
 
-		if err := i.transactionRepo.Create(tx, transaction); err != nil {
+		if err := i.transactionRepo.Create(ctx, transaction); err != nil {
 			return fmt.Errorf("failed to save transaction: %w", err)
 		}
 
@@ -149,7 +150,7 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 			return fmt.Errorf("failed to complete exchange: %w", err)
 		}
 
-		if err := i.exchangeRepo.Create(tx, exchange); err != nil {
+		if err := i.exchangeRepo.Create(ctx, exchange); err != nil {
 			return fmt.Errorf("failed to save exchange: %w", err)
 		}
 
@@ -162,8 +163,8 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 	}
 
 	// 最新の情報を取得
-	user, _ = i.userRepo.Read(req.UserID)
-	product, _ = i.productRepo.Read(req.ProductID)
+	user, _ = i.userRepo.Read(ctx, req.UserID)
+	product, _ = i.productRepo.Read(ctx, req.ProductID)
 
 	i.logger.Info("Product exchange completed successfully",
 		entities.NewField("exchange_id", exchange.ID),
@@ -171,7 +172,7 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 
 	// デイリーボーナスチェック（商品交換ボーナス）
 	if i.dailyBonusPort != nil {
-		_, err := i.dailyBonusPort.CheckExchangeBonus(&inputport.CheckExchangeBonusRequest{
+		_, err := i.dailyBonusPort.CheckExchangeBonus(ctx, &inputport.CheckExchangeBonusRequest{
 			UserID:     req.UserID,
 			ExchangeID: exchange.ID,
 			Date:       exchange.CreatedAt,
@@ -191,13 +192,13 @@ func (i *ProductExchangeInteractor) ExchangeProduct(req *inputport.ExchangeProdu
 }
 
 // GetExchangeHistory は交換履歴を取得
-func (i *ProductExchangeInteractor) GetExchangeHistory(req *inputport.GetExchangeHistoryRequest) (*inputport.GetExchangeHistoryResponse, error) {
-	exchanges, err := i.exchangeRepo.ReadListByUserID(req.UserID, req.Offset, req.Limit)
+func (i *ProductExchangeInteractor) GetExchangeHistory(ctx context.Context, req *inputport.GetExchangeHistoryRequest) (*inputport.GetExchangeHistoryResponse, error) {
+	exchanges, err := i.exchangeRepo.ReadListByUserID(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
 
-	total, err := i.exchangeRepo.CountByUserID(req.UserID)
+	total, err := i.exchangeRepo.CountByUserID(ctx, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -209,10 +210,11 @@ func (i *ProductExchangeInteractor) GetExchangeHistory(req *inputport.GetExchang
 }
 
 // CancelExchange は交換をキャンセル
-func (i *ProductExchangeInteractor) CancelExchange(req *inputport.CancelExchangeRequest) error {
-	return i.db.Transaction(func(tx *gorm.DB) error {
+func (i *ProductExchangeInteractor) CancelExchange(ctx context.Context, req *inputport.CancelExchangeRequest) error {
+	return i.txManager.Do(ctx, func(ctx context.Context) error {
+
 		// 交換情報を取得
-		exchange, err := i.exchangeRepo.Read(req.ExchangeID)
+		exchange, err := i.exchangeRepo.Read(ctx, req.ExchangeID)
 		if err != nil {
 			return fmt.Errorf("exchange not found: %w", err)
 		}
@@ -228,7 +230,7 @@ func (i *ProductExchangeInteractor) CancelExchange(req *inputport.CancelExchange
 		}
 
 		// 在庫を戻す
-		product, err := i.productRepo.Read(exchange.ProductID)
+		product, err := i.productRepo.Read(ctx, exchange.ProductID)
 		if err != nil {
 			return fmt.Errorf("product not found: %w", err)
 		}
@@ -237,7 +239,7 @@ func (i *ProductExchangeInteractor) CancelExchange(req *inputport.CancelExchange
 			return fmt.Errorf("failed to restore stock: %w", err)
 		}
 
-		if err := i.productRepo.Update(product); err != nil {
+		if err := i.productRepo.Update(ctx, product); err != nil {
 			return fmt.Errorf("failed to update product: %w", err)
 		}
 
@@ -245,12 +247,12 @@ func (i *ProductExchangeInteractor) CancelExchange(req *inputport.CancelExchange
 		updates := []repository.BalanceUpdate{
 			{UserID: req.UserID, Amount: exchange.PointsUsed, IsDeduct: false},
 		}
-		if err := i.userRepo.UpdateBalancesWithLock(tx, updates); err != nil {
+		if err := i.userRepo.UpdateBalancesWithLock(ctx, updates); err != nil {
 			return fmt.Errorf("failed to restore balance: %w", err)
 		}
 
 		// 交換記録を更新
-		if err := i.exchangeRepo.Update(tx, exchange); err != nil {
+		if err := i.exchangeRepo.Update(ctx, exchange); err != nil {
 			return fmt.Errorf("failed to update exchange: %w", err)
 		}
 
@@ -259,9 +261,10 @@ func (i *ProductExchangeInteractor) CancelExchange(req *inputport.CancelExchange
 }
 
 // MarkExchangeDelivered は配達完了にする（管理者用）
-func (i *ProductExchangeInteractor) MarkExchangeDelivered(req *inputport.MarkExchangeDeliveredRequest) error {
-	return i.db.Transaction(func(tx *gorm.DB) error {
-		exchange, err := i.exchangeRepo.Read(req.ExchangeID)
+func (i *ProductExchangeInteractor) MarkExchangeDelivered(ctx context.Context, req *inputport.MarkExchangeDeliveredRequest) error {
+	return i.txManager.Do(ctx, func(ctx context.Context) error {
+
+		exchange, err := i.exchangeRepo.Read(ctx, req.ExchangeID)
 		if err != nil {
 			return fmt.Errorf("exchange not found: %w", err)
 		}
@@ -270,7 +273,7 @@ func (i *ProductExchangeInteractor) MarkExchangeDelivered(req *inputport.MarkExc
 			return err
 		}
 
-		if err := i.exchangeRepo.Update(tx, exchange); err != nil {
+		if err := i.exchangeRepo.Update(ctx, exchange); err != nil {
 			return fmt.Errorf("failed to update exchange: %w", err)
 		}
 
@@ -279,13 +282,13 @@ func (i *ProductExchangeInteractor) MarkExchangeDelivered(req *inputport.MarkExc
 }
 
 // GetAllExchanges はすべての交換履歴を取得（管理者用）
-func (i *ProductExchangeInteractor) GetAllExchanges(offset, limit int) (*inputport.GetExchangeHistoryResponse, error) {
-	exchanges, err := i.exchangeRepo.ReadListAll(offset, limit)
+func (i *ProductExchangeInteractor) GetAllExchanges(ctx context.Context, offset, limit int) (*inputport.GetExchangeHistoryResponse, error) {
+	exchanges, err := i.exchangeRepo.ReadListAll(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	total, err := i.exchangeRepo.CountAll()
+	total, err := i.exchangeRepo.CountAll(ctx)
 	if err != nil {
 		return nil, err
 	}

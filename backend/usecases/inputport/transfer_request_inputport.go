@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,28 +10,28 @@ import (
 // TransferRequestInputPort は送金リクエスト機能のユースケースインターフェース
 type TransferRequestInputPort interface {
 	// CreateTransferRequest は送金リクエストを作成（QRスキャン時）
-	CreateTransferRequest(req *CreateTransferRequestRequest) (*CreateTransferRequestResponse, error)
+	CreateTransferRequest(ctx context.Context, req *CreateTransferRequestRequest) (*CreateTransferRequestResponse, error)
 
 	// ApproveTransferRequest は送金リクエストを承認（受取人が承認）
-	ApproveTransferRequest(req *ApproveTransferRequestRequest) (*ApproveTransferRequestResponse, error)
+	ApproveTransferRequest(ctx context.Context, req *ApproveTransferRequestRequest) (*ApproveTransferRequestResponse, error)
 
 	// RejectTransferRequest は送金リクエストを拒否（受取人が拒否）
-	RejectTransferRequest(req *RejectTransferRequestRequest) (*RejectTransferRequestResponse, error)
+	RejectTransferRequest(ctx context.Context, req *RejectTransferRequestRequest) (*RejectTransferRequestResponse, error)
 
 	// CancelTransferRequest は送金リクエストをキャンセル（送信者がキャンセル）
-	CancelTransferRequest(req *CancelTransferRequestRequest) (*CancelTransferRequestResponse, error)
+	CancelTransferRequest(ctx context.Context, req *CancelTransferRequestRequest) (*CancelTransferRequestResponse, error)
 
 	// GetPendingRequests は受取人宛の承認待ちリクエスト一覧を取得
-	GetPendingRequests(req *GetPendingTransferRequestsRequest) (*GetPendingTransferRequestsResponse, error)
+	GetPendingRequests(ctx context.Context, req *GetPendingTransferRequestsRequest) (*GetPendingTransferRequestsResponse, error)
 
 	// GetSentRequests は送信者が送った送金リクエスト一覧を取得
-	GetSentRequests(req *GetSentTransferRequestsRequest) (*GetSentTransferRequestsResponse, error)
+	GetSentRequests(ctx context.Context, req *GetSentTransferRequestsRequest) (*GetSentTransferRequestsResponse, error)
 
 	// GetRequestDetail は送金リクエスト詳細を取得
-	GetRequestDetail(req *GetTransferRequestDetailRequest) (*GetTransferRequestDetailResponse, error)
+	GetRequestDetail(ctx context.Context, req *GetTransferRequestDetailRequest) (*GetTransferRequestDetailResponse, error)
 
 	// GetPendingRequestCount は受取人宛の承認待ちリクエスト数を取得
-	GetPendingRequestCount(req *GetPendingRequestCountRequest) (*GetPendingRequestCountResponse, error)
+	GetPendingRequestCount(ctx context.Context, req *GetPendingRequestCountRequest) (*GetPendingRequestCountResponse, error)
 }
 
 // CreateTransferRequestRequest は送金リクエスト作成リクエスト

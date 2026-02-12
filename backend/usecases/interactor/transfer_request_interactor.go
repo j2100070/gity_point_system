@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -33,21 +34,21 @@ func NewTransferRequestInteractor(
 }
 
 // CreateTransferRequest は送金リクエストを作成（QRスキャン時）
-func (i *TransferRequestInteractor) CreateTransferRequest(req *inputport.CreateTransferRequestRequest) (*inputport.CreateTransferRequestResponse, error) {
+func (i *TransferRequestInteractor) CreateTransferRequest(ctx context.Context, req *inputport.CreateTransferRequestRequest) (*inputport.CreateTransferRequestResponse, error) {
 	i.logger.Info("Creating transfer request",
 		entities.NewField("from_user_id", req.FromUserID),
 		entities.NewField("to_user_id", req.ToUserID),
 		entities.NewField("amount", req.Amount))
 
 	// 冪等性チェック
-	existing, err := i.transferRequestRepo.ReadByIdempotencyKey(req.IdempotencyKey)
+	existing, err := i.transferRequestRepo.ReadByIdempotencyKey(ctx, req.IdempotencyKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check idempotency key: %w", err)
 	}
 	if existing != nil {
 		// 既存のリクエストが見つかった場合
-		fromUser, _ := i.userRepo.Read(req.FromUserID)
-		toUser, _ := i.userRepo.Read(req.ToUserID)
+		fromUser, _ := i.userRepo.Read(ctx, req.FromUserID)
+		toUser, _ := i.userRepo.Read(ctx, req.ToUserID)
 		return &inputport.CreateTransferRequestResponse{
 			TransferRequest: existing,
 			FromUser:        fromUser,
@@ -56,7 +57,7 @@ func (i *TransferRequestInteractor) CreateTransferRequest(req *inputport.CreateT
 	}
 
 	// 送信者と受取人の存在確認
-	fromUser, err := i.userRepo.Read(req.FromUserID)
+	fromUser, err := i.userRepo.Read(ctx, req.FromUserID)
 	if err != nil {
 		return nil, errors.New("sender not found")
 	}
@@ -64,7 +65,7 @@ func (i *TransferRequestInteractor) CreateTransferRequest(req *inputport.CreateT
 		return nil, errors.New("sender is not active")
 	}
 
-	toUser, err := i.userRepo.Read(req.ToUserID)
+	toUser, err := i.userRepo.Read(ctx, req.ToUserID)
 	if err != nil {
 		return nil, errors.New("receiver not found")
 	}
@@ -90,7 +91,7 @@ func (i *TransferRequestInteractor) CreateTransferRequest(req *inputport.CreateT
 	}
 
 	// DB保存
-	if err := i.transferRequestRepo.Create(transferRequest); err != nil {
+	if err := i.transferRequestRepo.Create(ctx, transferRequest); err != nil {
 		return nil, fmt.Errorf("failed to save transfer request: %w", err)
 	}
 
@@ -105,13 +106,13 @@ func (i *TransferRequestInteractor) CreateTransferRequest(req *inputport.CreateT
 }
 
 // ApproveTransferRequest は送金リクエストを承認（受取人が承認）
-func (i *TransferRequestInteractor) ApproveTransferRequest(req *inputport.ApproveTransferRequestRequest) (*inputport.ApproveTransferRequestResponse, error) {
+func (i *TransferRequestInteractor) ApproveTransferRequest(ctx context.Context, req *inputport.ApproveTransferRequestRequest) (*inputport.ApproveTransferRequestResponse, error) {
 	i.logger.Info("Approving transfer request",
 		entities.NewField("request_id", req.RequestID),
 		entities.NewField("user_id", req.UserID))
 
 	// リクエストの取得
-	transferRequest, err := i.transferRequestRepo.Read(req.RequestID)
+	transferRequest, err := i.transferRequestRepo.Read(ctx, req.RequestID)
 	if err != nil {
 		return nil, errors.New("transfer request not found")
 	}
@@ -130,7 +131,7 @@ func (i *TransferRequestInteractor) ApproveTransferRequest(req *inputport.Approv
 	}
 
 	// ポイント送金を実行（ポイント転送機能内でトランザクションが管理される）
-	transferResp, err := i.pointTransferPort.Transfer(&inputport.TransferRequest{
+	transferResp, err := i.pointTransferPort.Transfer(ctx, &inputport.TransferRequest{
 		FromUserID:     transferRequest.FromUserID,
 		ToUserID:       transferRequest.ToUserID,
 		Amount:         transferRequest.Amount,
@@ -151,7 +152,7 @@ func (i *TransferRequestInteractor) ApproveTransferRequest(req *inputport.Approv
 	}
 
 	// DB更新
-	if err := i.transferRequestRepo.Update(transferRequest); err != nil {
+	if err := i.transferRequestRepo.Update(ctx, transferRequest); err != nil {
 		return nil, fmt.Errorf("failed to update transfer request: %w", err)
 	}
 
@@ -168,13 +169,13 @@ func (i *TransferRequestInteractor) ApproveTransferRequest(req *inputport.Approv
 }
 
 // RejectTransferRequest は送金リクエストを拒否（受取人が拒否）
-func (i *TransferRequestInteractor) RejectTransferRequest(req *inputport.RejectTransferRequestRequest) (*inputport.RejectTransferRequestResponse, error) {
+func (i *TransferRequestInteractor) RejectTransferRequest(ctx context.Context, req *inputport.RejectTransferRequestRequest) (*inputport.RejectTransferRequestResponse, error) {
 	i.logger.Info("Rejecting transfer request",
 		entities.NewField("request_id", req.RequestID),
 		entities.NewField("user_id", req.UserID))
 
 	// リクエストの取得
-	transferRequest, err := i.transferRequestRepo.Read(req.RequestID)
+	transferRequest, err := i.transferRequestRepo.Read(ctx, req.RequestID)
 	if err != nil {
 		return nil, errors.New("transfer request not found")
 	}
@@ -198,7 +199,7 @@ func (i *TransferRequestInteractor) RejectTransferRequest(req *inputport.RejectT
 	}
 
 	// DB更新
-	if err := i.transferRequestRepo.Update(transferRequest); err != nil {
+	if err := i.transferRequestRepo.Update(ctx, transferRequest); err != nil {
 		return nil, fmt.Errorf("failed to update transfer request: %w", err)
 	}
 
@@ -211,13 +212,13 @@ func (i *TransferRequestInteractor) RejectTransferRequest(req *inputport.RejectT
 }
 
 // CancelTransferRequest は送金リクエストをキャンセル（送信者がキャンセル）
-func (i *TransferRequestInteractor) CancelTransferRequest(req *inputport.CancelTransferRequestRequest) (*inputport.CancelTransferRequestResponse, error) {
+func (i *TransferRequestInteractor) CancelTransferRequest(ctx context.Context, req *inputport.CancelTransferRequestRequest) (*inputport.CancelTransferRequestResponse, error) {
 	i.logger.Info("Canceling transfer request",
 		entities.NewField("request_id", req.RequestID),
 		entities.NewField("user_id", req.UserID))
 
 	// リクエストの取得
-	transferRequest, err := i.transferRequestRepo.Read(req.RequestID)
+	transferRequest, err := i.transferRequestRepo.Read(ctx, req.RequestID)
 	if err != nil {
 		return nil, errors.New("transfer request not found")
 	}
@@ -241,7 +242,7 @@ func (i *TransferRequestInteractor) CancelTransferRequest(req *inputport.CancelT
 	}
 
 	// DB更新
-	if err := i.transferRequestRepo.Update(transferRequest); err != nil {
+	if err := i.transferRequestRepo.Update(ctx, transferRequest); err != nil {
 		return nil, fmt.Errorf("failed to update transfer request: %w", err)
 	}
 
@@ -254,8 +255,8 @@ func (i *TransferRequestInteractor) CancelTransferRequest(req *inputport.CancelT
 }
 
 // GetPendingRequests は受取人宛の承認待ちリクエスト一覧を取得
-func (i *TransferRequestInteractor) GetPendingRequests(req *inputport.GetPendingTransferRequestsRequest) (*inputport.GetPendingTransferRequestsResponse, error) {
-	requests, err := i.transferRequestRepo.ReadPendingByToUser(req.ToUserID, req.Offset, req.Limit)
+func (i *TransferRequestInteractor) GetPendingRequests(ctx context.Context, req *inputport.GetPendingTransferRequestsRequest) (*inputport.GetPendingTransferRequestsResponse, error) {
+	requests, err := i.transferRequestRepo.ReadPendingByToUser(ctx, req.ToUserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pending requests: %w", err)
 	}
@@ -265,16 +266,16 @@ func (i *TransferRequestInteractor) GetPendingRequests(req *inputport.GetPending
 		// 期限切れチェック
 		if tr.IsExpired() {
 			tr.MarkAsExpired()
-			i.transferRequestRepo.Update(tr)
+			i.transferRequestRepo.Update(ctx, tr)
 			continue // 期限切れは除外
 		}
 
-		fromUser, err := i.userRepo.Read(tr.FromUserID)
+		fromUser, err := i.userRepo.Read(ctx, tr.FromUserID)
 		if err != nil {
 			continue
 		}
 
-		toUser, err := i.userRepo.Read(tr.ToUserID)
+		toUser, err := i.userRepo.Read(ctx, tr.ToUserID)
 		if err != nil {
 			continue
 		}
@@ -292,8 +293,8 @@ func (i *TransferRequestInteractor) GetPendingRequests(req *inputport.GetPending
 }
 
 // GetSentRequests は送信者が送った送金リクエスト一覧を取得
-func (i *TransferRequestInteractor) GetSentRequests(req *inputport.GetSentTransferRequestsRequest) (*inputport.GetSentTransferRequestsResponse, error) {
-	requests, err := i.transferRequestRepo.ReadSentByFromUser(req.FromUserID, req.Offset, req.Limit)
+func (i *TransferRequestInteractor) GetSentRequests(ctx context.Context, req *inputport.GetSentTransferRequestsRequest) (*inputport.GetSentTransferRequestsResponse, error) {
+	requests, err := i.transferRequestRepo.ReadSentByFromUser(ctx, req.FromUserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sent requests: %w", err)
 	}
@@ -303,15 +304,15 @@ func (i *TransferRequestInteractor) GetSentRequests(req *inputport.GetSentTransf
 		// 期限切れチェック
 		if tr.IsPending() && tr.IsExpired() {
 			tr.MarkAsExpired()
-			i.transferRequestRepo.Update(tr)
+			i.transferRequestRepo.Update(ctx, tr)
 		}
 
-		fromUser, err := i.userRepo.Read(tr.FromUserID)
+		fromUser, err := i.userRepo.Read(ctx, tr.FromUserID)
 		if err != nil {
 			continue
 		}
 
-		toUser, err := i.userRepo.Read(tr.ToUserID)
+		toUser, err := i.userRepo.Read(ctx, tr.ToUserID)
 		if err != nil {
 			continue
 		}
@@ -329,8 +330,8 @@ func (i *TransferRequestInteractor) GetSentRequests(req *inputport.GetSentTransf
 }
 
 // GetRequestDetail は送金リクエスト詳細を取得
-func (i *TransferRequestInteractor) GetRequestDetail(req *inputport.GetTransferRequestDetailRequest) (*inputport.GetTransferRequestDetailResponse, error) {
-	transferRequest, err := i.transferRequestRepo.Read(req.RequestID)
+func (i *TransferRequestInteractor) GetRequestDetail(ctx context.Context, req *inputport.GetTransferRequestDetailRequest) (*inputport.GetTransferRequestDetailResponse, error) {
+	transferRequest, err := i.transferRequestRepo.Read(ctx, req.RequestID)
 	if err != nil {
 		return nil, errors.New("transfer request not found")
 	}
@@ -343,12 +344,12 @@ func (i *TransferRequestInteractor) GetRequestDetail(req *inputport.GetTransferR
 		return nil, errors.New("unauthorized to view this request")
 	}
 
-	fromUser, err := i.userRepo.Read(transferRequest.FromUserID)
+	fromUser, err := i.userRepo.Read(ctx, transferRequest.FromUserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sender: %w", err)
 	}
 
-	toUser, err := i.userRepo.Read(transferRequest.ToUserID)
+	toUser, err := i.userRepo.Read(ctx, transferRequest.ToUserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receiver: %w", err)
 	}
@@ -361,8 +362,8 @@ func (i *TransferRequestInteractor) GetRequestDetail(req *inputport.GetTransferR
 }
 
 // GetPendingRequestCount は受取人宛の承認待ちリクエスト数を取得
-func (i *TransferRequestInteractor) GetPendingRequestCount(req *inputport.GetPendingRequestCountRequest) (*inputport.GetPendingRequestCountResponse, error) {
-	count, err := i.transferRequestRepo.CountPendingByToUser(req.ToUserID)
+func (i *TransferRequestInteractor) GetPendingRequestCount(ctx context.Context, req *inputport.GetPendingRequestCountRequest) (*inputport.GetPendingRequestCountResponse, error) {
+	count, err := i.transferRequestRepo.CountPendingByToUser(ctx, req.ToUserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count pending requests: %w", err)
 	}

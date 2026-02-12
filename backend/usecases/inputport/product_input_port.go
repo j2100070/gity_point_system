@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -46,10 +48,10 @@ type DeleteProductRequest struct {
 
 // GetProductListRequest は商品一覧取得リクエスト
 type GetProductListRequest struct {
-	Category       string // 空文字列の場合はすべて
-	AvailableOnly  bool   // trueの場合は交換可能な商品のみ
-	Offset         int
-	Limit          int
+	Category      string // 空文字列の場合はすべて
+	AvailableOnly bool   // trueの場合は交換可能な商品のみ
+	Offset        int
+	Limit         int
 }
 
 // GetProductListResponse は商品一覧取得レスポンス
@@ -61,16 +63,16 @@ type GetProductListResponse struct {
 // ProductManagementInputPort は商品管理のユースケースインターフェース
 type ProductManagementInputPort interface {
 	// CreateProduct は新しい商品を作成（管理者のみ）
-	CreateProduct(req *CreateProductRequest) (*CreateProductResponse, error)
+	CreateProduct(ctx context.Context, req *CreateProductRequest) (*CreateProductResponse, error)
 
 	// UpdateProduct は商品情報を更新（管理者のみ）
-	UpdateProduct(req *UpdateProductRequest) (*UpdateProductResponse, error)
+	UpdateProduct(ctx context.Context, req *UpdateProductRequest) (*UpdateProductResponse, error)
 
 	// DeleteProduct は商品を削除（管理者のみ）
-	DeleteProduct(req *DeleteProductRequest) error
+	DeleteProduct(ctx context.Context, req *DeleteProductRequest) error
 
 	// GetProductList は商品一覧を取得
-	GetProductList(req *GetProductListRequest) (*GetProductListResponse, error)
+	GetProductList(ctx context.Context, req *GetProductListRequest) (*GetProductListResponse, error)
 }
 
 // ==================== ポイント交換（ユーザー用） ====================
@@ -118,17 +120,17 @@ type MarkExchangeDeliveredRequest struct {
 // ProductExchangeInputPort は商品交換のユースケースインターフェース
 type ProductExchangeInputPort interface {
 	// ExchangeProduct はポイントで商品を交換
-	ExchangeProduct(req *ExchangeProductRequest) (*ExchangeProductResponse, error)
+	ExchangeProduct(ctx context.Context, req *ExchangeProductRequest) (*ExchangeProductResponse, error)
 
 	// GetExchangeHistory は交換履歴を取得
-	GetExchangeHistory(req *GetExchangeHistoryRequest) (*GetExchangeHistoryResponse, error)
+	GetExchangeHistory(ctx context.Context, req *GetExchangeHistoryRequest) (*GetExchangeHistoryResponse, error)
 
 	// CancelExchange は交換をキャンセル（ペンディング状態のみ）
-	CancelExchange(req *CancelExchangeRequest) error
+	CancelExchange(ctx context.Context, req *CancelExchangeRequest) error
 
 	// MarkExchangeDelivered は配達完了にする（管理者用）
-	MarkExchangeDelivered(req *MarkExchangeDeliveredRequest) error
+	MarkExchangeDelivered(ctx context.Context, req *MarkExchangeDeliveredRequest) error
 
 	// GetAllExchanges はすべての交換履歴を取得（管理者用）
-	GetAllExchanges(offset, limit int) (*GetExchangeHistoryResponse, error)
+	GetAllExchanges(ctx context.Context, offset, limit int) (*GetExchangeHistoryResponse, error)
 }

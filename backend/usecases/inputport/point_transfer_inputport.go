@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,13 +10,13 @@ import (
 // PointTransferInputPort はポイント転送のユースケースインターフェース
 type PointTransferInputPort interface {
 	// Transfer はポイントを転送
-	Transfer(req *TransferRequest) (*TransferResponse, error)
+	Transfer(ctx context.Context, req *TransferRequest) (*TransferResponse, error)
 
 	// GetTransactionHistory はトランザクション履歴を取得
-	GetTransactionHistory(req *GetTransactionHistoryRequest) (*GetTransactionHistoryResponse, error)
+	GetTransactionHistory(ctx context.Context, req *GetTransactionHistoryRequest) (*GetTransactionHistoryResponse, error)
 
 	// GetBalance は残高を取得
-	GetBalance(req *GetBalanceRequest) (*GetBalanceResponse, error)
+	GetBalance(ctx context.Context, req *GetBalanceRequest) (*GetBalanceResponse, error)
 }
 
 // TransferRequest はポイント転送リクエスト

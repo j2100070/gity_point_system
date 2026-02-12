@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package integration
@@ -13,7 +14,6 @@ import (
 	"github.com/gity/point-system/gateways/infra/inframysql"
 	"github.com/gity/point-system/gateways/repository/transaction"
 	"github.com/gity/point-system/gateways/repository/user"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -544,7 +544,7 @@ func TestTransactionTimeout(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	t.Run("長時間トランザクションのタイムアウト", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
 		err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

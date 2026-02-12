@@ -48,7 +48,7 @@ func (c *UserSettingsController) UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.userSettingsUC.UpdateProfile(&inputport.UpdateProfileRequest{
+	resp, err := c.userSettingsUC.UpdateProfile(ctx, &inputport.UpdateProfileRequest{
 		UserID:      userID.(uuid.UUID),
 		DisplayName: req.DisplayName,
 		Email:       req.Email,
@@ -84,7 +84,7 @@ func (c *UserSettingsController) UpdateUsername(ctx *gin.Context) {
 	}
 
 	ipAddress := ctx.ClientIP()
-	err := c.userSettingsUC.UpdateUsername(&inputport.UpdateUsernameRequest{
+	err := c.userSettingsUC.UpdateUsername(ctx, &inputport.UpdateUsernameRequest{
 		UserID:      userID.(uuid.UUID),
 		NewUsername: req.NewUsername,
 		IPAddress:   &ipAddress,
@@ -122,7 +122,7 @@ func (c *UserSettingsController) ChangePassword(ctx *gin.Context) {
 
 	ipAddress := ctx.ClientIP()
 	userAgent := ctx.GetHeader("User-Agent")
-	err := c.userSettingsUC.ChangePassword(&inputport.ChangePasswordRequest{
+	err := c.userSettingsUC.ChangePassword(ctx, &inputport.ChangePasswordRequest{
 		UserID:          userID.(uuid.UUID),
 		CurrentPassword: req.CurrentPassword,
 		NewPassword:     req.NewPassword,
@@ -166,7 +166,7 @@ func (c *UserSettingsController) UploadAvatar(ctx *gin.Context) {
 	// Content-Typeを取得
 	contentType := header.Header.Get("Content-Type")
 
-	resp, err := c.userSettingsUC.UploadAvatar(&inputport.UploadAvatarRequest{
+	resp, err := c.userSettingsUC.UploadAvatar(ctx, &inputport.UploadAvatarRequest{
 		UserID:      userID.(uuid.UUID),
 		FileData:    fileData,
 		FileName:    header.Filename,
@@ -191,7 +191,7 @@ func (c *UserSettingsController) DeleteAvatar(ctx *gin.Context) {
 		return
 	}
 
-	err := c.userSettingsUC.DeleteAvatar(&inputport.DeleteAvatarRequest{
+	err := c.userSettingsUC.DeleteAvatar(ctx, &inputport.DeleteAvatarRequest{
 		UserID: userID.(uuid.UUID),
 	})
 
@@ -214,7 +214,7 @@ func (c *UserSettingsController) SendEmailVerification(ctx *gin.Context) {
 	}
 
 	// ユーザー情報を取得してメールアドレスを取得
-	profile, err := c.userSettingsUC.GetProfile(&inputport.GetProfileRequest{
+	profile, err := c.userSettingsUC.GetProfile(ctx, &inputport.GetProfileRequest{
 		UserID: userID.(uuid.UUID),
 	})
 	if err != nil {
@@ -223,7 +223,7 @@ func (c *UserSettingsController) SendEmailVerification(ctx *gin.Context) {
 	}
 
 	uid := userID.(uuid.UUID)
-	err = c.userSettingsUC.SendEmailVerification(&inputport.SendEmailVerificationRequest{
+	err = c.userSettingsUC.SendEmailVerification(ctx, &inputport.SendEmailVerificationRequest{
 		UserID:    &uid,
 		Email:     profile.User.Email,
 		TokenType: "email_verification",
@@ -252,7 +252,7 @@ func (c *UserSettingsController) VerifyEmail(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.userSettingsUC.VerifyEmail(&inputport.VerifyEmailRequest{
+	resp, err := c.userSettingsUC.VerifyEmail(ctx, &inputport.VerifyEmailRequest{
 		Token: req.Token,
 	})
 
@@ -286,7 +286,7 @@ func (c *UserSettingsController) ArchiveAccount(ctx *gin.Context) {
 		return
 	}
 
-	err := c.userSettingsUC.ArchiveAccount(&inputport.ArchiveAccountRequest{
+	err := c.userSettingsUC.ArchiveAccount(ctx, &inputport.ArchiveAccountRequest{
 		UserID:         userID.(uuid.UUID),
 		Password:       req.Password,
 		DeletionReason: req.DeletionReason,
@@ -321,7 +321,7 @@ func (c *UserSettingsController) GetProfile(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.userSettingsUC.GetProfile(&inputport.GetProfileRequest{
+	resp, err := c.userSettingsUC.GetProfile(ctx, &inputport.GetProfileRequest{
 		UserID: userID.(uuid.UUID),
 	})
 

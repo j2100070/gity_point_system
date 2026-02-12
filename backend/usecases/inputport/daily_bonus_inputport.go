@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"time"
 
 	"github.com/gity/point-system/entities"
@@ -10,19 +12,19 @@ import (
 // DailyBonusInputPort はデイリーボーナスのユースケースインターフェース
 type DailyBonusInputPort interface {
 	// CheckLoginBonus はログインボーナスをチェックして付与
-	CheckLoginBonus(req *CheckLoginBonusRequest) (*CheckLoginBonusResponse, error)
+	CheckLoginBonus(ctx context.Context, req *CheckLoginBonusRequest) (*CheckLoginBonusResponse, error)
 
 	// CheckTransferBonus は送金ボーナスをチェックして付与
-	CheckTransferBonus(req *CheckTransferBonusRequest) (*CheckTransferBonusResponse, error)
+	CheckTransferBonus(ctx context.Context, req *CheckTransferBonusRequest) (*CheckTransferBonusResponse, error)
 
 	// CheckExchangeBonus は交換ボーナスをチェックして付与
-	CheckExchangeBonus(req *CheckExchangeBonusRequest) (*CheckExchangeBonusResponse, error)
+	CheckExchangeBonus(ctx context.Context, req *CheckExchangeBonusRequest) (*CheckExchangeBonusResponse, error)
 
 	// GetTodayBonus は本日のボーナス状況を取得
-	GetTodayBonus(req *GetTodayBonusRequest) (*GetTodayBonusResponse, error)
+	GetTodayBonus(ctx context.Context, req *GetTodayBonusRequest) (*GetTodayBonusResponse, error)
 
 	// GetRecentBonuses は最近のボーナス履歴を取得
-	GetRecentBonuses(req *GetRecentBonusesRequest) (*GetRecentBonusesResponse, error)
+	GetRecentBonuses(ctx context.Context, req *GetRecentBonusesRequest) (*GetRecentBonusesResponse, error)
 }
 
 // CheckLoginBonusRequest はログインボーナスチェックリクエスト

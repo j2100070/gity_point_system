@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -53,14 +55,14 @@ type GetCategoryListResponse struct {
 // CategoryManagementInputPort はカテゴリ管理のユースケースインターフェース
 type CategoryManagementInputPort interface {
 	// CreateCategory は新しいカテゴリを作成（管理者のみ）
-	CreateCategory(req *CreateCategoryRequest) (*CreateCategoryResponse, error)
+	CreateCategory(ctx context.Context, req *CreateCategoryRequest) (*CreateCategoryResponse, error)
 
 	// UpdateCategory はカテゴリ情報を更新（管理者のみ）
-	UpdateCategory(req *UpdateCategoryRequest) (*UpdateCategoryResponse, error)
+	UpdateCategory(ctx context.Context, req *UpdateCategoryRequest) (*UpdateCategoryResponse, error)
 
 	// DeleteCategory はカテゴリを削除（管理者のみ）
-	DeleteCategory(req *DeleteCategoryRequest) error
+	DeleteCategory(ctx context.Context, req *DeleteCategoryRequest) error
 
 	// GetCategoryList はカテゴリ一覧を取得
-	GetCategoryList(req *GetCategoryListRequest) (*GetCategoryListResponse, error)
+	GetCategoryList(ctx context.Context, req *GetCategoryListRequest) (*GetCategoryListResponse, error)
 }

@@ -2,6 +2,7 @@ package interactor
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 
@@ -14,17 +15,17 @@ import (
 
 // UserSettingsInteractor はユーザー設定のユースケース実装
 type UserSettingsInteractor struct {
-	db                          *gorm.DB
-	userRepo                    repository.UserRepository
-	userSettingsRepo            repository.UserSettingsRepository
-	archivedUserRepo            repository.ArchivedUserRepository
-	emailVerificationRepo       repository.EmailVerificationRepository
-	usernameChangeHistoryRepo   repository.UsernameChangeHistoryRepository
-	passwordChangeHistoryRepo   repository.PasswordChangeHistoryRepository
-	fileStorageService          service.FileStorageService
-	passwordService             service.PasswordService
-	emailService                service.EmailService
-	logger                      entities.Logger
+	db                        *gorm.DB
+	userRepo                  repository.UserRepository
+	userSettingsRepo          repository.UserSettingsRepository
+	archivedUserRepo          repository.ArchivedUserRepository
+	emailVerificationRepo     repository.EmailVerificationRepository
+	usernameChangeHistoryRepo repository.UsernameChangeHistoryRepository
+	passwordChangeHistoryRepo repository.PasswordChangeHistoryRepository
+	fileStorageService        service.FileStorageService
+	passwordService           service.PasswordService
+	emailService              service.EmailService
+	logger                    entities.Logger
 }
 
 // NewUserSettingsInteractor は新しいUserSettingsInteractorを作成
@@ -57,11 +58,11 @@ func NewUserSettingsInteractor(
 }
 
 // UpdateProfile はプロフィールを更新
-func (i *UserSettingsInteractor) UpdateProfile(req *inputport.UpdateProfileRequest) (*inputport.UpdateProfileResponse, error) {
+func (i *UserSettingsInteractor) UpdateProfile(ctx context.Context, req *inputport.UpdateProfileRequest) (*inputport.UpdateProfileResponse, error) {
 	i.logger.Info("Updating user profile", entities.NewField("user_id", req.UserID))
 
 	// ユーザーを取得
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -70,7 +71,7 @@ func (i *UserSettingsInteractor) UpdateProfile(req *inputport.UpdateProfileReque
 
 	// メールアドレスが変更された場合は一意性チェック
 	if req.Email != "" && req.Email != user.Email {
-		exists, err := i.userSettingsRepo.CheckEmailExists(req.Email, user.ID)
+		exists, err := i.userSettingsRepo.CheckEmailExists(ctx, req.Email, user.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check email existence: %w", err)
 		}
@@ -86,7 +87,7 @@ func (i *UserSettingsInteractor) UpdateProfile(req *inputport.UpdateProfileReque
 	}
 
 	// データベースに保存
-	success, err := i.userSettingsRepo.UpdateProfile(user)
+	success, err := i.userSettingsRepo.UpdateProfile(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save profile: %w", err)
 	}
@@ -98,14 +99,14 @@ func (i *UserSettingsInteractor) UpdateProfile(req *inputport.UpdateProfileReque
 	emailVerificationSent := false
 	if emailChanged {
 		// 古いトークンを削除
-		_ = i.emailVerificationRepo.DeleteByUserID(user.ID)
+		_ = i.emailVerificationRepo.DeleteByUserID(ctx, user.ID)
 
 		// 新しいトークンを作成
 		token, err := entities.NewEmailVerificationToken(&user.ID, req.Email, entities.TokenTypeEmailChange)
 		if err != nil {
 			i.logger.Error("Failed to create email verification token", entities.NewField("error", err))
 		} else {
-			if err := i.emailVerificationRepo.Create(token); err != nil {
+			if err := i.emailVerificationRepo.Create(ctx, token); err != nil {
 				i.logger.Error("Failed to save email verification token", entities.NewField("error", err))
 			} else {
 				// メール送信
@@ -129,11 +130,11 @@ func (i *UserSettingsInteractor) UpdateProfile(req *inputport.UpdateProfileReque
 }
 
 // UpdateUsername はユーザー名を変更
-func (i *UserSettingsInteractor) UpdateUsername(req *inputport.UpdateUsernameRequest) error {
+func (i *UserSettingsInteractor) UpdateUsername(ctx context.Context, req *inputport.UpdateUsernameRequest) error {
 	i.logger.Info("Updating username", entities.NewField("user_id", req.UserID))
 
 	// ユーザーを取得
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
@@ -141,7 +142,7 @@ func (i *UserSettingsInteractor) UpdateUsername(req *inputport.UpdateUsernameReq
 	oldUsername := user.Username
 
 	// 一意性チェック
-	exists, err := i.userSettingsRepo.CheckUsernameExists(req.NewUsername, user.ID)
+	exists, err := i.userSettingsRepo.CheckUsernameExists(ctx, req.NewUsername, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to check username existence: %w", err)
 	}
@@ -155,7 +156,7 @@ func (i *UserSettingsInteractor) UpdateUsername(req *inputport.UpdateUsernameReq
 	}
 
 	// データベースに保存
-	success, err := i.userSettingsRepo.UpdateUsername(user)
+	success, err := i.userSettingsRepo.UpdateUsername(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to save username: %w", err)
 	}
@@ -165,7 +166,7 @@ func (i *UserSettingsInteractor) UpdateUsername(req *inputport.UpdateUsernameReq
 
 	// 変更履歴を記録
 	history := entities.NewUsernameChangeHistory(user.ID, oldUsername, req.NewUsername, &user.ID, req.IPAddress)
-	if err := i.usernameChangeHistoryRepo.Create(history); err != nil {
+	if err := i.usernameChangeHistoryRepo.Create(ctx, history); err != nil {
 		i.logger.Error("Failed to create username change history", entities.NewField("error", err))
 		// 履歴の保存に失敗してもエラーにしない（ユーザー名の変更は成功）
 	}
@@ -179,11 +180,11 @@ func (i *UserSettingsInteractor) UpdateUsername(req *inputport.UpdateUsernameReq
 }
 
 // ChangePassword はパスワードを変更
-func (i *UserSettingsInteractor) ChangePassword(req *inputport.ChangePasswordRequest) error {
+func (i *UserSettingsInteractor) ChangePassword(ctx context.Context, req *inputport.ChangePasswordRequest) error {
 	i.logger.Info("Changing password", entities.NewField("user_id", req.UserID))
 
 	// ユーザーを取得
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
@@ -205,7 +206,7 @@ func (i *UserSettingsInteractor) ChangePassword(req *inputport.ChangePasswordReq
 	}
 
 	// データベースに保存
-	success, err := i.userSettingsRepo.UpdatePassword(user)
+	success, err := i.userSettingsRepo.UpdatePassword(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to save password: %w", err)
 	}
@@ -215,7 +216,7 @@ func (i *UserSettingsInteractor) ChangePassword(req *inputport.ChangePasswordReq
 
 	// 変更履歴を記録
 	history := entities.NewPasswordChangeHistory(user.ID, req.IPAddress, req.UserAgent)
-	if err := i.passwordChangeHistoryRepo.Create(history); err != nil {
+	if err := i.passwordChangeHistoryRepo.Create(ctx, history); err != nil {
 		i.logger.Error("Failed to create password change history", entities.NewField("error", err))
 	}
 
@@ -230,11 +231,11 @@ func (i *UserSettingsInteractor) ChangePassword(req *inputport.ChangePasswordReq
 }
 
 // UploadAvatar はアバター画像をアップロード
-func (i *UserSettingsInteractor) UploadAvatar(req *inputport.UploadAvatarRequest) (*inputport.UploadAvatarResponse, error) {
+func (i *UserSettingsInteractor) UploadAvatar(ctx context.Context, req *inputport.UploadAvatarRequest) (*inputport.UploadAvatarResponse, error) {
 	i.logger.Info("Uploading avatar", entities.NewField("user_id", req.UserID))
 
 	// ユーザーを取得
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -268,7 +269,7 @@ func (i *UserSettingsInteractor) UploadAvatar(req *inputport.UploadAvatarRequest
 	}
 
 	// データベースに保存
-	success, err := i.userSettingsRepo.UpdateProfile(user)
+	success, err := i.userSettingsRepo.UpdateProfile(ctx, user)
 	if err != nil {
 		// ファイルの削除を試みる
 		_ = i.fileStorageService.DeleteAvatar(filePath)
@@ -297,11 +298,11 @@ func (i *UserSettingsInteractor) UploadAvatar(req *inputport.UploadAvatarRequest
 }
 
 // DeleteAvatar はアバターを削除（自動生成に戻す）
-func (i *UserSettingsInteractor) DeleteAvatar(req *inputport.DeleteAvatarRequest) error {
+func (i *UserSettingsInteractor) DeleteAvatar(ctx context.Context, req *inputport.DeleteAvatarRequest) error {
 	i.logger.Info("Deleting avatar", entities.NewField("user_id", req.UserID))
 
 	// ユーザーを取得
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
@@ -316,7 +317,7 @@ func (i *UserSettingsInteractor) DeleteAvatar(req *inputport.DeleteAvatarRequest
 	user.DeleteAvatar()
 
 	// データベースに保存
-	success, err := i.userSettingsRepo.UpdateProfile(user)
+	success, err := i.userSettingsRepo.UpdateProfile(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to save avatar deletion: %w", err)
 	}
@@ -337,12 +338,12 @@ func (i *UserSettingsInteractor) DeleteAvatar(req *inputport.DeleteAvatarRequest
 }
 
 // SendEmailVerification はメール認証メールを送信
-func (i *UserSettingsInteractor) SendEmailVerification(req *inputport.SendEmailVerificationRequest) error {
+func (i *UserSettingsInteractor) SendEmailVerification(ctx context.Context, req *inputport.SendEmailVerificationRequest) error {
 	i.logger.Info("Sending email verification", entities.NewField("email", req.Email))
 
 	// 既存のトークンを削除（登録時はUserIDがnil、メール変更時はUserIDあり）
 	if req.UserID != nil {
-		_ = i.emailVerificationRepo.DeleteByUserID(*req.UserID)
+		_ = i.emailVerificationRepo.DeleteByUserID(ctx, *req.UserID)
 	}
 
 	// 新しいトークンを作成
@@ -352,7 +353,7 @@ func (i *UserSettingsInteractor) SendEmailVerification(req *inputport.SendEmailV
 	}
 
 	// トークンを保存
-	if err := i.emailVerificationRepo.Create(token); err != nil {
+	if err := i.emailVerificationRepo.Create(ctx, token); err != nil {
 		return fmt.Errorf("failed to save token: %w", err)
 	}
 
@@ -367,11 +368,11 @@ func (i *UserSettingsInteractor) SendEmailVerification(req *inputport.SendEmailV
 }
 
 // VerifyEmail はメールアドレスを認証
-func (i *UserSettingsInteractor) VerifyEmail(req *inputport.VerifyEmailRequest) (*inputport.VerifyEmailResponse, error) {
+func (i *UserSettingsInteractor) VerifyEmail(ctx context.Context, req *inputport.VerifyEmailRequest) (*inputport.VerifyEmailResponse, error) {
 	i.logger.Info("Verifying email", entities.NewField("token", req.Token[:10]+"..."))
 
 	// トークンを取得
-	token, err := i.emailVerificationRepo.ReadByToken(req.Token)
+	token, err := i.emailVerificationRepo.ReadByToken(ctx, req.Token)
 	if err != nil {
 		return nil, errors.New("invalid or expired token")
 	}
@@ -392,7 +393,7 @@ func (i *UserSettingsInteractor) VerifyEmail(req *inputport.VerifyEmailRequest) 
 	}
 
 	// トークンを更新
-	if err := i.emailVerificationRepo.Update(token); err != nil {
+	if err := i.emailVerificationRepo.Update(ctx, token); err != nil {
 		return nil, fmt.Errorf("failed to update token: %w", err)
 	}
 
@@ -400,7 +401,7 @@ func (i *UserSettingsInteractor) VerifyEmail(req *inputport.VerifyEmailRequest) 
 
 	// ユーザーIDがある場合（メール変更）
 	if token.UserID != nil {
-		user, err = i.userRepo.Read(*token.UserID)
+		user, err = i.userRepo.Read(ctx, *token.UserID)
 		if err != nil {
 			return nil, fmt.Errorf("user not found: %w", err)
 		}
@@ -413,7 +414,7 @@ func (i *UserSettingsInteractor) VerifyEmail(req *inputport.VerifyEmailRequest) 
 		user.VerifyEmail()
 
 		// データベースに保存
-		success, err := i.userSettingsRepo.UpdateProfile(user)
+		success, err := i.userSettingsRepo.UpdateProfile(ctx, user)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save email: %w", err)
 		}
@@ -431,11 +432,11 @@ func (i *UserSettingsInteractor) VerifyEmail(req *inputport.VerifyEmailRequest) 
 }
 
 // ArchiveAccount はアカウントを削除（アーカイブ）
-func (i *UserSettingsInteractor) ArchiveAccount(req *inputport.ArchiveAccountRequest) error {
+func (i *UserSettingsInteractor) ArchiveAccount(ctx context.Context, req *inputport.ArchiveAccountRequest) error {
 	i.logger.Info("Archiving account", entities.NewField("user_id", req.UserID))
 
 	// ユーザーを取得
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
@@ -457,14 +458,14 @@ func (i *UserSettingsInteractor) ArchiveAccount(req *inputport.ArchiveAccountReq
 	archivedUser := user.ToArchivedUser(&req.UserID, req.DeletionReason)
 
 	// アーカイブユーザーを保存
-	if err := i.archivedUserRepo.Create(archivedUser); err != nil {
+	if err := i.archivedUserRepo.Create(ctx, archivedUser); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to archive user: %w", err)
 	}
 
 	// 元のユーザーを削除（論理削除ではなく物理削除）
 	// ※ この実装ではDeleteメソッドを使用しますが、実際には物理削除が必要な場合があります
-	if err := i.userRepo.Delete(user.ID); err != nil {
+	if err := i.userRepo.Delete(ctx, user.ID); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
@@ -492,10 +493,10 @@ func (i *UserSettingsInteractor) ArchiveAccount(req *inputport.ArchiveAccountReq
 }
 
 // GetProfile はプロフィール情報を取得
-func (i *UserSettingsInteractor) GetProfile(req *inputport.GetProfileRequest) (*inputport.GetProfileResponse, error) {
+func (i *UserSettingsInteractor) GetProfile(ctx context.Context, req *inputport.GetProfileRequest) (*inputport.GetProfileResponse, error) {
 	i.logger.Info("Getting profile", entities.NewField("user_id", req.UserID))
 
-	user, err := i.userRepo.Read(req.UserID)
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}

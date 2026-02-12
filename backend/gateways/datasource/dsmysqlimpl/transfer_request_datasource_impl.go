@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -83,11 +84,11 @@ func NewTransferRequestDataSource(db inframysql.DB) dsmysql.TransferRequestDataS
 }
 
 // Insert は新しい送金リクエストを挿入
-func (ds *TransferRequestDataSourceImpl) Insert(transferRequest *entities.TransferRequest) error {
+func (ds *TransferRequestDataSourceImpl) Insert(ctx context.Context, transferRequest *entities.TransferRequest) error {
 	model := &TransferRequestModel{}
 	model.FromDomain(transferRequest)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -96,10 +97,10 @@ func (ds *TransferRequestDataSourceImpl) Insert(transferRequest *entities.Transf
 }
 
 // Select はIDで送金リクエストを検索
-func (ds *TransferRequestDataSourceImpl) Select(id uuid.UUID) (*entities.TransferRequest, error) {
+func (ds *TransferRequestDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.TransferRequest, error) {
 	var model TransferRequestModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -111,10 +112,10 @@ func (ds *TransferRequestDataSourceImpl) Select(id uuid.UUID) (*entities.Transfe
 }
 
 // SelectByIdempotencyKey は冪等性キーで送金リクエストを検索
-func (ds *TransferRequestDataSourceImpl) SelectByIdempotencyKey(key string) (*entities.TransferRequest, error) {
+func (ds *TransferRequestDataSourceImpl) SelectByIdempotencyKey(ctx context.Context, key string) (*entities.TransferRequest, error) {
 	var model TransferRequestModel
 
-	err := ds.db.GetDB().Where("idempotency_key = ?", key).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("idempotency_key = ?", key).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -126,11 +127,11 @@ func (ds *TransferRequestDataSourceImpl) SelectByIdempotencyKey(key string) (*en
 }
 
 // Update は送金リクエストを更新
-func (ds *TransferRequestDataSourceImpl) Update(transferRequest *entities.TransferRequest) error {
+func (ds *TransferRequestDataSourceImpl) Update(ctx context.Context, transferRequest *entities.TransferRequest) error {
 	model := &TransferRequestModel{}
 	model.FromDomain(transferRequest)
 
-	result := ds.db.GetDB().Save(model)
+	result := inframysql.GetDB(ctx, ds.db.GetDB()).Save(model)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -144,10 +145,10 @@ func (ds *TransferRequestDataSourceImpl) Update(transferRequest *entities.Transf
 }
 
 // SelectPendingByToUser は受取人宛の承認待ちリクエストを取得
-func (ds *TransferRequestDataSourceImpl) SelectPendingByToUser(toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
+func (ds *TransferRequestDataSourceImpl) SelectPendingByToUser(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
 	var models []TransferRequestModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("to_user_id = ? AND status = ?", toUserID, string(entities.TransferRequestStatusPending)).
 		Where("expires_at > ?", time.Now()). // 有効期限内のみ
 		Order("created_at DESC").
@@ -168,10 +169,10 @@ func (ds *TransferRequestDataSourceImpl) SelectPendingByToUser(toUserID uuid.UUI
 }
 
 // SelectSentByFromUser は送信者が送ったリクエストを取得
-func (ds *TransferRequestDataSourceImpl) SelectSentByFromUser(fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
+func (ds *TransferRequestDataSourceImpl) SelectSentByFromUser(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
 	var models []TransferRequestModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("from_user_id = ?", fromUserID).
 		Order("created_at DESC").
 		Offset(offset).
@@ -191,10 +192,10 @@ func (ds *TransferRequestDataSourceImpl) SelectSentByFromUser(fromUserID uuid.UU
 }
 
 // CountPendingByToUser は受取人宛の承認待ちリクエスト数を取得
-func (ds *TransferRequestDataSourceImpl) CountPendingByToUser(toUserID uuid.UUID) (int64, error) {
+func (ds *TransferRequestDataSourceImpl) CountPendingByToUser(ctx context.Context, toUserID uuid.UUID) (int64, error) {
 	var count int64
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Model(&TransferRequestModel{}).
 		Where("to_user_id = ? AND status = ?", toUserID, string(entities.TransferRequestStatusPending)).
 		Where("expires_at > ?", time.Now()). // 有効期限内のみ
@@ -208,8 +209,8 @@ func (ds *TransferRequestDataSourceImpl) CountPendingByToUser(toUserID uuid.UUID
 }
 
 // UpdateExpiredRequests は期限切れのリクエストを一括更新
-func (ds *TransferRequestDataSourceImpl) UpdateExpiredRequests() (int64, error) {
-	result := ds.db.GetDB().
+func (ds *TransferRequestDataSourceImpl) UpdateExpiredRequests(ctx context.Context) (int64, error) {
+	result := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Model(&TransferRequestModel{}).
 		Where("status = ? AND expires_at <= ?", string(entities.TransferRequestStatusPending), time.Now()).
 		Update("status", string(entities.TransferRequestStatusExpired))

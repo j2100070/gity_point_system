@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TransferRequestRepository } from '@/infrastructure/api/repositories/TransferRequestRepository';
 import { PointRepository } from '@/infrastructure/api/repositories/PointRepository';
+import { FriendshipRepository } from '@/infrastructure/api/repositories/FriendshipRepository';
 
 const transferRequestRepository = new TransferRequestRepository();
 const pointRepository = new PointRepository();
+const friendshipRepository = new FriendshipRepository();
 
 interface ToUserInfo {
   id: string;
@@ -36,16 +38,30 @@ export const ConfirmTransferRequestPage: React.FC = () => {
       return;
     }
 
-    loadMyBalance();
-    setLoading(false);
+    loadData();
   }, [toUserId]);
 
-  const loadMyBalance = async () => {
+  const loadData = async () => {
     try {
-      const data = await pointRepository.getBalance();
-      setMyBalance(data.balance);
+      // 並行して残高とユーザー情報を取得
+      const [balanceData, userData] = await Promise.all([
+        pointRepository.getBalance(),
+        friendshipRepository.getUserById(toUserId!)
+      ]);
+
+      setMyBalance(balanceData.balance);
+      setToUser({
+        id: userData.user.id,
+        username: userData.user.username,
+        display_name: userData.user.display_name,
+        avatar_url: userData.user.avatar_url,
+        balance: 0, // 受取人の残高は表示しない
+      });
     } catch (err) {
-      console.error('Failed to load balance:', err);
+      console.error('Failed to load data:', err);
+      setError('ユーザー情報の取得に失敗しました');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -1,6 +1,7 @@
 package interactor_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
+	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,15 +20,15 @@ import (
 // ========================================
 
 type mockTransferRequestRepo struct {
-	requests       map[uuid.UUID]*entities.TransferRequest
-	byIdempotency  map[string]*entities.TransferRequest
-	pendingByTo    []*entities.TransferRequest
-	sentByFrom     []*entities.TransferRequest
-	pendingCount   int64
-	createErr      error
-	readErr        error
-	updateErr      error
-	countErr       error
+	requests      map[uuid.UUID]*entities.TransferRequest
+	byIdempotency map[string]*entities.TransferRequest
+	pendingByTo   []*entities.TransferRequest
+	sentByFrom    []*entities.TransferRequest
+	pendingCount  int64
+	createErr     error
+	readErr       error
+	updateErr     error
+	countErr      error
 }
 
 func newMockTransferRequestRepo() *mockTransferRequestRepo {
@@ -36,7 +38,7 @@ func newMockTransferRequestRepo() *mockTransferRequestRepo {
 	}
 }
 
-func (m *mockTransferRequestRepo) Create(tr *entities.TransferRequest) error {
+func (m *mockTransferRequestRepo) Create(ctx context.Context, tr *entities.TransferRequest) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -45,7 +47,7 @@ func (m *mockTransferRequestRepo) Create(tr *entities.TransferRequest) error {
 	return nil
 }
 
-func (m *mockTransferRequestRepo) Read(id uuid.UUID) (*entities.TransferRequest, error) {
+func (m *mockTransferRequestRepo) Read(ctx context.Context, id uuid.UUID) (*entities.TransferRequest, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -56,7 +58,7 @@ func (m *mockTransferRequestRepo) Read(id uuid.UUID) (*entities.TransferRequest,
 	return tr, nil
 }
 
-func (m *mockTransferRequestRepo) ReadByIdempotencyKey(key string) (*entities.TransferRequest, error) {
+func (m *mockTransferRequestRepo) ReadByIdempotencyKey(ctx context.Context, key string) (*entities.TransferRequest, error) {
 	tr, ok := m.byIdempotency[key]
 	if !ok {
 		return nil, nil
@@ -64,7 +66,7 @@ func (m *mockTransferRequestRepo) ReadByIdempotencyKey(key string) (*entities.Tr
 	return tr, nil
 }
 
-func (m *mockTransferRequestRepo) Update(tr *entities.TransferRequest) error {
+func (m *mockTransferRequestRepo) Update(ctx context.Context, tr *entities.TransferRequest) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -72,22 +74,22 @@ func (m *mockTransferRequestRepo) Update(tr *entities.TransferRequest) error {
 	return nil
 }
 
-func (m *mockTransferRequestRepo) ReadPendingByToUser(toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
+func (m *mockTransferRequestRepo) ReadPendingByToUser(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
 	return m.pendingByTo, nil
 }
 
-func (m *mockTransferRequestRepo) ReadSentByFromUser(fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
+func (m *mockTransferRequestRepo) ReadSentByFromUser(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
 	return m.sentByFrom, nil
 }
 
-func (m *mockTransferRequestRepo) CountPendingByToUser(toUserID uuid.UUID) (int64, error) {
+func (m *mockTransferRequestRepo) CountPendingByToUser(ctx context.Context, toUserID uuid.UUID) (int64, error) {
 	if m.countErr != nil {
 		return 0, m.countErr
 	}
 	return m.pendingCount, nil
 }
 
-func (m *mockTransferRequestRepo) UpdateExpiredRequests() (int64, error) {
+func (m *mockTransferRequestRepo) UpdateExpiredRequests(ctx context.Context) (int64, error) {
 	return 0, nil
 }
 
@@ -102,8 +104,9 @@ func newMockUserRepoForTR() *mockUserRepoForTR {
 	}
 }
 
-func (m *mockUserRepoForTR) Create(user *entities.User) error { return nil }
-func (m *mockUserRepoForTR) Read(id uuid.UUID) (*entities.User, error) {
+// mockUserRepoForTR methods
+func (m *mockUserRepoForTR) Create(ctx context.Context, user *entities.User) error { return nil }
+func (m *mockUserRepoForTR) Read(ctx context.Context, id uuid.UUID) (*entities.User, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -113,12 +116,29 @@ func (m *mockUserRepoForTR) Read(id uuid.UUID) (*entities.User, error) {
 	}
 	return u, nil
 }
-func (m *mockUserRepoForTR) ReadByUsername(username string) (*entities.User, error) { return nil, nil }
-func (m *mockUserRepoForTR) ReadByEmail(email string) (*entities.User, error)       { return nil, nil }
-func (m *mockUserRepoForTR) Update(user *entities.User) (bool, error)               { return true, nil }
-func (m *mockUserRepoForTR) ReadPersonalQRCode(userID uuid.UUID) (string, error)    { return "", nil }
-func (m *mockUserRepoForTR) Count() (int64, error)                                  { return 0, nil }
-func (m *mockUserRepoForTR) Delete(id uuid.UUID) error                              { return nil }
+func (m *mockUserRepoForTR) ReadByUsername(ctx context.Context, username string) (*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForTR) ReadByEmail(ctx context.Context, email string) (*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForTR) Update(ctx context.Context, user *entities.User) (bool, error) {
+	return true, nil
+}
+func (m *mockUserRepoForTR) UpdateBalanceWithLock(ctx context.Context, userID uuid.UUID, amount int64, isDeduct bool) error {
+	return nil
+}
+func (m *mockUserRepoForTR) UpdateBalancesWithLock(ctx context.Context, updates []repository.BalanceUpdate) error {
+	return nil
+}
+func (m *mockUserRepoForTR) ReadList(ctx context.Context, offset, limit int) ([]*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForTR) Count(ctx context.Context) (int64, error)       { return 0, nil }
+func (m *mockUserRepoForTR) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockUserRepoForTR) ReadPersonalQRCode(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "", nil
+}
 
 func (m *mockUserRepoForTR) setUser(user *entities.User) {
 	m.users[user.ID] = user
@@ -133,24 +153,28 @@ func newMockPointTransferPort() *mockPointTransferPort {
 	return &mockPointTransferPort{}
 }
 
-func (m *mockPointTransferPort) Transfer(req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
+func (m *mockPointTransferPort) Transfer(ctx context.Context, req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
 	if m.transferErr != nil {
 		return nil, m.transferErr
 	}
 	return m.transferResp, nil
 }
 
-func (m *mockPointTransferPort) GetBalance(req *inputport.GetBalanceRequest) (*inputport.GetBalanceResponse, error) {
+func (m *mockPointTransferPort) GetBalance(ctx context.Context, req *inputport.GetBalanceRequest) (*inputport.GetBalanceResponse, error) {
 	return &inputport.GetBalanceResponse{Balance: 0}, nil
 }
 
-type mockLogger struct{}
+func (m *mockPointTransferPort) GetTransactionHistory(ctx context.Context, req *inputport.GetTransactionHistoryRequest) (*inputport.GetTransactionHistoryResponse, error) {
+	return nil, nil
+}
 
-func (m *mockLogger) Debug(msg string, fields ...entities.Field) {}
-func (m *mockLogger) Info(msg string, fields ...entities.Field)  {}
-func (m *mockLogger) Warn(msg string, fields ...entities.Field)  {}
-func (m *mockLogger) Error(msg string, fields ...entities.Field) {}
-func (m *mockLogger) Fatal(msg string, fields ...entities.Field) {}
+type mockTransferRequestLogger struct{}
+
+func (m *mockTransferRequestLogger) Debug(msg string, fields ...entities.Field) {}
+func (m *mockTransferRequestLogger) Info(msg string, fields ...entities.Field)  {}
+func (m *mockTransferRequestLogger) Warn(msg string, fields ...entities.Field)  {}
+func (m *mockTransferRequestLogger) Error(msg string, fields ...entities.Field) {}
+func (m *mockTransferRequestLogger) Fatal(msg string, fields ...entities.Field) {}
 
 // ========================================
 // TransferRequest Interactor Tests
@@ -161,7 +185,7 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
 		sender.Balance = 10000
@@ -172,7 +196,7 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		userRepo.setUser(sender)
 		userRepo.setUser(receiver)
 
-		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
+		itr := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
 		req := &inputport.CreateTransferRequestRequest{
 			FromUserID:     sender.ID,
@@ -182,7 +206,8 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 			IdempotencyKey: "key-123",
 		}
 
-		resp, err := interactor.CreateTransferRequest(req)
+		ctx := context.Background()
+		resp, err := itr.CreateTransferRequest(ctx, req)
 		require.NoError(t, err)
 		assert.Equal(t, sender.ID, resp.TransferRequest.FromUserID)
 		assert.Equal(t, receiver.ID, resp.TransferRequest.ToUserID)
@@ -195,7 +220,7 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
 		sender.Balance = 10000
@@ -208,9 +233,9 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 
 		// 既存リクエストを作成
 		existingTR, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Existing", "key-existing")
-		trRepo.Create(existingTR)
+		trRepo.Create(context.Background(), existingTR)
 
-		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
+		itr := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
 		req := &inputport.CreateTransferRequestRequest{
 			FromUserID:     sender.ID,
@@ -220,7 +245,8 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 			IdempotencyKey: "key-existing", // 同じキー
 		}
 
-		resp, err := interactor.CreateTransferRequest(req)
+		ctx := context.Background()
+		resp, err := itr.CreateTransferRequest(ctx, req)
 		require.NoError(t, err)
 		assert.Equal(t, existingTR.ID, resp.TransferRequest.ID)
 	})
@@ -229,13 +255,13 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
 		receiver.IsActive = true
 		userRepo.setUser(receiver)
 
-		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
+		itr := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
 		req := &inputport.CreateTransferRequestRequest{
 			FromUserID:     uuid.New(), // 存在しないユーザー
@@ -245,7 +271,9 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 			IdempotencyKey: "key-nosender",
 		}
 
-		_, err := interactor.CreateTransferRequest(req)
+		ctx := context.Background()
+
+		_, err := itr.CreateTransferRequest(ctx, req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "sender not found")
 	})
@@ -254,7 +282,7 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
 		sender.Balance = 100 // 残高不足
@@ -265,17 +293,17 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		userRepo.setUser(sender)
 		userRepo.setUser(receiver)
 
-		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
+		itr := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
 		req := &inputport.CreateTransferRequestRequest{
-			FromUserID:     sender.ID,
+			FromUserID:     sender.ID, // 存在しないユーザー
 			ToUserID:       receiver.ID,
 			Amount:         1000,
 			Message:        "Test",
 			IdempotencyKey: "key-insufficient",
 		}
 
-		_, err := interactor.CreateTransferRequest(req)
+		_, err := itr.CreateTransferRequest(context.Background(), req)
 		assert.Error(t, err)
 	})
 }
@@ -285,7 +313,7 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
 		sender.Balance = 10000
@@ -297,13 +325,13 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 
 		// リクエスト作成
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-approve")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		// ポイント転送のモックレスポンス
 		transaction := &entities.Transaction{
 			ID:          uuid.New(),
-			FromUserID:  sender.ID,
-			ToUserID:    receiver.ID,
+			FromUserID:  &sender.ID,
+			ToUserID:    &receiver.ID,
 			Amount:      1000,
 			Description: "approval",
 		}
@@ -320,7 +348,8 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 			UserID:    receiver.ID, // 受取人が承認
 		}
 
-		resp, err := interactor.ApproveTransferRequest(req)
+		ctx := context.Background()
+		resp, err := interactor.ApproveTransferRequest(ctx, req)
 		require.NoError(t, err)
 		assert.Equal(t, entities.TransferRequestStatusApproved, resp.TransferRequest.Status)
 		assert.NotNil(t, resp.TransferRequest.ApprovedAt)
@@ -332,13 +361,13 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-wronguser")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -347,7 +376,7 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 			UserID:    sender.ID, // 送信者が承認（エラー）
 		}
 
-		_, err := interactor.ApproveTransferRequest(req)
+		_, err := interactor.ApproveTransferRequest(context.Background(), req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})
@@ -356,14 +385,14 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-expired")
 		tr.ExpiresAt = time.Now().Add(-1 * time.Hour) // 期限切れ
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -372,7 +401,7 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 			UserID:    receiver.ID,
 		}
 
-		_, err := interactor.ApproveTransferRequest(req)
+		_, err := interactor.ApproveTransferRequest(context.Background(), req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "expired")
 	})
@@ -381,13 +410,13 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-transfer-fail")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		// ポイント転送を失敗させる
 		ptPort.transferErr = errors.New("insufficient balance")
@@ -399,7 +428,7 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 			UserID:    receiver.ID,
 		}
 
-		_, err := interactor.ApproveTransferRequest(req)
+		_, err := interactor.ApproveTransferRequest(context.Background(), req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to execute transfer")
 	})
@@ -410,13 +439,13 @@ func TestTransferRequestInteractor_RejectTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-reject")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -425,7 +454,10 @@ func TestTransferRequestInteractor_RejectTransferRequest(t *testing.T) {
 			UserID:    receiver.ID,
 		}
 
-		resp, err := interactor.RejectTransferRequest(req)
+		// Assuming 'ctx' is available in the test scope, or needs to be created.
+		// For a test, context.Background() is often used if no specific context values are needed.
+		ctx := context.Background()
+		resp, err := interactor.RejectTransferRequest(ctx, req)
 		require.NoError(t, err)
 		assert.Equal(t, entities.TransferRequestStatusRejected, resp.TransferRequest.Status)
 		assert.NotNil(t, resp.TransferRequest.RejectedAt)
@@ -435,13 +467,13 @@ func TestTransferRequestInteractor_RejectTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-reject-wrong")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -450,7 +482,8 @@ func TestTransferRequestInteractor_RejectTransferRequest(t *testing.T) {
 			UserID:    sender.ID, // 送信者が拒否（エラー）
 		}
 
-		_, err := interactor.RejectTransferRequest(req)
+		ctx := context.Background()
+		_, err := interactor.RejectTransferRequest(ctx, req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})
@@ -461,13 +494,13 @@ func TestTransferRequestInteractor_CancelTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-cancel")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -476,7 +509,8 @@ func TestTransferRequestInteractor_CancelTransferRequest(t *testing.T) {
 			UserID:    sender.ID,
 		}
 
-		resp, err := interactor.CancelTransferRequest(req)
+		ctx := context.Background()
+		resp, err := interactor.CancelTransferRequest(ctx, req)
 		require.NoError(t, err)
 		assert.Equal(t, entities.TransferRequestStatusCancelled, resp.TransferRequest.Status)
 		assert.NotNil(t, resp.TransferRequest.CancelledAt)
@@ -486,13 +520,13 @@ func TestTransferRequestInteractor_CancelTransferRequest(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender := &entities.User{ID: uuid.New()}
 		receiver := &entities.User{ID: uuid.New()}
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-cancel-wrong")
-		trRepo.Create(tr)
+		trRepo.Create(context.Background(), tr)
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -501,7 +535,8 @@ func TestTransferRequestInteractor_CancelTransferRequest(t *testing.T) {
 			UserID:    receiver.ID, // 受取人がキャンセル（エラー）
 		}
 
-		_, err := interactor.CancelTransferRequest(req)
+		ctx := context.Background()
+		_, err := interactor.CancelTransferRequest(ctx, req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})
@@ -512,7 +547,7 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
 		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
@@ -531,7 +566,8 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 			Limit:    10,
 		}
 
-		resp, err := interactor.GetPendingRequests(req)
+		ctx := context.Background()
+		resp, err := interactor.GetPendingRequests(ctx, req)
 		require.NoError(t, err)
 		assert.Len(t, resp.Requests, 1)
 		assert.Equal(t, tr.ID, resp.Requests[0].TransferRequest.ID)
@@ -541,7 +577,7 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
 		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
@@ -553,7 +589,7 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 		tr.ExpiresAt = time.Now().Add(-1 * time.Hour) // 期限切れ
 		trRepo.pendingByTo = []*entities.TransferRequest{tr}
 
-		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
+		itr := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
 		req := &inputport.GetPendingTransferRequestsRequest{
 			ToUserID: receiver.ID,
@@ -561,7 +597,8 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 			Limit:    10,
 		}
 
-		resp, err := interactor.GetPendingRequests(req)
+		ctx := context.Background()
+		resp, err := itr.GetPendingRequests(ctx, req)
 		require.NoError(t, err)
 		assert.Len(t, resp.Requests, 0) // 期限切れは除外
 	})
@@ -572,7 +609,7 @@ func TestTransferRequestInteractor_GetPendingRequestCount(t *testing.T) {
 		trRepo := newMockTransferRequestRepo()
 		userRepo := newMockUserRepoForTR()
 		ptPort := newMockPointTransferPort()
-		logger := &mockLogger{}
+		logger := &mockTransferRequestLogger{}
 
 		trRepo.pendingCount = 5
 
@@ -582,7 +619,8 @@ func TestTransferRequestInteractor_GetPendingRequestCount(t *testing.T) {
 			ToUserID: uuid.New(),
 		}
 
-		resp, err := interactor.GetPendingRequestCount(req)
+		ctx := context.Background()
+		resp, err := interactor.GetPendingRequestCount(ctx, req)
 		require.NoError(t, err)
 		assert.Equal(t, int64(5), resp.Count)
 	})

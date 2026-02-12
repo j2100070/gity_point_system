@@ -42,7 +42,7 @@ func (c *TransferRequestController) GetPersonalQRCode(ctx *gin.Context) {
 	}
 
 	// ユーザー情報取得
-	user, err := c.userRepo.Read(userID.(uuid.UUID))
+	user, err := c.userRepo.Read(ctx.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
@@ -86,7 +86,7 @@ func (c *TransferRequestController) CreateTransferRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.CreateTransferRequest(&inputport.CreateTransferRequestRequest{
+	resp, err := c.transferRequestUC.CreateTransferRequest(ctx, &inputport.CreateTransferRequestRequest{
 		FromUserID:     userID.(uuid.UUID),
 		ToUserID:       toUserID,
 		Amount:         req.Amount,
@@ -120,7 +120,7 @@ func (c *TransferRequestController) ApproveTransferRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.ApproveTransferRequest(&inputport.ApproveTransferRequestRequest{
+	resp, err := c.transferRequestUC.ApproveTransferRequest(ctx, &inputport.ApproveTransferRequestRequest{
 		RequestID: requestID,
 		UserID:    userID.(uuid.UUID),
 	})
@@ -151,7 +151,7 @@ func (c *TransferRequestController) RejectTransferRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.RejectTransferRequest(&inputport.RejectTransferRequestRequest{
+	resp, err := c.transferRequestUC.RejectTransferRequest(ctx, &inputport.RejectTransferRequestRequest{
 		RequestID: requestID,
 		UserID:    userID.(uuid.UUID),
 	})
@@ -182,7 +182,7 @@ func (c *TransferRequestController) CancelTransferRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.CancelTransferRequest(&inputport.CancelTransferRequestRequest{
+	resp, err := c.transferRequestUC.CancelTransferRequest(ctx, &inputport.CancelTransferRequestRequest{
 		RequestID: requestID,
 		UserID:    userID.(uuid.UUID),
 	})
@@ -210,7 +210,7 @@ func (c *TransferRequestController) GetPendingRequests(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.GetPendingRequests(&inputport.GetPendingTransferRequestsRequest{
+	resp, err := c.transferRequestUC.GetPendingRequests(ctx, &inputport.GetPendingTransferRequestsRequest{
 		ToUserID: userID.(uuid.UUID),
 		Offset:   offset,
 		Limit:    limit,
@@ -239,7 +239,7 @@ func (c *TransferRequestController) GetSentRequests(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.GetSentRequests(&inputport.GetSentTransferRequestsRequest{
+	resp, err := c.transferRequestUC.GetSentRequests(ctx, &inputport.GetSentTransferRequestsRequest{
 		FromUserID: userID.(uuid.UUID),
 		Offset:     offset,
 		Limit:      limit,
@@ -271,7 +271,7 @@ func (c *TransferRequestController) GetRequestDetail(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.GetRequestDetail(&inputport.GetTransferRequestDetailRequest{
+	resp, err := c.transferRequestUC.GetRequestDetail(ctx, &inputport.GetTransferRequestDetailRequest{
 		RequestID: requestID,
 		UserID:    userID.(uuid.UUID),
 	})
@@ -295,7 +295,7 @@ func (c *TransferRequestController) GetPendingRequestCount(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.transferRequestUC.GetPendingRequestCount(&inputport.GetPendingRequestCountRequest{
+	resp, err := c.transferRequestUC.GetPendingRequestCount(ctx, &inputport.GetPendingRequestCountRequest{
 		ToUserID: userID.(uuid.UUID),
 	})
 	if err != nil {

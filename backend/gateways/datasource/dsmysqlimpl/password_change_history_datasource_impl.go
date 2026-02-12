@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
@@ -53,18 +54,18 @@ func NewPasswordChangeHistoryDataSource(db inframysql.DB) *PasswordChangeHistory
 }
 
 // Insert は新しいパスワード変更履歴を挿入
-func (ds *PasswordChangeHistoryDataSourceImpl) Insert(history *entities.PasswordChangeHistory) error {
+func (ds *PasswordChangeHistoryDataSourceImpl) Insert(ctx context.Context, history *entities.PasswordChangeHistory) error {
 	model := &PasswordChangeHistoryModel{}
 	model.FromDomain(history)
 
-	return ds.db.GetDB().Create(model).Error
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // SelectListByUserID はユーザーIDで履歴を取得
-func (ds *PasswordChangeHistoryDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset, limit int) ([]*entities.PasswordChangeHistory, error) {
+func (ds *PasswordChangeHistoryDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.PasswordChangeHistory, error) {
 	var models []PasswordChangeHistoryModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
@@ -84,9 +85,9 @@ func (ds *PasswordChangeHistoryDataSourceImpl) SelectListByUserID(userID uuid.UU
 }
 
 // CountByUserID はユーザーIDで履歴数を取得
-func (ds *PasswordChangeHistoryDataSourceImpl) CountByUserID(userID uuid.UUID) (int64, error) {
+func (ds *PasswordChangeHistoryDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&PasswordChangeHistoryModel{}).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&PasswordChangeHistoryModel{}).
 		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err

@@ -60,7 +60,7 @@ func (c *PointController) Transfer(ctx *gin.Context, currentTime time.Time) {
 	}
 
 	// ユースケースを実行
-	resp, err := c.pointTransferUC.Transfer(&inputport.TransferRequest{
+	resp, err := c.pointTransferUC.Transfer(ctx, &inputport.TransferRequest{
 		FromUserID:     fromUserID.(uuid.UUID),
 		ToUserID:       toUserID,
 		Amount:         req.Amount,
@@ -87,7 +87,7 @@ func (c *PointController) GetBalance(ctx *gin.Context, currentTime time.Time) {
 		return
 	}
 
-	resp, err := c.pointTransferUC.GetBalance(&inputport.GetBalanceRequest{
+	resp, err := c.pointTransferUC.GetBalance(ctx, &inputport.GetBalanceRequest{
 		UserID: userID.(uuid.UUID),
 	})
 
@@ -119,7 +119,7 @@ func (c *PointController) GetTransactionHistory(ctx *gin.Context, currentTime ti
 		fmt.Sscanf(ctx.Query("limit"), "%d", &limit)
 	}
 
-	resp, err := c.pointTransferUC.GetTransactionHistory(&inputport.GetTransactionHistoryRequest{
+	resp, err := c.pointTransferUC.GetTransactionHistory(ctx, &inputport.GetTransactionHistoryRequest{
 		UserID: userID.(uuid.UUID),
 		Offset: offset,
 		Limit:  limit,

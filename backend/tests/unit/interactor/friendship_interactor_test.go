@@ -1,6 +1,7 @@
 package interactor_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -36,7 +37,7 @@ func newMockFriendshipRepo() *mockFriendshipRepo {
 	}
 }
 
-func (m *mockFriendshipRepo) Create(f *entities.Friendship) error {
+func (m *mockFriendshipRepo) Create(ctx context.Context, f *entities.Friendship) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -46,7 +47,7 @@ func (m *mockFriendshipRepo) Create(f *entities.Friendship) error {
 	return nil
 }
 
-func (m *mockFriendshipRepo) Read(id uuid.UUID) (*entities.Friendship, error) {
+func (m *mockFriendshipRepo) Read(ctx context.Context, id uuid.UUID) (*entities.Friendship, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -57,7 +58,7 @@ func (m *mockFriendshipRepo) Read(id uuid.UUID) (*entities.Friendship, error) {
 	return f, nil
 }
 
-func (m *mockFriendshipRepo) ReadByUsers(userID1, userID2 uuid.UUID) (*entities.Friendship, error) {
+func (m *mockFriendshipRepo) ReadByUsers(ctx context.Context, userID1, userID2 uuid.UUID) (*entities.Friendship, error) {
 	key1 := userID1.String() + "-" + userID2.String()
 	key2 := userID2.String() + "-" + userID1.String()
 	if f, ok := m.byUsers[key1]; ok {
@@ -69,15 +70,15 @@ func (m *mockFriendshipRepo) ReadByUsers(userID1, userID2 uuid.UUID) (*entities.
 	return nil, errors.New("friendship not found")
 }
 
-func (m *mockFriendshipRepo) ReadListFriends(userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
+func (m *mockFriendshipRepo) ReadListFriends(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
 	return m.friends, nil
 }
 
-func (m *mockFriendshipRepo) ReadListPendingRequests(userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
+func (m *mockFriendshipRepo) ReadListPendingRequests(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
 	return m.pending, nil
 }
 
-func (m *mockFriendshipRepo) Update(f *entities.Friendship) error {
+func (m *mockFriendshipRepo) Update(ctx context.Context, f *entities.Friendship) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -85,7 +86,7 @@ func (m *mockFriendshipRepo) Update(f *entities.Friendship) error {
 	return nil
 }
 
-func (m *mockFriendshipRepo) Delete(id uuid.UUID) error {
+func (m *mockFriendshipRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -93,7 +94,7 @@ func (m *mockFriendshipRepo) Delete(id uuid.UUID) error {
 	return nil
 }
 
-func (m *mockFriendshipRepo) ArchiveAndDelete(id uuid.UUID, archivedBy uuid.UUID) error {
+func (m *mockFriendshipRepo) ArchiveAndDelete(ctx context.Context, id uuid.UUID, archivedBy uuid.UUID) error {
 	if m.archiveErr != nil {
 		return m.archiveErr
 	}
@@ -105,7 +106,7 @@ func (m *mockFriendshipRepo) ArchiveAndDelete(id uuid.UUID, archivedBy uuid.UUID
 	return nil
 }
 
-func (m *mockFriendshipRepo) CheckAreFriends(userID1, userID2 uuid.UUID) (bool, error) {
+func (m *mockFriendshipRepo) CheckAreFriends(ctx context.Context, userID1, userID2 uuid.UUID) (bool, error) {
 	key1 := userID1.String() + "-" + userID2.String()
 	key2 := userID2.String() + "-" + userID1.String()
 	if f, ok := m.byUsers[key1]; ok && f.Status == entities.FriendshipStatusAccepted {
@@ -134,8 +135,8 @@ func newMockUserRepo() *mockUserRepo {
 	}
 }
 
-func (m *mockUserRepo) Create(user *entities.User) error { return nil }
-func (m *mockUserRepo) Read(id uuid.UUID) (*entities.User, error) {
+func (m *mockUserRepo) Create(ctx context.Context, user *entities.User) error { return nil }
+func (m *mockUserRepo) Read(ctx context.Context, id uuid.UUID) (*entities.User, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -145,19 +146,30 @@ func (m *mockUserRepo) Read(id uuid.UUID) (*entities.User, error) {
 	}
 	return u, nil
 }
-func (m *mockUserRepo) ReadByUsername(username string) (*entities.User, error) { return nil, nil }
-func (m *mockUserRepo) ReadByEmail(email string) (*entities.User, error)      { return nil, nil }
-func (m *mockUserRepo) Update(user *entities.User) (bool, error)              { return true, nil }
-func (m *mockUserRepo) Delete(id uuid.UUID) error                             { return nil }
-func (m *mockUserRepo) ReadListAll(offset, limit int) ([]*entities.User, int, error) {
+func (m *mockUserRepo) ReadByUsername(ctx context.Context, username string) (*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) ReadByEmail(ctx context.Context, email string) (*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) Update(ctx context.Context, user *entities.User) (bool, error) {
+	return true, nil
+}
+func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockUserRepo) ReadListAll(ctx context.Context, offset, limit int) ([]*entities.User, int, error) {
 	return nil, 0, nil
 }
-func (m *mockUserRepo) Count() (int64, error)                                { return 0, nil }
-func (m *mockUserRepo) ReadList(offset, limit int) ([]*entities.User, error) { return nil, nil }
-func (m *mockUserRepo) UpdateBalanceWithLock(tx interface{}, userID uuid.UUID, amount int64, isDeduct bool) error {
+func (m *mockUserRepo) ReadList(ctx context.Context, offset, limit int) ([]*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) ReadPersonalQRCode(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "", nil
+}
+func (m *mockUserRepo) Count(ctx context.Context) (int64, error) { return 0, nil }
+func (m *mockUserRepo) UpdateBalanceWithLock(ctx context.Context, userID uuid.UUID, amount int64, isDeduct bool) error {
 	return nil
 }
-func (m *mockUserRepo) UpdateBalancesWithLock(tx interface{}, updates []repository.BalanceUpdate) error {
+func (m *mockUserRepo) UpdateBalancesWithLock(ctx context.Context, updates []repository.BalanceUpdate) error {
 	return nil
 }
 
@@ -165,13 +177,13 @@ func (m *mockUserRepo) addUser(user *entities.User) {
 	m.users[user.ID] = user
 }
 
-type mockLogger struct{}
+type mockFriendshipLogger struct{}
 
-func (l *mockLogger) Debug(msg string, fields ...entities.Field) {}
-func (l *mockLogger) Info(msg string, fields ...entities.Field)  {}
-func (l *mockLogger) Warn(msg string, fields ...entities.Field)  {}
-func (l *mockLogger) Error(msg string, fields ...entities.Field) {}
-func (l *mockLogger) Fatal(msg string, fields ...entities.Field) {}
+func (m *mockFriendshipLogger) Debug(msg string, fields ...entities.Field) {}
+func (m *mockFriendshipLogger) Info(msg string, fields ...entities.Field)  {}
+func (m *mockFriendshipLogger) Warn(msg string, fields ...entities.Field)  {}
+func (m *mockFriendshipLogger) Error(msg string, fields ...entities.Field) {}
+func (m *mockFriendshipLogger) Fatal(msg string, fields ...entities.Field) {}
 
 // ========================================
 // Helper functions
@@ -206,9 +218,9 @@ func TestSendFriendRequest(t *testing.T) {
 		userRepo.addUser(createActiveUser(requesterID))
 		userRepo.addUser(createActiveUser(addresseeID))
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		resp, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -228,9 +240,9 @@ func TestSendFriendRequest(t *testing.T) {
 		userRepo.addUser(createActiveUser(requesterID))
 		// addresseeを追加しない
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		_, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -247,9 +259,9 @@ func TestSendFriendRequest(t *testing.T) {
 		userRepo.addUser(createActiveUser(requesterID))
 		userRepo.addUser(createInactiveUser(addresseeID))
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		_, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -270,9 +282,9 @@ func TestSendFriendRequest(t *testing.T) {
 		existing.Accept()
 		friendshipRepo.setExistingFriendship(existing)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		_, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -292,9 +304,9 @@ func TestSendFriendRequest(t *testing.T) {
 		existing, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.setExistingFriendship(existing)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		_, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -315,9 +327,9 @@ func TestSendFriendRequest(t *testing.T) {
 		existing.Block()
 		friendshipRepo.setExistingFriendship(existing)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		_, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -338,9 +350,9 @@ func TestSendFriendRequest(t *testing.T) {
 		existing.Reject()
 		friendshipRepo.setExistingFriendship(existing)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		resp, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: requesterID,
 			AddresseeID: addresseeID,
 		})
@@ -367,9 +379,9 @@ func TestAcceptFriendRequest(t *testing.T) {
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.AcceptFriendRequest(&inputport.AcceptFriendRequestRequest{
+		resp, err := interactorInstance.AcceptFriendRequest(context.Background(), &inputport.AcceptFriendRequestRequest{
 			FriendshipID: f.ID,
 			UserID:       addresseeID,
 		})
@@ -387,9 +399,9 @@ func TestAcceptFriendRequest(t *testing.T) {
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.AcceptFriendRequest(&inputport.AcceptFriendRequestRequest{
+		_, err := interactorInstance.AcceptFriendRequest(context.Background(), &inputport.AcceptFriendRequestRequest{
 			FriendshipID: f.ID,
 			UserID:       requesterID, // 申請者が承認しようとする
 		})
@@ -408,9 +420,9 @@ func TestAcceptFriendRequest(t *testing.T) {
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.AcceptFriendRequest(&inputport.AcceptFriendRequestRequest{
+		_, err := interactorInstance.AcceptFriendRequest(context.Background(), &inputport.AcceptFriendRequestRequest{
 			FriendshipID: f.ID,
 			UserID:       otherUser,
 		})
@@ -423,9 +435,9 @@ func TestAcceptFriendRequest(t *testing.T) {
 		friendshipRepo := newMockFriendshipRepo()
 		userRepo := newMockUserRepo()
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.AcceptFriendRequest(&inputport.AcceptFriendRequestRequest{
+		_, err := interactorInstance.AcceptFriendRequest(context.Background(), &inputport.AcceptFriendRequestRequest{
 			FriendshipID: uuid.New(),
 			UserID:       uuid.New(),
 		})
@@ -448,9 +460,9 @@ func TestRejectFriendRequest(t *testing.T) {
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.RejectFriendRequest(&inputport.RejectFriendRequestRequest{
+		resp, err := interactorInstance.RejectFriendRequest(context.Background(), &inputport.RejectFriendRequestRequest{
 			FriendshipID: f.ID,
 			UserID:       addresseeID,
 		})
@@ -468,9 +480,9 @@ func TestRejectFriendRequest(t *testing.T) {
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.RejectFriendRequest(&inputport.RejectFriendRequestRequest{
+		_, err := interactorInstance.RejectFriendRequest(context.Background(), &inputport.RejectFriendRequestRequest{
 			FriendshipID: f.ID,
 			UserID:       requesterID,
 		})
@@ -495,9 +507,9 @@ func TestRemoveFriend(t *testing.T) {
 		f.Accept()
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.RemoveFriend(&inputport.RemoveFriendRequest{
+		resp, err := interactorInstance.RemoveFriend(context.Background(), &inputport.RemoveFriendRequest{
 			UserID:       requesterID,
 			FriendshipID: f.ID,
 		})
@@ -505,7 +517,7 @@ func TestRemoveFriend(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
 		// 削除されていることを確認
-		_, readErr := friendshipRepo.Read(f.ID)
+		_, readErr := friendshipRepo.Read(context.Background(), f.ID)
 		assert.Error(t, readErr)
 	})
 
@@ -519,9 +531,9 @@ func TestRemoveFriend(t *testing.T) {
 		f.Accept()
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.RemoveFriend(&inputport.RemoveFriendRequest{
+		resp, err := interactorInstance.RemoveFriend(context.Background(), &inputport.RemoveFriendRequest{
 			UserID:       addresseeID,
 			FriendshipID: f.ID,
 		})
@@ -541,9 +553,9 @@ func TestRemoveFriend(t *testing.T) {
 		f.Accept()
 		friendshipRepo.setExistingFriendship(f)
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.RemoveFriend(&inputport.RemoveFriendRequest{
+		_, err := interactorInstance.RemoveFriend(context.Background(), &inputport.RemoveFriendRequest{
 			UserID:       otherUser,
 			FriendshipID: f.ID,
 		})
@@ -556,9 +568,9 @@ func TestRemoveFriend(t *testing.T) {
 		friendshipRepo := newMockFriendshipRepo()
 		userRepo := newMockUserRepo()
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.RemoveFriend(&inputport.RemoveFriendRequest{
+		_, err := interactorInstance.RemoveFriend(context.Background(), &inputport.RemoveFriendRequest{
 			UserID:       uuid.New(),
 			FriendshipID: uuid.New(),
 		})
@@ -577,9 +589,9 @@ func TestRemoveFriend(t *testing.T) {
 		friendshipRepo.setExistingFriendship(f)
 		friendshipRepo.archiveErr = errors.New("archive failed")
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		_, err := interactorInstance.RemoveFriend(&inputport.RemoveFriendRequest{
+		_, err := interactorInstance.RemoveFriend(context.Background(), &inputport.RemoveFriendRequest{
 			UserID:       requesterID,
 			FriendshipID: f.ID,
 		})
@@ -607,9 +619,9 @@ func TestGetFriends(t *testing.T) {
 		f.Accept()
 		friendshipRepo.friends = []*entities.Friendship{f}
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.GetFriends(&inputport.GetFriendsRequest{
+		resp, err := interactorInstance.GetFriends(context.Background(), &inputport.GetFriendsRequest{
 			UserID: userID,
 			Offset: 0,
 			Limit:  20,
@@ -626,9 +638,9 @@ func TestGetFriends(t *testing.T) {
 		userID := uuid.New()
 		friendshipRepo.friends = []*entities.Friendship{}
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.GetFriends(&inputport.GetFriendsRequest{
+		resp, err := interactorInstance.GetFriends(context.Background(), &inputport.GetFriendsRequest{
 			UserID: userID,
 			Offset: 0,
 			Limit:  20,
@@ -656,9 +668,9 @@ func TestGetPendingRequests(t *testing.T) {
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.pending = []*entities.Friendship{f}
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.GetPendingRequests(&inputport.GetPendingRequestsRequest{
+		resp, err := interactorInstance.GetPendingRequests(context.Background(), &inputport.GetPendingRequestsRequest{
 			UserID: addresseeID,
 			Offset: 0,
 			Limit:  20,
@@ -674,9 +686,9 @@ func TestGetPendingRequests(t *testing.T) {
 		userRepo := newMockUserRepo()
 		friendshipRepo.pending = []*entities.Friendship{}
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
-		resp, err := interactorInstance.GetPendingRequests(&inputport.GetPendingRequestsRequest{
+		resp, err := interactorInstance.GetPendingRequests(context.Background(), &inputport.GetPendingRequestsRequest{
 			UserID: uuid.New(),
 			Offset: 0,
 			Limit:  20,
@@ -700,10 +712,10 @@ func TestFriendshipFullFlow(t *testing.T) {
 		userRepo.addUser(createActiveUser(userA))
 		userRepo.addUser(createActiveUser(userB))
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
 		// 1. フレンド申請
-		sendResp, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		sendResp, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: userA,
 			AddresseeID: userB,
 		})
@@ -712,7 +724,7 @@ func TestFriendshipFullFlow(t *testing.T) {
 		assert.Equal(t, entities.FriendshipStatusPending, sendResp.Friendship.Status)
 
 		// 2. 承認
-		acceptResp, err := interactorInstance.AcceptFriendRequest(&inputport.AcceptFriendRequestRequest{
+		acceptResp, err := interactorInstance.AcceptFriendRequest(context.Background(), &inputport.AcceptFriendRequestRequest{
 			FriendshipID: friendshipID,
 			UserID:       userB,
 		})
@@ -720,7 +732,7 @@ func TestFriendshipFullFlow(t *testing.T) {
 		assert.Equal(t, entities.FriendshipStatusAccepted, acceptResp.Friendship.Status)
 
 		// 3. フレンド解散
-		removeResp, err := interactorInstance.RemoveFriend(&inputport.RemoveFriendRequest{
+		removeResp, err := interactorInstance.RemoveFriend(context.Background(), &inputport.RemoveFriendRequest{
 			UserID:       userA,
 			FriendshipID: friendshipID,
 		})
@@ -729,7 +741,7 @@ func TestFriendshipFullFlow(t *testing.T) {
 
 		// 4. 再申請（解散後なのでエラーにならないこと）
 		// ReadByUsersがfriendship not foundを返す（削除済み）ので新規作成される
-		reSendResp, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		reSendResp, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: userA,
 			AddresseeID: userB,
 		})
@@ -746,10 +758,10 @@ func TestFriendshipFullFlow(t *testing.T) {
 		userRepo.addUser(createActiveUser(userA))
 		userRepo.addUser(createActiveUser(userB))
 
-		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockLogger{})
+		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
 		// 1. フレンド申請
-		sendResp, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		sendResp, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: userA,
 			AddresseeID: userB,
 		})
@@ -757,7 +769,7 @@ func TestFriendshipFullFlow(t *testing.T) {
 		friendshipID := sendResp.Friendship.ID
 
 		// 2. 拒否
-		rejectResp, err := interactorInstance.RejectFriendRequest(&inputport.RejectFriendRequestRequest{
+		rejectResp, err := interactorInstance.RejectFriendRequest(context.Background(), &inputport.RejectFriendRequestRequest{
 			FriendshipID: friendshipID,
 			UserID:       userB,
 		})
@@ -765,7 +777,7 @@ func TestFriendshipFullFlow(t *testing.T) {
 		assert.Equal(t, entities.FriendshipStatusRejected, rejectResp.Friendship.Status)
 
 		// 3. 再申請（拒否後なのでエラーにならないこと）
-		reSendResp, err := interactorInstance.SendFriendRequest(&inputport.SendFriendRequestRequest{
+		reSendResp, err := interactorInstance.SendFriendRequest(context.Background(), &inputport.SendFriendRequestRequest{
 			RequesterID: userA,
 			AddresseeID: userB,
 		})

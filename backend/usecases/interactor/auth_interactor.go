@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gity/point-system/entities"
@@ -30,7 +31,7 @@ func NewAuthInteractor(
 }
 
 // Register は新しいユーザーを登録
-func (i *AuthInteractor) Register(req *inputport.RegisterRequest) (*inputport.RegisterResponse, error) {
+func (i *AuthInteractor) Register(ctx context.Context, req *inputport.RegisterRequest) (*inputport.RegisterResponse, error) {
 	i.logger.Info("Registering new user", entities.NewField("username", req.Username))
 
 	// パスワードハッシュ化
@@ -46,7 +47,7 @@ func (i *AuthInteractor) Register(req *inputport.RegisterRequest) (*inputport.Re
 	}
 
 	// ユーザー保存
-	if err := i.userRepo.Create(user); err != nil {
+	if err := i.userRepo.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
@@ -56,7 +57,7 @@ func (i *AuthInteractor) Register(req *inputport.RegisterRequest) (*inputport.Re
 		return nil, err
 	}
 
-	if err := i.sessionRepo.Create(session); err != nil {
+	if err := i.sessionRepo.Create(ctx, session); err != nil {
 		return nil, err
 	}
 
@@ -67,11 +68,11 @@ func (i *AuthInteractor) Register(req *inputport.RegisterRequest) (*inputport.Re
 }
 
 // Login はログイン処理
-func (i *AuthInteractor) Login(req *inputport.LoginRequest) (*inputport.LoginResponse, error) {
+func (i *AuthInteractor) Login(ctx context.Context, req *inputport.LoginRequest) (*inputport.LoginResponse, error) {
 	i.logger.Info("User login attempt", entities.NewField("username", req.Username))
 
 	// ユーザー検索
-	user, err := i.userRepo.ReadByUsername(req.Username)
+	user, err := i.userRepo.ReadByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, errors.New("invalid username or password")
 	}
@@ -92,7 +93,7 @@ func (i *AuthInteractor) Login(req *inputport.LoginRequest) (*inputport.LoginRes
 		return nil, err
 	}
 
-	if err := i.sessionRepo.Create(session); err != nil {
+	if err := i.sessionRepo.Create(ctx, session); err != nil {
 		return nil, err
 	}
 
@@ -103,14 +104,14 @@ func (i *AuthInteractor) Login(req *inputport.LoginRequest) (*inputport.LoginRes
 }
 
 // Logout はログアウト処理
-func (i *AuthInteractor) Logout(req *inputport.LogoutRequest) error {
+func (i *AuthInteractor) Logout(ctx context.Context, req *inputport.LogoutRequest) error {
 	i.logger.Info("User logout", entities.NewField("user_id", req.UserID))
-	return i.sessionRepo.DeleteByUserID(req.UserID)
+	return i.sessionRepo.DeleteByUserID(ctx, req.UserID)
 }
 
 // GetCurrentUser は現在のユーザー情報を取得
-func (i *AuthInteractor) GetCurrentUser(req *inputport.GetCurrentUserRequest) (*inputport.GetCurrentUserResponse, error) {
-	user, err := i.userRepo.Read(req.UserID)
+func (i *AuthInteractor) GetCurrentUser(ctx context.Context, req *inputport.GetCurrentUserRequest) (*inputport.GetCurrentUserResponse, error) {
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +122,8 @@ func (i *AuthInteractor) GetCurrentUser(req *inputport.GetCurrentUserRequest) (*
 }
 
 // ValidateSession はセッションを検証
-func (i *AuthInteractor) ValidateSession(sessionToken string) (*entities.Session, error) {
-	session, err := i.sessionRepo.ReadByToken(sessionToken)
+func (i *AuthInteractor) ValidateSession(ctx context.Context, sessionToken string) (*entities.Session, error) {
+	session, err := i.sessionRepo.ReadByToken(ctx, sessionToken)
 	if err != nil {
 		return nil, errors.New("invalid session")
 	}
@@ -134,7 +135,7 @@ func (i *AuthInteractor) ValidateSession(sessionToken string) (*entities.Session
 	// セッションをリフレッシュ（並行更新エラーは無視）
 	// 複数のリクエストが同時に来た場合、いずれかが成功すれば良い
 	session.Refresh()
-	if err := i.sessionRepo.Update(session); err != nil {
+	if err := i.sessionRepo.Update(ctx, session); err != nil {
 		// 並行更新エラーやその他のエラーでも、セッション自体は有効なので認証は継続
 		i.logger.Debug("Failed to refresh session (ignoring)", entities.NewField("error", err))
 	}

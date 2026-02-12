@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -59,11 +60,11 @@ func NewFriendshipDataSource(db inframysql.DB) dsmysql.FriendshipDataSource {
 }
 
 // Insert は新しい友達申請を挿入
-func (ds *FriendshipDataSourceImpl) Insert(friendship *entities.Friendship) error {
+func (ds *FriendshipDataSourceImpl) Insert(ctx context.Context, friendship *entities.Friendship) error {
 	model := &FriendshipModel{}
 	model.FromDomain(friendship)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -72,10 +73,10 @@ func (ds *FriendshipDataSourceImpl) Insert(friendship *entities.Friendship) erro
 }
 
 // Select はIDで友達関係を検索
-func (ds *FriendshipDataSourceImpl) Select(id uuid.UUID) (*entities.Friendship, error) {
+func (ds *FriendshipDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Friendship, error) {
 	var model FriendshipModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("friendship not found")
@@ -87,10 +88,10 @@ func (ds *FriendshipDataSourceImpl) Select(id uuid.UUID) (*entities.Friendship, 
 }
 
 // SelectByUsers は2人のユーザー間の友達関係を検索
-func (ds *FriendshipDataSourceImpl) SelectByUsers(userID1, userID2 uuid.UUID) (*entities.Friendship, error) {
+func (ds *FriendshipDataSourceImpl) SelectByUsers(ctx context.Context, userID1, userID2 uuid.UUID) (*entities.Friendship, error) {
 	var model FriendshipModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("(requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)",
 			userID1, userID2, userID2, userID1).
 		First(&model).Error
@@ -106,10 +107,10 @@ func (ds *FriendshipDataSourceImpl) SelectByUsers(userID1, userID2 uuid.UUID) (*
 }
 
 // SelectListFriends は承認済みの友達一覧を取得
-func (ds *FriendshipDataSourceImpl) SelectListFriends(userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
+func (ds *FriendshipDataSourceImpl) SelectListFriends(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
 	var models []FriendshipModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("(requester_id = ? OR addressee_id = ?) AND status = ?",
 			userID, userID, "accepted").
 		Offset(offset).
@@ -130,10 +131,10 @@ func (ds *FriendshipDataSourceImpl) SelectListFriends(userID uuid.UUID, offset, 
 }
 
 // SelectListPendingRequests は保留中の友達申請一覧を取得
-func (ds *FriendshipDataSourceImpl) SelectListPendingRequests(userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
+func (ds *FriendshipDataSourceImpl) SelectListPendingRequests(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
 	var models []FriendshipModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("addressee_id = ? AND status = ?", userID, "pending").
 		Offset(offset).
 		Limit(limit).
@@ -153,11 +154,11 @@ func (ds *FriendshipDataSourceImpl) SelectListPendingRequests(userID uuid.UUID, 
 }
 
 // Update は友達関係を更新
-func (ds *FriendshipDataSourceImpl) Update(friendship *entities.Friendship) error {
+func (ds *FriendshipDataSourceImpl) Update(ctx context.Context, friendship *entities.Friendship) error {
 	model := &FriendshipModel{}
 	model.FromDomain(friendship)
 
-	return ds.db.GetDB().Model(&FriendshipModel{}).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&FriendshipModel{}).
 		Where("id = ?", friendship.ID).
 		Updates(map[string]interface{}{
 			"status":     model.Status,
@@ -166,8 +167,8 @@ func (ds *FriendshipDataSourceImpl) Update(friendship *entities.Friendship) erro
 }
 
 // Delete は友達関係を削除
-func (ds *FriendshipDataSourceImpl) Delete(id uuid.UUID) error {
-	return ds.db.GetDB().Where("id = ?", id).Delete(&FriendshipModel{}).Error
+func (ds *FriendshipDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).Delete(&FriendshipModel{}).Error
 }
 
 // FriendshipArchiveModel はGORM用のアーカイブモデル
@@ -187,8 +188,8 @@ func (FriendshipArchiveModel) TableName() string {
 }
 
 // ArchiveAndDelete は友達関係をアーカイブしてから削除
-func (ds *FriendshipDataSourceImpl) ArchiveAndDelete(id uuid.UUID, archivedBy uuid.UUID) error {
-	return ds.db.GetDB().Transaction(func(tx *gorm.DB) error {
+func (ds *FriendshipDataSourceImpl) ArchiveAndDelete(ctx context.Context, id uuid.UUID, archivedBy uuid.UUID) error {
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Transaction(func(tx *gorm.DB) error {
 		// 1. 元レコードを取得
 		var model FriendshipModel
 		if err := tx.Where("id = ?", id).First(&model).Error; err != nil {
@@ -216,10 +217,10 @@ func (ds *FriendshipDataSourceImpl) ArchiveAndDelete(id uuid.UUID, archivedBy uu
 }
 
 // CheckAreFriends は2人のユーザーが友達かどうかを確認
-func (ds *FriendshipDataSourceImpl) CheckAreFriends(userID1, userID2 uuid.UUID) (bool, error) {
+func (ds *FriendshipDataSourceImpl) CheckAreFriends(ctx context.Context, userID1, userID2 uuid.UUID) (bool, error) {
 	var count int64
 
-	err := ds.db.GetDB().Model(&FriendshipModel{}).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&FriendshipModel{}).
 		Where("((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)) AND status = ?",
 			userID1, userID2, userID2, userID1, "accepted").
 		Count(&count).Error

@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gity/point-system/entities"
@@ -29,13 +30,13 @@ func NewFriendshipInteractor(
 }
 
 // SendFriendRequest は友達申請を送信
-func (i *FriendshipInteractor) SendFriendRequest(req *inputport.SendFriendRequestRequest) (*inputport.SendFriendRequestResponse, error) {
+func (i *FriendshipInteractor) SendFriendRequest(ctx context.Context, req *inputport.SendFriendRequestRequest) (*inputport.SendFriendRequestResponse, error) {
 	i.logger.Info("Sending friend request",
 		entities.NewField("requester_id", req.RequesterID),
 		entities.NewField("addressee_id", req.AddresseeID))
 
 	// 受信者の存在確認
-	addressee, err := i.userRepo.Read(req.AddresseeID)
+	addressee, err := i.userRepo.Read(ctx, req.AddresseeID)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
@@ -45,7 +46,7 @@ func (i *FriendshipInteractor) SendFriendRequest(req *inputport.SendFriendReques
 	}
 
 	// 既存の友達関係チェック
-	existing, _ := i.friendshipRepo.ReadByUsers(req.RequesterID, req.AddresseeID)
+	existing, _ := i.friendshipRepo.ReadByUsers(ctx, req.RequesterID, req.AddresseeID)
 	if existing != nil {
 		if existing.Status == entities.FriendshipStatusAccepted {
 			return nil, errors.New("already friends")
@@ -61,7 +62,7 @@ func (i *FriendshipInteractor) SendFriendRequest(req *inputport.SendFriendReques
 			existing.Status = entities.FriendshipStatusPending
 			existing.RequesterID = req.RequesterID
 			existing.AddresseeID = req.AddresseeID
-			if err := i.friendshipRepo.Update(existing); err != nil {
+			if err := i.friendshipRepo.Update(ctx, existing); err != nil {
 				return nil, err
 			}
 			return &inputport.SendFriendRequestResponse{Friendship: existing}, nil
@@ -74,7 +75,7 @@ func (i *FriendshipInteractor) SendFriendRequest(req *inputport.SendFriendReques
 		return nil, err
 	}
 
-	if err := i.friendshipRepo.Create(friendship); err != nil {
+	if err := i.friendshipRepo.Create(ctx, friendship); err != nil {
 		return nil, err
 	}
 
@@ -82,8 +83,8 @@ func (i *FriendshipInteractor) SendFriendRequest(req *inputport.SendFriendReques
 }
 
 // AcceptFriendRequest は友達申請を承認
-func (i *FriendshipInteractor) AcceptFriendRequest(req *inputport.AcceptFriendRequestRequest) (*inputport.AcceptFriendRequestResponse, error) {
-	friendship, err := i.friendshipRepo.Read(req.FriendshipID)
+func (i *FriendshipInteractor) AcceptFriendRequest(ctx context.Context, req *inputport.AcceptFriendRequestRequest) (*inputport.AcceptFriendRequestResponse, error) {
+	friendship, err := i.friendshipRepo.Read(ctx, req.FriendshipID)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func (i *FriendshipInteractor) AcceptFriendRequest(req *inputport.AcceptFriendRe
 		return nil, err
 	}
 
-	if err := i.friendshipRepo.Update(friendship); err != nil {
+	if err := i.friendshipRepo.Update(ctx, friendship); err != nil {
 		return nil, err
 	}
 
@@ -104,8 +105,8 @@ func (i *FriendshipInteractor) AcceptFriendRequest(req *inputport.AcceptFriendRe
 }
 
 // RejectFriendRequest は友達申請を拒否
-func (i *FriendshipInteractor) RejectFriendRequest(req *inputport.RejectFriendRequestRequest) (*inputport.RejectFriendRequestResponse, error) {
-	friendship, err := i.friendshipRepo.Read(req.FriendshipID)
+func (i *FriendshipInteractor) RejectFriendRequest(ctx context.Context, req *inputport.RejectFriendRequestRequest) (*inputport.RejectFriendRequestResponse, error) {
+	friendship, err := i.friendshipRepo.Read(ctx, req.FriendshipID)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (i *FriendshipInteractor) RejectFriendRequest(req *inputport.RejectFriendRe
 		return nil, err
 	}
 
-	if err := i.friendshipRepo.Update(friendship); err != nil {
+	if err := i.friendshipRepo.Update(ctx, friendship); err != nil {
 		return nil, err
 	}
 
@@ -126,8 +127,8 @@ func (i *FriendshipInteractor) RejectFriendRequest(req *inputport.RejectFriendRe
 }
 
 // GetFriends は友達一覧を取得
-func (i *FriendshipInteractor) GetFriends(req *inputport.GetFriendsRequest) (*inputport.GetFriendsResponse, error) {
-	friendships, err := i.friendshipRepo.ReadListFriends(req.UserID, req.Offset, req.Limit)
+func (i *FriendshipInteractor) GetFriends(ctx context.Context, req *inputport.GetFriendsRequest) (*inputport.GetFriendsResponse, error) {
+	friendships, err := i.friendshipRepo.ReadListFriends(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +140,7 @@ func (i *FriendshipInteractor) GetFriends(req *inputport.GetFriendsRequest) (*in
 			friendID = friendship.RequesterID
 		}
 
-		user, err := i.userRepo.Read(friendID)
+		user, err := i.userRepo.Read(ctx, friendID)
 		if err != nil {
 			continue
 		}
@@ -154,15 +155,15 @@ func (i *FriendshipInteractor) GetFriends(req *inputport.GetFriendsRequest) (*in
 }
 
 // GetPendingRequests は保留中の友達申請を取得
-func (i *FriendshipInteractor) GetPendingRequests(req *inputport.GetPendingRequestsRequest) (*inputport.GetPendingRequestsResponse, error) {
-	friendships, err := i.friendshipRepo.ReadListPendingRequests(req.UserID, req.Offset, req.Limit)
+func (i *FriendshipInteractor) GetPendingRequests(ctx context.Context, req *inputport.GetPendingRequestsRequest) (*inputport.GetPendingRequestsResponse, error) {
+	friendships, err := i.friendshipRepo.ReadListPendingRequests(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
 
 	requests := make([]*inputport.PendingRequestInfo, 0, len(friendships))
 	for _, friendship := range friendships {
-		user, err := i.userRepo.Read(friendship.RequesterID)
+		user, err := i.userRepo.Read(ctx, friendship.RequesterID)
 		if err != nil {
 			continue
 		}
@@ -177,8 +178,8 @@ func (i *FriendshipInteractor) GetPendingRequests(req *inputport.GetPendingReque
 }
 
 // RemoveFriend は友達を削除（アーカイブに移動）
-func (i *FriendshipInteractor) RemoveFriend(req *inputport.RemoveFriendRequest) (*inputport.RemoveFriendResponse, error) {
-	friendship, err := i.friendshipRepo.Read(req.FriendshipID)
+func (i *FriendshipInteractor) RemoveFriend(ctx context.Context, req *inputport.RemoveFriendRequest) (*inputport.RemoveFriendResponse, error) {
+	friendship, err := i.friendshipRepo.Read(ctx, req.FriendshipID)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +188,7 @@ func (i *FriendshipInteractor) RemoveFriend(req *inputport.RemoveFriendRequest) 
 		return nil, errors.New("unauthorized to remove this friendship")
 	}
 
-	if err := i.friendshipRepo.ArchiveAndDelete(req.FriendshipID, req.UserID); err != nil {
+	if err := i.friendshipRepo.ArchiveAndDelete(ctx, req.FriendshipID, req.UserID); err != nil {
 		return nil, err
 	}
 

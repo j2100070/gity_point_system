@@ -36,7 +36,7 @@ func (c *CategoryController) CreateCategory(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.categoryUseCase.CreateCategory(&req)
+	resp, err := c.categoryUseCase.CreateCategory(ctx, &req)
 	if err != nil {
 		c.logger.Error("Failed to create category", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -63,7 +63,7 @@ func (c *CategoryController) UpdateCategory(ctx *gin.Context) {
 
 	req.CategoryID = categoryID
 
-	resp, err := c.categoryUseCase.UpdateCategory(&req)
+	resp, err := c.categoryUseCase.UpdateCategory(ctx, &req)
 	if err != nil {
 		c.logger.Error("Failed to update category", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -86,7 +86,7 @@ func (c *CategoryController) DeleteCategory(ctx *gin.Context) {
 		CategoryID: categoryID,
 	}
 
-	if err := c.categoryUseCase.DeleteCategory(req); err != nil {
+	if err := c.categoryUseCase.DeleteCategory(ctx, req); err != nil {
 		c.logger.Error("Failed to delete category", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -104,7 +104,7 @@ func (c *CategoryController) GetCategoryList(ctx *gin.Context) {
 		ActiveOnly: activeOnly,
 	}
 
-	resp, err := c.categoryUseCase.GetCategoryList(req)
+	resp, err := c.categoryUseCase.GetCategoryList(ctx, req)
 	if err != nil {
 		c.logger.Error("Failed to get category list", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

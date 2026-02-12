@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,31 +10,31 @@ import (
 // UserSettingsInputPort はユーザー設定のユースケースインターフェース
 type UserSettingsInputPort interface {
 	// UpdateProfile はプロフィールを更新
-	UpdateProfile(req *UpdateProfileRequest) (*UpdateProfileResponse, error)
+	UpdateProfile(ctx context.Context, req *UpdateProfileRequest) (*UpdateProfileResponse, error)
 
 	// UpdateUsername はユーザー名を変更
-	UpdateUsername(req *UpdateUsernameRequest) error
+	UpdateUsername(ctx context.Context, req *UpdateUsernameRequest) error
 
 	// ChangePassword はパスワードを変更
-	ChangePassword(req *ChangePasswordRequest) error
+	ChangePassword(ctx context.Context, req *ChangePasswordRequest) error
 
 	// UploadAvatar はアバター画像をアップロード
-	UploadAvatar(req *UploadAvatarRequest) (*UploadAvatarResponse, error)
+	UploadAvatar(ctx context.Context, req *UploadAvatarRequest) (*UploadAvatarResponse, error)
 
 	// DeleteAvatar はアバターを削除（自動生成に戻す）
-	DeleteAvatar(req *DeleteAvatarRequest) error
+	DeleteAvatar(ctx context.Context, req *DeleteAvatarRequest) error
 
 	// SendEmailVerification はメール認証メールを送信
-	SendEmailVerification(req *SendEmailVerificationRequest) error
+	SendEmailVerification(ctx context.Context, req *SendEmailVerificationRequest) error
 
 	// VerifyEmail はメールアドレスを認証
-	VerifyEmail(req *VerifyEmailRequest) (*VerifyEmailResponse, error)
+	VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*VerifyEmailResponse, error)
 
 	// ArchiveAccount はアカウントを削除（アーカイブ）
-	ArchiveAccount(req *ArchiveAccountRequest) error
+	ArchiveAccount(ctx context.Context, req *ArchiveAccountRequest) error
 
 	// GetProfile はプロフィール情報を取得
-	GetProfile(req *GetProfileRequest) (*GetProfileResponse, error)
+	GetProfile(ctx context.Context, req *GetProfileRequest) (*GetProfileResponse, error)
 }
 
 // UpdateProfileRequest はプロフィール更新リクエスト

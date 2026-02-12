@@ -149,8 +149,9 @@ func (r *Router) RegisterRoutes(
 				})
 			}
 
-			// ユーザー検索
+			// ユーザー検索・取得
 			protectedWithCSRF.GET("/users/search", friendController.SearchUserByUsername)
+			protectedWithCSRF.GET("/users/:id", friendController.GetUserByID)
 
 			// 友達
 			friends := protectedWithCSRF.Group("/friends")

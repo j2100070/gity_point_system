@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -32,16 +33,16 @@ func (j *JSONB) Scan(value interface{}) error {
 
 // TransactionModel はGORM用のトランザクションモデル
 type TransactionModel struct {
-	ID              uuid.UUID               `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	FromUserID      *uuid.UUID              `gorm:"type:uuid;index"`
-	ToUserID        *uuid.UUID              `gorm:"type:uuid;index"`
-	Amount          int64                   `gorm:"not null"`
-	TransactionType string                  `gorm:"type:varchar(50);not null;index"`
-	Status          string                  `gorm:"type:varchar(50);not null;index"`
-	IdempotencyKey  *string                 `gorm:"type:varchar(255);uniqueIndex"`
-	Description     string                  `gorm:"type:text"`
-	Metadata        JSONB                   `gorm:"type:jsonb"`
-	CreatedAt       time.Time               `gorm:"not null;default:now();index"`
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	FromUserID      *uuid.UUID `gorm:"type:uuid;index"`
+	ToUserID        *uuid.UUID `gorm:"type:uuid;index"`
+	Amount          int64      `gorm:"not null"`
+	TransactionType string     `gorm:"type:varchar(50);not null;index"`
+	Status          string     `gorm:"type:varchar(50);not null;index"`
+	IdempotencyKey  *string    `gorm:"type:varchar(255);uniqueIndex"`
+	Description     string     `gorm:"type:text"`
+	Metadata        JSONB      `gorm:"type:jsonb"`
+	CreatedAt       time.Time  `gorm:"not null;default:now();index"`
 	CompletedAt     *time.Time
 }
 
@@ -93,14 +94,10 @@ func NewTransactionDataSource(db inframysql.DB) dsmysql.TransactionDataSource {
 }
 
 // Insert は新しいトランザクションを挿入
-func (ds *TransactionDataSourceImpl) Insert(tx interface{}, transaction *entities.Transaction) error {
+func (ds *TransactionDataSourceImpl) Insert(ctx context.Context, transaction *entities.Transaction) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	model := &TransactionModel{}
 	model.FromDomain(transaction)
-
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
 
 	if err := db.Create(model).Error; err != nil {
 		return err
@@ -111,10 +108,10 @@ func (ds *TransactionDataSourceImpl) Insert(tx interface{}, transaction *entitie
 }
 
 // Select はIDでトランザクションを検索
-func (ds *TransactionDataSourceImpl) Select(id uuid.UUID) (*entities.Transaction, error) {
+func (ds *TransactionDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Transaction, error) {
 	var model TransactionModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("transaction not found")
@@ -126,10 +123,10 @@ func (ds *TransactionDataSourceImpl) Select(id uuid.UUID) (*entities.Transaction
 }
 
 // SelectByIdempotencyKey は冪等性キーでトランザクションを検索
-func (ds *TransactionDataSourceImpl) SelectByIdempotencyKey(key string) (*entities.Transaction, error) {
+func (ds *TransactionDataSourceImpl) SelectByIdempotencyKey(ctx context.Context, key string) (*entities.Transaction, error) {
 	var model TransactionModel
 
-	err := ds.db.GetDB().Where("idempotency_key = ?", key).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("idempotency_key = ?", key).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("transaction not found")
@@ -141,10 +138,10 @@ func (ds *TransactionDataSourceImpl) SelectByIdempotencyKey(key string) (*entiti
 }
 
 // SelectListByUserID はユーザーに関連するトランザクション一覧を取得
-func (ds *TransactionDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset, limit int) ([]*entities.Transaction, error) {
+func (ds *TransactionDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Transaction, error) {
 	var models []TransactionModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("from_user_id = ? OR to_user_id = ?", userID, userID).
 		Offset(offset).
 		Limit(limit).
@@ -164,10 +161,10 @@ func (ds *TransactionDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset
 }
 
 // SelectListAll は全トランザクション一覧を取得
-func (ds *TransactionDataSourceImpl) SelectListAll(offset, limit int) ([]*entities.Transaction, error) {
+func (ds *TransactionDataSourceImpl) SelectListAll(ctx context.Context, offset, limit int) ([]*entities.Transaction, error) {
 	var models []TransactionModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -186,14 +183,10 @@ func (ds *TransactionDataSourceImpl) SelectListAll(offset, limit int) ([]*entiti
 }
 
 // Update はトランザクションを更新
-func (ds *TransactionDataSourceImpl) Update(tx interface{}, transaction *entities.Transaction) error {
+func (ds *TransactionDataSourceImpl) Update(ctx context.Context, transaction *entities.Transaction) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	model := &TransactionModel{}
 	model.FromDomain(transaction)
-
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
 
 	return db.Model(&TransactionModel{}).
 		Where("id = ?", transaction.ID).
@@ -204,9 +197,9 @@ func (ds *TransactionDataSourceImpl) Update(tx interface{}, transaction *entitie
 }
 
 // CountByUserID はユーザーのトランザクション総数を取得
-func (ds *TransactionDataSourceImpl) CountByUserID(userID uuid.UUID) (int64, error) {
+func (ds *TransactionDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&TransactionModel{}).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&TransactionModel{}).
 		Where("from_user_id = ? OR to_user_id = ?", userID, userID).
 		Count(&count).Error
 	return count, err
@@ -260,11 +253,11 @@ func NewIdempotencyKeyDataSource(db inframysql.DB) dsmysql.IdempotencyKeyDataSou
 }
 
 // Insert は新しい冪等性キーを挿入
-func (ds *IdempotencyKeyDataSourceImpl) Insert(key *entities.IdempotencyKey) error {
+func (ds *IdempotencyKeyDataSourceImpl) Insert(ctx context.Context, key *entities.IdempotencyKey) error {
 	model := &IdempotencyKeyModel{}
 	model.FromDomain(key)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -273,10 +266,10 @@ func (ds *IdempotencyKeyDataSourceImpl) Insert(key *entities.IdempotencyKey) err
 }
 
 // SelectByKey はキーで冪等性キーを検索
-func (ds *IdempotencyKeyDataSourceImpl) SelectByKey(key string) (*entities.IdempotencyKey, error) {
+func (ds *IdempotencyKeyDataSourceImpl) SelectByKey(ctx context.Context, key string) (*entities.IdempotencyKey, error) {
 	var model IdempotencyKeyModel
 
-	err := ds.db.GetDB().Where("key = ?", key).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("key = ?", key).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("idempotency key not found")
@@ -288,11 +281,11 @@ func (ds *IdempotencyKeyDataSourceImpl) SelectByKey(key string) (*entities.Idemp
 }
 
 // Update は冪等性キーを更新
-func (ds *IdempotencyKeyDataSourceImpl) Update(key *entities.IdempotencyKey) error {
+func (ds *IdempotencyKeyDataSourceImpl) Update(ctx context.Context, key *entities.IdempotencyKey) error {
 	model := &IdempotencyKeyModel{}
 	model.FromDomain(key)
 
-	return ds.db.GetDB().Model(&IdempotencyKeyModel{}).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&IdempotencyKeyModel{}).
 		Where("key = ?", key.Key).
 		Updates(map[string]interface{}{
 			"transaction_id": model.TransactionID,
@@ -301,8 +294,8 @@ func (ds *IdempotencyKeyDataSourceImpl) Update(key *entities.IdempotencyKey) err
 }
 
 // DeleteExpired は期限切れの冪等性キーを削除
-func (ds *IdempotencyKeyDataSourceImpl) DeleteExpired() error {
-	return ds.db.GetDB().
+func (ds *IdempotencyKeyDataSourceImpl) DeleteExpired(ctx context.Context) error {
+	return inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("expires_at < ?", time.Now()).
 		Delete(&IdempotencyKeyModel{}).Error
 }

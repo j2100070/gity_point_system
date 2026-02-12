@@ -7,6 +7,8 @@ import (
 	"github.com/gity/point-system/config"
 	"github.com/gity/point-system/controllers/web"
 	"github.com/gity/point-system/controllers/web/presenter"
+	frameworksweb "github.com/gity/point-system/frameworks/web"
+	"github.com/gity/point-system/frameworks/web/middleware"
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
 	"github.com/gity/point-system/gateways/infra/infraemail"
 	"github.com/gity/point-system/gateways/infra/infralogger"
@@ -23,8 +25,6 @@ import (
 	transferrequestrepo "github.com/gity/point-system/gateways/repository/transfer_request"
 	userrepo "github.com/gity/point-system/gateways/repository/user"
 	usersettingsrepo "github.com/gity/point-system/gateways/repository/user_settings"
-	frameworksweb "github.com/gity/point-system/frameworks/web"
-	"github.com/gity/point-system/frameworks/web/middleware"
 	"github.com/gity/point-system/usecases/interactor"
 )
 
@@ -119,11 +119,14 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
+	// TransactionManagerを作成
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+
 	dailyBonusUC := interactor.NewDailyBonusInteractor(
 		dailyBonusRepo,
 		userRepo,
 		transactionRepo,
-		db,
+		txManager,
 		logger,
 	)
 
@@ -137,7 +140,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	)
 
 	adminUC := interactor.NewAdminInteractor(
-		db.GetDB(),
+		txManager,
 		userRepo,
 		transactionRepo,
 		idempotencyRepo,
@@ -150,7 +153,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	)
 
 	productExchangeUC := interactor.NewProductExchangeInteractor(
-		db.GetDB(),
+		txManager,
 		productRepo,
 		productExchangeRepo,
 		userRepo,

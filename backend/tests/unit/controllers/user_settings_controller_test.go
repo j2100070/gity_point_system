@@ -2,7 +2,9 @@ package controllers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,57 +24,58 @@ type MockUserSettingsInputPort struct {
 	mock.Mock
 }
 
-func (m *MockUserSettingsInputPort) UpdateProfile(req *inputport.UpdateProfileRequest) (*inputport.UpdateProfileResponse, error) {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) UpdateProfile(ctx context.Context, req *inputport.UpdateProfileRequest) (*inputport.UpdateProfileResponse, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*inputport.UpdateProfileResponse), args.Error(1)
 }
 
-func (m *MockUserSettingsInputPort) UpdateUsername(req *inputport.UpdateUsernameRequest) error {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) UpdateUsername(ctx context.Context, req *inputport.UpdateUsernameRequest) error {
+	args := m.Called(ctx, req)
 	return args.Error(0)
 }
 
-func (m *MockUserSettingsInputPort) ChangePassword(req *inputport.ChangePasswordRequest) error {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) ChangePassword(ctx context.Context, req *inputport.ChangePasswordRequest) error {
+	args := m.Called(ctx, req)
 	return args.Error(0)
 }
 
-func (m *MockUserSettingsInputPort) UploadAvatar(req *inputport.UploadAvatarRequest) (*inputport.UploadAvatarResponse, error) {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) UploadAvatar(ctx context.Context, req *inputport.UploadAvatarRequest) (*inputport.UploadAvatarResponse, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*inputport.UploadAvatarResponse), args.Error(1)
 }
 
-func (m *MockUserSettingsInputPort) DeleteAvatar(req *inputport.DeleteAvatarRequest) error {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) DeleteAvatar(ctx context.Context, req *inputport.DeleteAvatarRequest) error {
+	args := m.Called(ctx, req)
 	return args.Error(0)
 }
 
-func (m *MockUserSettingsInputPort) SendEmailVerification(req *inputport.SendEmailVerificationRequest) error {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) SendEmailVerification(ctx context.Context, req *inputport.SendEmailVerificationRequest) error {
+	args := m.Called(ctx, req)
 	return args.Error(0)
 }
 
-func (m *MockUserSettingsInputPort) VerifyEmail(req *inputport.VerifyEmailRequest) (*inputport.VerifyEmailResponse, error) {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) VerifyEmail(ctx context.Context, req *inputport.VerifyEmailRequest) (*inputport.VerifyEmailResponse, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*inputport.VerifyEmailResponse), args.Error(1)
 }
 
-func (m *MockUserSettingsInputPort) ArchiveAccount(req *inputport.ArchiveAccountRequest) error {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) ArchiveAccount(ctx context.Context, req *inputport.ArchiveAccountRequest) error {
+	args := m.Called(ctx, req)
 	return args.Error(0)
 }
 
-func (m *MockUserSettingsInputPort) GetProfile(req *inputport.GetProfileRequest) (*inputport.GetProfileResponse, error) {
-	args := m.Called(req)
+func (m *MockUserSettingsInputPort) GetProfile(ctx context.Context, req *inputport.GetProfileRequest) (*inputport.GetProfileResponse, error) {
+	fmt.Printf("Mock GetProfile called with: %T, %v\n", ctx, req)
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -117,7 +120,7 @@ func TestUpdateProfile(t *testing.T) {
 		}
 
 		c, w := setupTestContext("PUT", "/api/settings/profile", reqBody)
-		c.Set("userID", userID)
+		c.Set("user_id", userID)
 
 		mockUser := &entities.User{
 			ID:          userID,
@@ -126,7 +129,7 @@ func TestUpdateProfile(t *testing.T) {
 			DisplayName: "Updated Name",
 		}
 
-		mockUC.On("UpdateProfile", mock.AnythingOfType("*inputport.UpdateProfileRequest")).
+		mockUC.On("UpdateProfile", mock.Anything, mock.AnythingOfType("*inputport.UpdateProfileRequest")).
 			Return(&inputport.UpdateProfileResponse{
 				User:                  mockUser,
 				EmailVerificationSent: false,
@@ -165,9 +168,9 @@ func TestChangePassword(t *testing.T) {
 		}
 
 		c, w := setupTestContext("PUT", "/api/settings/password", reqBody)
-		c.Set("userID", userID)
+		c.Set("user_id", userID)
 
-		mockUC.On("ChangePassword", mock.AnythingOfType("*inputport.ChangePasswordRequest")).
+		mockUC.On("ChangePassword", mock.Anything, mock.AnythingOfType("*inputport.ChangePasswordRequest")).
 			Return(nil)
 
 		controller.ChangePassword(c)
@@ -199,7 +202,7 @@ func TestGetProfile(t *testing.T) {
 		userID := uuid.New()
 
 		c, w := setupTestContext("GET", "/api/settings/profile", nil)
-		c.Set("userID", userID)
+		c.Set("user_id", userID)
 
 		mockUser := &entities.User{
 			ID:          userID,
@@ -210,7 +213,7 @@ func TestGetProfile(t *testing.T) {
 			Role:        entities.RoleUser,
 		}
 
-		mockUC.On("GetProfile", mock.AnythingOfType("*inputport.GetProfileRequest")).
+		mockUC.On("GetProfile", mock.Anything, mock.AnythingOfType("*inputport.GetProfileRequest")).
 			Return(&inputport.GetProfileResponse{
 				User: mockUser,
 			}, nil)

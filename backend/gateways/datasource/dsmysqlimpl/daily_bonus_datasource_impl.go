@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
@@ -89,21 +90,24 @@ func (ds *DailyBonusDataSource) toModel(bonus *entities.DailyBonus) *DailyBonusM
 }
 
 // Insert はデイリーボーナスを挿入
-func (ds *DailyBonusDataSource) Insert(bonus *entities.DailyBonus) error {
+func (ds *DailyBonusDataSource) Insert(ctx context.Context, bonus *entities.DailyBonus) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	model := ds.toModel(bonus)
-	return ds.db.GetDB().Create(model).Error
+	return db.Create(model).Error
 }
 
 // Update はデイリーボーナスを更新
-func (ds *DailyBonusDataSource) Update(bonus *entities.DailyBonus) error {
+func (ds *DailyBonusDataSource) Update(ctx context.Context, bonus *entities.DailyBonus) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	model := ds.toModel(bonus)
-	return ds.db.GetDB().Save(model).Error
+	return db.Save(model).Error
 }
 
 // Select はIDでデイリーボーナスを取得
-func (ds *DailyBonusDataSource) Select(id uuid.UUID) (*entities.DailyBonus, error) {
+func (ds *DailyBonusDataSource) Select(ctx context.Context, id uuid.UUID) (*entities.DailyBonus, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model DailyBonusModel
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := db.Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -114,11 +118,12 @@ func (ds *DailyBonusDataSource) Select(id uuid.UUID) (*entities.DailyBonus, erro
 }
 
 // SelectByUserAndDate はユーザーIDと日付でデイリーボーナスを取得
-func (ds *DailyBonusDataSource) SelectByUserAndDate(userID uuid.UUID, date time.Time) (*entities.DailyBonus, error) {
+func (ds *DailyBonusDataSource) SelectByUserAndDate(ctx context.Context, userID uuid.UUID, date time.Time) (*entities.DailyBonus, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model DailyBonusModel
 	// 日付のみで比較（時刻は無視）
 	dateOnly := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
-	err := ds.db.GetDB().Where("user_id = ? AND bonus_date = ?", userID, dateOnly).First(&model).Error
+	err := db.Where("user_id = ? AND bonus_date = ?", userID, dateOnly).First(&model).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -129,9 +134,10 @@ func (ds *DailyBonusDataSource) SelectByUserAndDate(userID uuid.UUID, date time.
 }
 
 // SelectRecentByUser はユーザーの最近のデイリーボーナスを取得
-func (ds *DailyBonusDataSource) SelectRecentByUser(userID uuid.UUID, limit int) ([]*entities.DailyBonus, error) {
+func (ds *DailyBonusDataSource) SelectRecentByUser(ctx context.Context, userID uuid.UUID, limit int) ([]*entities.DailyBonus, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var models []DailyBonusModel
-	err := ds.db.GetDB().
+	err := db.
 		Where("user_id = ?", userID).
 		Order("bonus_date DESC").
 		Limit(limit).
@@ -148,9 +154,10 @@ func (ds *DailyBonusDataSource) SelectRecentByUser(userID uuid.UUID, limit int) 
 }
 
 // CountAllCompletedByUser はユーザーの全達成回数をカウント
-func (ds *DailyBonusDataSource) CountAllCompletedByUser(userID uuid.UUID) (int64, error) {
+func (ds *DailyBonusDataSource) CountAllCompletedByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var count int64
-	err := ds.db.GetDB().Model(&DailyBonusModel{}).
+	err := db.Model(&DailyBonusModel{}).
 		Where("user_id = ? AND all_completed = ?", userID, true).
 		Count(&count).Error
 	return count, err

@@ -40,7 +40,7 @@ func (c *FriendController) SearchUserByUsername(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userRepo.ReadByUsername(username)
+	user, err := c.userRepo.ReadByUsername(ctx.Request.Context(), username)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
 		return
@@ -51,6 +51,35 @@ func (c *FriendController) SearchUserByUsername(ctx *gin.Context) {
 			"id":           user.ID.String(),
 			"username":     user.Username,
 			"display_name": user.DisplayName,
+			"avatar_url":   user.AvatarURL,
+			"avatar_type":  user.AvatarType,
+		},
+	})
+}
+
+// GetUserByID はユーザーIDでユーザー情報を取得
+// GET /api/users/:id
+func (c *FriendController) GetUserByID(ctx *gin.Context) {
+	userIDStr := ctx.Param("id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+		return
+	}
+
+	user, err := c.userRepo.Read(ctx.Request.Context(), userID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":           user.ID.String(),
+			"username":     user.Username,
+			"display_name": user.DisplayName,
+			"avatar_url":   user.AvatarURL,
+			"avatar_type":  user.AvatarType,
 		},
 	})
 }
@@ -82,7 +111,7 @@ func (c *FriendController) SendFriendRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.friendshipUC.SendFriendRequest(&inputport.SendFriendRequestRequest{
+	resp, err := c.friendshipUC.SendFriendRequest(ctx, &inputport.SendFriendRequestRequest{
 		RequesterID: userID.(uuid.UUID),
 		AddresseeID: addresseeID,
 	})
@@ -113,7 +142,7 @@ func (c *FriendController) AcceptFriendRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.friendshipUC.AcceptFriendRequest(&inputport.AcceptFriendRequestRequest{
+	resp, err := c.friendshipUC.AcceptFriendRequest(ctx, &inputport.AcceptFriendRequestRequest{
 		UserID:       userID.(uuid.UUID),
 		FriendshipID: friendshipID,
 	})
@@ -144,7 +173,7 @@ func (c *FriendController) RejectFriendRequest(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.friendshipUC.RejectFriendRequest(&inputport.RejectFriendRequestRequest{
+	resp, err := c.friendshipUC.RejectFriendRequest(ctx, &inputport.RejectFriendRequestRequest{
 		UserID:       userID.(uuid.UUID),
 		FriendshipID: friendshipID,
 	})
@@ -176,7 +205,7 @@ func (c *FriendController) GetFriends(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.friendshipUC.GetFriends(&inputport.GetFriendsRequest{
+	resp, err := c.friendshipUC.GetFriends(ctx, &inputport.GetFriendsRequest{
 		UserID: userID.(uuid.UUID),
 		Offset: offset,
 		Limit:  limit,
@@ -209,7 +238,7 @@ func (c *FriendController) GetPendingRequests(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.friendshipUC.GetPendingRequests(&inputport.GetPendingRequestsRequest{
+	resp, err := c.friendshipUC.GetPendingRequests(ctx, &inputport.GetPendingRequestsRequest{
 		UserID: userID.(uuid.UUID),
 		Offset: offset,
 		Limit:  limit,
@@ -241,7 +270,7 @@ func (c *FriendController) RemoveFriend(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.friendshipUC.RemoveFriend(&inputport.RemoveFriendRequest{
+	resp, err := c.friendshipUC.RemoveFriend(ctx, &inputport.RemoveFriendRequest{
 		UserID:       userID.(uuid.UUID),
 		FriendshipID: friendshipID,
 	})

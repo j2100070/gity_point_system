@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -34,17 +35,17 @@ func (ProductModel) TableName() string {
 // ToDomain はドメインモデルに変換
 func (p *ProductModel) ToDomain() *entities.Product {
 	return &entities.Product{
-		ID:          p.ID,
-		Name:        p.Name,
-		Description: p.Description,
+		ID:           p.ID,
+		Name:         p.Name,
+		Description:  p.Description,
 		CategoryCode: p.Category,
-		Price:       p.Price,
-		Stock:       p.Stock,
-		ImageURL:    p.ImageURL,
-		IsAvailable: p.IsAvailable,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
-		DeletedAt:   p.DeletedAt,
+		Price:        p.Price,
+		Stock:        p.Stock,
+		ImageURL:     p.ImageURL,
+		IsAvailable:  p.IsAvailable,
+		CreatedAt:    p.CreatedAt,
+		UpdatedAt:    p.UpdatedAt,
+		DeletedAt:    p.DeletedAt,
 	}
 }
 
@@ -74,11 +75,11 @@ func NewProductDataSource(db inframysql.DB) dsmysql.ProductDataSource {
 }
 
 // Insert は新しい商品を挿入
-func (ds *ProductDataSourceImpl) Insert(product *entities.Product) error {
+func (ds *ProductDataSourceImpl) Insert(ctx context.Context, product *entities.Product) error {
 	model := &ProductModel{}
 	model.FromDomain(product)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -87,10 +88,10 @@ func (ds *ProductDataSourceImpl) Insert(product *entities.Product) error {
 }
 
 // Select はIDで商品を検索
-func (ds *ProductDataSourceImpl) Select(id uuid.UUID) (*entities.Product, error) {
+func (ds *ProductDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Product, error) {
 	var model ProductModel
 
-	err := ds.db.GetDB().Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
@@ -102,28 +103,28 @@ func (ds *ProductDataSourceImpl) Select(id uuid.UUID) (*entities.Product, error)
 }
 
 // Update は商品情報を更新
-func (ds *ProductDataSourceImpl) Update(product *entities.Product) error {
+func (ds *ProductDataSourceImpl) Update(ctx context.Context, product *entities.Product) error {
 	model := &ProductModel{}
 	model.FromDomain(product)
 	model.UpdatedAt = time.Now()
 
-	return ds.db.GetDB().Where("id = ? AND deleted_at IS NULL", product.ID).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", product.ID).
 		Updates(model).Error
 }
 
 // Delete は商品を論理削除
-func (ds *ProductDataSourceImpl) Delete(id uuid.UUID) error {
+func (ds *ProductDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	return ds.db.GetDB().Model(&ProductModel{}).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ProductModel{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("deleted_at", now).Error
 }
 
 // SelectList は商品一覧を取得
-func (ds *ProductDataSourceImpl) SelectList(offset, limit int) ([]*entities.Product, error) {
+func (ds *ProductDataSourceImpl) SelectList(ctx context.Context, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := ds.db.GetDB().Where("deleted_at IS NULL").
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("deleted_at IS NULL").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -142,10 +143,10 @@ func (ds *ProductDataSourceImpl) SelectList(offset, limit int) ([]*entities.Prod
 }
 
 // SelectListByCategory はカテゴリ別の商品一覧を取得
-func (ds *ProductDataSourceImpl) SelectListByCategory(categoryCode string, offset, limit int) ([]*entities.Product, error) {
+func (ds *ProductDataSourceImpl) SelectListByCategory(ctx context.Context, categoryCode string, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := ds.db.GetDB().Where("category = ? AND deleted_at IS NULL", categoryCode).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("category = ? AND deleted_at IS NULL", categoryCode).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -164,10 +165,10 @@ func (ds *ProductDataSourceImpl) SelectListByCategory(categoryCode string, offse
 }
 
 // SelectAvailableList は交換可能な商品一覧を取得
-func (ds *ProductDataSourceImpl) SelectAvailableList(offset, limit int) ([]*entities.Product, error) {
+func (ds *ProductDataSourceImpl) SelectAvailableList(ctx context.Context, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := ds.db.GetDB().Where("is_available = ? AND deleted_at IS NULL", true).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("is_available = ? AND deleted_at IS NULL", true).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -186,18 +187,15 @@ func (ds *ProductDataSourceImpl) SelectAvailableList(offset, limit int) ([]*enti
 }
 
 // Count は商品総数を取得
-func (ds *ProductDataSourceImpl) Count() (int64, error) {
+func (ds *ProductDataSourceImpl) Count(ctx context.Context) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&ProductModel{}).Where("deleted_at IS NULL").Count(&count).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ProductModel{}).Where("deleted_at IS NULL").Count(&count).Error
 	return count, err
 }
 
 // UpdateStock は在庫を更新
-func (ds *ProductDataSourceImpl) UpdateStock(tx interface{}, productID uuid.UUID, quantity int) error {
-	db := ds.db.GetDB()
-	if tx != nil {
-		db = tx.(*gorm.DB)
-	}
+func (ds *ProductDataSourceImpl) UpdateStock(ctx context.Context, productID uuid.UUID, quantity int) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	return db.Model(&ProductModel{}).
 		Where("id = ? AND deleted_at IS NULL", productID).

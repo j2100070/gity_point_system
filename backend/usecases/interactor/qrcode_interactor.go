@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -30,7 +31,7 @@ func NewQRCodeInteractor(
 }
 
 // GenerateReceiveQR は受取用QRコードを生成
-func (i *QRCodeInteractor) GenerateReceiveQR(req *inputport.GenerateReceiveQRRequest) (*inputport.GenerateReceiveQRResponse, error) {
+func (i *QRCodeInteractor) GenerateReceiveQR(ctx context.Context, req *inputport.GenerateReceiveQRRequest) (*inputport.GenerateReceiveQRResponse, error) {
 	i.logger.Info("Generating receive QR code", entities.NewField("user_id", req.UserID))
 
 	if req.Amount != nil && *req.Amount <= 0 {
@@ -42,7 +43,7 @@ func (i *QRCodeInteractor) GenerateReceiveQR(req *inputport.GenerateReceiveQRReq
 		return nil, err
 	}
 
-	if err := i.qrCodeRepo.Create(qrCode); err != nil {
+	if err := i.qrCodeRepo.Create(ctx, qrCode); err != nil {
 		return nil, err
 	}
 
@@ -59,7 +60,7 @@ func (i *QRCodeInteractor) GenerateReceiveQR(req *inputport.GenerateReceiveQRReq
 }
 
 // GenerateSendQR は送信用QRコードを生成
-func (i *QRCodeInteractor) GenerateSendQR(req *inputport.GenerateSendQRRequest) (*inputport.GenerateSendQRResponse, error) {
+func (i *QRCodeInteractor) GenerateSendQR(ctx context.Context, req *inputport.GenerateSendQRRequest) (*inputport.GenerateSendQRResponse, error) {
 	i.logger.Info("Generating send QR code", entities.NewField("user_id", req.UserID))
 
 	if req.Amount <= 0 {
@@ -71,7 +72,7 @@ func (i *QRCodeInteractor) GenerateSendQR(req *inputport.GenerateSendQRRequest) 
 		return nil, err
 	}
 
-	if err := i.qrCodeRepo.Create(qrCode); err != nil {
+	if err := i.qrCodeRepo.Create(ctx, qrCode); err != nil {
 		return nil, err
 	}
 
@@ -84,13 +85,13 @@ func (i *QRCodeInteractor) GenerateSendQR(req *inputport.GenerateSendQRRequest) 
 }
 
 // ScanQR はQRコードをスキャンしてポイント転送
-func (i *QRCodeInteractor) ScanQR(req *inputport.ScanQRRequest) (*inputport.ScanQRResponse, error) {
+func (i *QRCodeInteractor) ScanQR(ctx context.Context, req *inputport.ScanQRRequest) (*inputport.ScanQRResponse, error) {
 	i.logger.Info("Scanning QR code",
 		entities.NewField("user_id", req.UserID),
 		entities.NewField("code", req.Code))
 
 	// QRコード取得
-	qrCode, err := i.qrCodeRepo.ReadByCode(req.Code)
+	qrCode, err := i.qrCodeRepo.ReadByCode(ctx, req.Code)
 	if err != nil {
 		return nil, errors.New("qr code not found")
 	}
@@ -119,7 +120,7 @@ func (i *QRCodeInteractor) ScanQR(req *inputport.ScanQRRequest) (*inputport.Scan
 	}
 
 	// ポイント転送実行
-	transferResp, err := i.pointTransferUC.Transfer(&inputport.TransferRequest{
+	transferResp, err := i.pointTransferUC.Transfer(ctx, &inputport.TransferRequest{
 		FromUserID:     fromUserID,
 		ToUserID:       toUserID,
 		Amount:         amount,
@@ -135,7 +136,7 @@ func (i *QRCodeInteractor) ScanQR(req *inputport.ScanQRRequest) (*inputport.Scan
 	if err := qrCode.MarkAsUsed(req.UserID); err != nil {
 		i.logger.Warn("Failed to mark QR code as used", entities.NewField("error", err))
 	} else {
-		if err := i.qrCodeRepo.Update(qrCode); err != nil {
+		if err := i.qrCodeRepo.Update(ctx, qrCode); err != nil {
 			i.logger.Warn("Failed to update QR code", entities.NewField("error", err))
 		}
 	}
@@ -149,8 +150,8 @@ func (i *QRCodeInteractor) ScanQR(req *inputport.ScanQRRequest) (*inputport.Scan
 }
 
 // GetQRCodeHistory はQRコード履歴を取得
-func (i *QRCodeInteractor) GetQRCodeHistory(req *inputport.GetQRCodeHistoryRequest) (*inputport.GetQRCodeHistoryResponse, error) {
-	qrCodes, err := i.qrCodeRepo.ReadListByUserID(req.UserID, req.Offset, req.Limit)
+func (i *QRCodeInteractor) GetQRCodeHistory(ctx context.Context, req *inputport.GetQRCodeHistoryRequest) (*inputport.GetQRCodeHistoryResponse, error) {
+	qrCodes, err := i.qrCodeRepo.ReadListByUserID(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}

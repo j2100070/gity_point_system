@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -60,7 +61,7 @@ func (i *PointTransferInteractor) SetDailyBonusPort(dailyBonusPort inputport.Dai
 // - ロック戦略: SELECT FOR UPDATE + UUID順序ロック（デッドロック回避）
 // - エラーハンドリング: ロールバック処理を確実に実行
 // - REPEATABLE READにより、トランザクション内で一貫したスナップショットを保証
-func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
+func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
 	i.logger.Info("Starting point transfer",
 		entities.NewField("from_user_id", req.FromUserID),
 		entities.NewField("to_user_id", req.ToUserID),
@@ -79,18 +80,18 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 
 	// === 冪等性チェック ===
 	// 同じIdempotencyKeyで既に処理済みの場合は、その結果を返す
-	existingKey, err := i.idempotencyRepo.ReadByKey(req.IdempotencyKey)
+	existingKey, err := i.idempotencyRepo.ReadByKey(ctx, req.IdempotencyKey)
 	if err == nil {
 		// 既存のキーが見つかった場合
 		if existingKey.Status == "completed" && existingKey.TransactionID != nil {
 			// 完了済みの場合は既存のトランザクションを返す
-			transaction, err := i.transactionRepo.Read(*existingKey.TransactionID)
+			transaction, err := i.transactionRepo.Read(ctx, *existingKey.TransactionID)
 			if err != nil {
 				return nil, err
 			}
 
-			fromUser, _ := i.userRepo.Read(req.FromUserID)
-			toUser, _ := i.userRepo.Read(req.ToUserID)
+			fromUser, _ := i.userRepo.Read(ctx, req.FromUserID)
+			toUser, _ := i.userRepo.Read(ctx, req.ToUserID)
 
 			return &inputport.TransferResponse{
 				Transaction: transaction,
@@ -105,7 +106,7 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 
 	// 新しい冪等性キーを作成
 	idempotencyKey := entities.NewIdempotencyKey(req.IdempotencyKey, req.FromUserID)
-	if err := i.idempotencyRepo.Create(idempotencyKey); err != nil {
+	if err := i.idempotencyRepo.Create(ctx, idempotencyKey); err != nil {
 		// 競合エラーの場合は二重送信
 		return nil, errors.New("duplicate idempotency key")
 	}
@@ -115,13 +116,16 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 	var transaction *entities.Transaction
 
 	err = i.db.Transaction(func(tx *gorm.DB) error {
+		// contextにトランザクションを埋め込む (一時的な解決策)
+		txCtx := context.WithValue(ctx, interface{}("tx"), tx)
+
 		// 1. 送信者と受信者の存在確認
-		fromUser, err = i.userRepo.Read(req.FromUserID)
+		fromUser, err = i.userRepo.Read(txCtx, req.FromUserID)
 		if err != nil {
 			return fmt.Errorf("sender not found: %w", err)
 		}
 
-		toUser, err = i.userRepo.Read(req.ToUserID)
+		toUser, err = i.userRepo.Read(txCtx, req.ToUserID)
 		if err != nil {
 			return fmt.Errorf("receiver not found: %w", err)
 		}
@@ -137,11 +141,11 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 		// 3. 残高更新（SELECT FOR UPDATEで悲観的ロック）
 		// デッドロック回避: UpdateBalancesWithLockが内部でUUIDの小さい順にロックを取得
 		updates := []repository.BalanceUpdate{
-			{UserID: req.FromUserID, Amount: req.Amount, IsDeduct: true},  // 送信者から減算
-			{UserID: req.ToUserID, Amount: req.Amount, IsDeduct: false},   // 受信者に加算
+			{UserID: req.FromUserID, Amount: req.Amount, IsDeduct: true}, // 送信者から減算
+			{UserID: req.ToUserID, Amount: req.Amount, IsDeduct: false},  // 受信者に加算
 		}
 
-		if err := i.userRepo.UpdateBalancesWithLock(tx, updates); err != nil {
+		if err := i.userRepo.UpdateBalancesWithLock(txCtx, updates); err != nil {
 			return fmt.Errorf("failed to update balances: %w", err)
 		}
 
@@ -151,7 +155,7 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 			return err
 		}
 
-		if err := i.transactionRepo.Create(tx, transaction); err != nil {
+		if err := i.transactionRepo.Create(txCtx, transaction); err != nil {
 			return fmt.Errorf("failed to create transaction: %w", err)
 		}
 
@@ -160,14 +164,14 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 			return err
 		}
 
-		if err := i.transactionRepo.Update(tx, transaction); err != nil {
+		if err := i.transactionRepo.Update(txCtx, transaction); err != nil {
 			return err
 		}
 
 		// 7. 冪等性キーを完了状態に
 		idempotencyKey.Status = "completed"
 		idempotencyKey.TransactionID = &transaction.ID
-		if err := i.idempotencyRepo.Update(idempotencyKey); err != nil {
+		if err := i.idempotencyRepo.Update(ctx, idempotencyKey); err != nil {
 			return err
 		}
 
@@ -177,21 +181,21 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 	if err != nil {
 		// トランザクション失敗時は冪等性キーを失敗状態に
 		idempotencyKey.Status = "failed"
-		i.idempotencyRepo.Update(idempotencyKey)
+		i.idempotencyRepo.Update(ctx, idempotencyKey)
 		i.logger.Error("Point transfer failed", entities.NewField("error", err))
 		return nil, err
 	}
 
 	// 最新の残高を取得
-	fromUser, _ = i.userRepo.Read(req.FromUserID)
-	toUser, _ = i.userRepo.Read(req.ToUserID)
+	fromUser, _ = i.userRepo.Read(ctx, req.FromUserID)
+	toUser, _ = i.userRepo.Read(ctx, req.ToUserID)
 
 	i.logger.Info("Point transfer completed successfully",
 		entities.NewField("transaction_id", transaction.ID))
 
 	// デイリーボーナスチェック（送金ボーナス）
 	if i.dailyBonusPort != nil {
-		_, err := i.dailyBonusPort.CheckTransferBonus(&inputport.CheckTransferBonusRequest{
+		_, err := i.dailyBonusPort.CheckTransferBonus(ctx, &inputport.CheckTransferBonusRequest{
 			UserID:        req.FromUserID,
 			TransactionID: transaction.ID,
 			Date:          transaction.CreatedAt,
@@ -210,13 +214,13 @@ func (i *PointTransferInteractor) Transfer(req *inputport.TransferRequest) (*inp
 }
 
 // GetTransactionHistory はトランザクション履歴を取得
-func (i *PointTransferInteractor) GetTransactionHistory(req *inputport.GetTransactionHistoryRequest) (*inputport.GetTransactionHistoryResponse, error) {
-	transactions, err := i.transactionRepo.ReadListByUserID(req.UserID, req.Offset, req.Limit)
+func (i *PointTransferInteractor) GetTransactionHistory(ctx context.Context, req *inputport.GetTransactionHistoryRequest) (*inputport.GetTransactionHistoryResponse, error) {
+	transactions, err := i.transactionRepo.ReadListByUserID(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
 
-	total, err := i.transactionRepo.CountByUserID(req.UserID)
+	total, err := i.transactionRepo.CountByUserID(ctx, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +234,7 @@ func (i *PointTransferInteractor) GetTransactionHistory(req *inputport.GetTransa
 
 		// 送信者情報を取得
 		if tx.FromUserID != nil {
-			fromUser, err := i.userRepo.Read(*tx.FromUserID)
+			fromUser, err := i.userRepo.Read(ctx, *tx.FromUserID)
 			if err == nil {
 				txWithUsers.FromUser = fromUser
 			}
@@ -238,7 +242,7 @@ func (i *PointTransferInteractor) GetTransactionHistory(req *inputport.GetTransa
 
 		// 受信者情報を取得
 		if tx.ToUserID != nil {
-			toUser, err := i.userRepo.Read(*tx.ToUserID)
+			toUser, err := i.userRepo.Read(ctx, *tx.ToUserID)
 			if err == nil {
 				txWithUsers.ToUser = toUser
 			}
@@ -254,8 +258,8 @@ func (i *PointTransferInteractor) GetTransactionHistory(req *inputport.GetTransa
 }
 
 // GetBalance は残高を取得
-func (i *PointTransferInteractor) GetBalance(req *inputport.GetBalanceRequest) (*inputport.GetBalanceResponse, error) {
-	user, err := i.userRepo.Read(req.UserID)
+func (i *PointTransferInteractor) GetBalance(ctx context.Context, req *inputport.GetBalanceRequest) (*inputport.GetBalanceResponse, error) {
+	user, err := i.userRepo.Read(ctx, req.UserID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,24 +1,23 @@
 package interactor
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // DailyBonusInteractor はデイリーボーナスのインタラクター
 type DailyBonusInteractor struct {
-	dailyBonusRepo repository.DailyBonusRepository
-	userRepo       repository.UserRepository
+	dailyBonusRepo  repository.DailyBonusRepository
+	userRepo        repository.UserRepository
 	transactionRepo repository.TransactionRepository
-	db             inframysql.DB
-	logger         entities.Logger
+	txManager       repository.TransactionManager // TransactionManagerを使用
+	logger          entities.Logger
 }
 
 // NewDailyBonusInteractor は新しいDailyBonusInteractorを作成
@@ -26,75 +25,71 @@ func NewDailyBonusInteractor(
 	dailyBonusRepo repository.DailyBonusRepository,
 	userRepo repository.UserRepository,
 	transactionRepo repository.TransactionRepository,
-	db inframysql.DB,
+	txManager repository.TransactionManager,
 	logger entities.Logger,
 ) *DailyBonusInteractor {
 	return &DailyBonusInteractor{
 		dailyBonusRepo:  dailyBonusRepo,
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
-		db:              db,
+		txManager:       txManager,
 		logger:          logger,
 	}
 }
 
 // CheckLoginBonus はログインボーナスをチェックして付与
-func (i *DailyBonusInteractor) CheckLoginBonus(req *inputport.CheckLoginBonusRequest) (*inputport.CheckLoginBonusResponse, error) {
+func (i *DailyBonusInteractor) CheckLoginBonus(ctx context.Context, req *inputport.CheckLoginBonusRequest) (*inputport.CheckLoginBonusResponse, error) {
 	i.logger.Info("Checking login bonus", entities.NewField("user_id", req.UserID))
 
-	// トランザクション開始
-	tx := i.db.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// 本日のボーナスレコードを取得または作成
-	dateOnly := time.Date(req.Date.Year(), req.Date.Month(), req.Date.Day(), 0, 0, 0, 0, req.Date.Location())
-	dailyBonus, err := i.dailyBonusRepo.ReadByUserAndDate(req.UserID, dateOnly)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	if dailyBonus == nil {
-		// 新規作成
-		dailyBonus = entities.NewDailyBonus(req.UserID, dateOnly)
-	}
-
-	// ログインボーナスを達成
-	bonusPoints := dailyBonus.CompleteLogin()
-
-	// ボーナスレコードを保存
-	if dailyBonus.CreatedAt.IsZero() {
-		err = i.dailyBonusRepo.Create(dailyBonus)
-	} else {
-		err = i.dailyBonusRepo.Update(dailyBonus)
-	}
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	// ポイントを付与
+	var dailyBonus *entities.DailyBonus
+	var bonusPoints int64
 	var user *entities.User
-	if bonusPoints > 0 {
-		user, err = i.grantBonusPoints(tx, req.UserID, bonusPoints, "ログインボーナス")
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else {
-		user, err = i.userRepo.Read(req.UserID)
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	}
 
-	// コミット
-	if err := tx.Commit().Error; err != nil {
+	// TransactionManagerを使用してトランザクション内で処理を実行
+	err := i.txManager.Do(ctx, func(ctx context.Context) error {
+		// 本日のボーナスレコードを取得または作成
+		dateOnly := time.Date(req.Date.Year(), req.Date.Month(), req.Date.Day(), 0, 0, 0, 0, req.Date.Location())
+		db, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, dateOnly)
+		if err != nil {
+			return err
+		}
+
+		if db == nil {
+			// 新規作成
+			db = entities.NewDailyBonus(req.UserID, dateOnly)
+		}
+		dailyBonus = db
+
+		// ログインボーナスを達成
+		bonusPoints = dailyBonus.CompleteLogin()
+
+		// ボーナスレコードを保存
+		if dailyBonus.CreatedAt.IsZero() {
+			err = i.dailyBonusRepo.Create(ctx, dailyBonus)
+		} else {
+			err = i.dailyBonusRepo.Update(ctx, dailyBonus)
+		}
+		if err != nil {
+			return err
+		}
+
+		// ポイントを付与
+		if bonusPoints > 0 {
+			user, err = i.grantBonusPoints(ctx, req.UserID, bonusPoints, "ログインボーナス")
+			if err != nil {
+				return err
+			}
+		} else {
+			user, err = i.userRepo.Read(ctx, req.UserID)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -110,62 +105,57 @@ func (i *DailyBonusInteractor) CheckLoginBonus(req *inputport.CheckLoginBonusReq
 }
 
 // CheckTransferBonus は送金ボーナスをチェックして付与
-func (i *DailyBonusInteractor) CheckTransferBonus(req *inputport.CheckTransferBonusRequest) (*inputport.CheckTransferBonusResponse, error) {
+func (i *DailyBonusInteractor) CheckTransferBonus(ctx context.Context, req *inputport.CheckTransferBonusRequest) (*inputport.CheckTransferBonusResponse, error) {
 	i.logger.Info("Checking transfer bonus", entities.NewField("user_id", req.UserID))
 
-	// トランザクション開始
-	tx := i.db.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// 本日のボーナスレコードを取得または作成
-	dateOnly := time.Date(req.Date.Year(), req.Date.Month(), req.Date.Day(), 0, 0, 0, 0, req.Date.Location())
-	dailyBonus, err := i.dailyBonusRepo.ReadByUserAndDate(req.UserID, dateOnly)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	if dailyBonus == nil {
-		// 新規作成
-		dailyBonus = entities.NewDailyBonus(req.UserID, dateOnly)
-	}
-
-	// 送金ボーナスを達成
-	bonusPoints := dailyBonus.CompleteTransfer(req.TransactionID)
-
-	// ボーナスレコードを保存
-	if dailyBonus.CreatedAt.IsZero() {
-		err = i.dailyBonusRepo.Create(dailyBonus)
-	} else {
-		err = i.dailyBonusRepo.Update(dailyBonus)
-	}
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	// ポイントを付与
+	var dailyBonus *entities.DailyBonus
+	var bonusPoints int64
 	var user *entities.User
-	if bonusPoints > 0 {
-		user, err = i.grantBonusPoints(tx, req.UserID, bonusPoints, "送金ボーナス")
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else {
-		user, err = i.userRepo.Read(req.UserID)
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	}
 
-	// コミット
-	if err := tx.Commit().Error; err != nil {
+	err := i.txManager.Do(ctx, func(ctx context.Context) error {
+		// 本日のボーナスレコードを取得または作成
+		dateOnly := time.Date(req.Date.Year(), req.Date.Month(), req.Date.Day(), 0, 0, 0, 0, req.Date.Location())
+		db, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, dateOnly)
+		if err != nil {
+			return err
+		}
+
+		if db == nil {
+			// 新規作成
+			db = entities.NewDailyBonus(req.UserID, dateOnly)
+		}
+		dailyBonus = db
+
+		// 送金ボーナスを達成
+		bonusPoints = dailyBonus.CompleteTransfer(req.TransactionID)
+
+		// ボーナスレコードを保存
+		if dailyBonus.CreatedAt.IsZero() {
+			err = i.dailyBonusRepo.Create(ctx, dailyBonus)
+		} else {
+			err = i.dailyBonusRepo.Update(ctx, dailyBonus)
+		}
+		if err != nil {
+			return err
+		}
+
+		// ポイントを付与
+		if bonusPoints > 0 {
+			user, err = i.grantBonusPoints(ctx, req.UserID, bonusPoints, "送金ボーナス")
+			if err != nil {
+				return err
+			}
+		} else {
+			user, err = i.userRepo.Read(ctx, req.UserID)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -181,62 +171,57 @@ func (i *DailyBonusInteractor) CheckTransferBonus(req *inputport.CheckTransferBo
 }
 
 // CheckExchangeBonus は交換ボーナスをチェックして付与
-func (i *DailyBonusInteractor) CheckExchangeBonus(req *inputport.CheckExchangeBonusRequest) (*inputport.CheckExchangeBonusResponse, error) {
+func (i *DailyBonusInteractor) CheckExchangeBonus(ctx context.Context, req *inputport.CheckExchangeBonusRequest) (*inputport.CheckExchangeBonusResponse, error) {
 	i.logger.Info("Checking exchange bonus", entities.NewField("user_id", req.UserID))
 
-	// トランザクション開始
-	tx := i.db.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// 本日のボーナスレコードを取得または作成
-	dateOnly := time.Date(req.Date.Year(), req.Date.Month(), req.Date.Day(), 0, 0, 0, 0, req.Date.Location())
-	dailyBonus, err := i.dailyBonusRepo.ReadByUserAndDate(req.UserID, dateOnly)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	if dailyBonus == nil {
-		// 新規作成
-		dailyBonus = entities.NewDailyBonus(req.UserID, dateOnly)
-	}
-
-	// 交換ボーナスを達成
-	bonusPoints := dailyBonus.CompleteExchange(req.ExchangeID)
-
-	// ボーナスレコードを保存
-	if dailyBonus.CreatedAt.IsZero() {
-		err = i.dailyBonusRepo.Create(dailyBonus)
-	} else {
-		err = i.dailyBonusRepo.Update(dailyBonus)
-	}
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	// ポイントを付与
+	var dailyBonus *entities.DailyBonus
+	var bonusPoints int64
 	var user *entities.User
-	if bonusPoints > 0 {
-		user, err = i.grantBonusPoints(tx, req.UserID, bonusPoints, "商品交換ボーナス")
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else {
-		user, err = i.userRepo.Read(req.UserID)
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	}
 
-	// コミット
-	if err := tx.Commit().Error; err != nil {
+	err := i.txManager.Do(ctx, func(ctx context.Context) error {
+		// 本日のボーナスレコードを取得または作成
+		dateOnly := time.Date(req.Date.Year(), req.Date.Month(), req.Date.Day(), 0, 0, 0, 0, req.Date.Location())
+		db, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, dateOnly)
+		if err != nil {
+			return err
+		}
+
+		if db == nil {
+			// 新規作成
+			db = entities.NewDailyBonus(req.UserID, dateOnly)
+		}
+		dailyBonus = db
+
+		// 交換ボーナスを達成
+		bonusPoints = dailyBonus.CompleteExchange(req.ExchangeID)
+
+		// ボーナスレコードを保存
+		if dailyBonus.CreatedAt.IsZero() {
+			err = i.dailyBonusRepo.Create(ctx, dailyBonus)
+		} else {
+			err = i.dailyBonusRepo.Update(ctx, dailyBonus)
+		}
+		if err != nil {
+			return err
+		}
+
+		// ポイントを付与
+		if bonusPoints > 0 {
+			user, err = i.grantBonusPoints(ctx, req.UserID, bonusPoints, "商品交換ボーナス")
+			if err != nil {
+				return err
+			}
+		} else {
+			user, err = i.userRepo.Read(ctx, req.UserID)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -252,11 +237,11 @@ func (i *DailyBonusInteractor) CheckExchangeBonus(req *inputport.CheckExchangeBo
 }
 
 // GetTodayBonus は本日のボーナス状況を取得
-func (i *DailyBonusInteractor) GetTodayBonus(req *inputport.GetTodayBonusRequest) (*inputport.GetTodayBonusResponse, error) {
+func (i *DailyBonusInteractor) GetTodayBonus(ctx context.Context, req *inputport.GetTodayBonusRequest) (*inputport.GetTodayBonusResponse, error) {
 	now := time.Now()
 	dateOnly := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	dailyBonus, err := i.dailyBonusRepo.ReadByUserAndDate(req.UserID, dateOnly)
+	dailyBonus, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, dateOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +252,7 @@ func (i *DailyBonusInteractor) GetTodayBonus(req *inputport.GetTodayBonusRequest
 	}
 
 	// 全達成回数を取得
-	allCompletedCount, err := i.dailyBonusRepo.CountAllCompletedByUser(req.UserID)
+	allCompletedCount, err := i.dailyBonusRepo.CountAllCompletedByUser(ctx, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -282,13 +267,13 @@ func (i *DailyBonusInteractor) GetTodayBonus(req *inputport.GetTodayBonusRequest
 }
 
 // GetRecentBonuses は最近のボーナス履歴を取得
-func (i *DailyBonusInteractor) GetRecentBonuses(req *inputport.GetRecentBonusesRequest) (*inputport.GetRecentBonusesResponse, error) {
-	bonuses, err := i.dailyBonusRepo.ReadRecentByUser(req.UserID, req.Limit)
+func (i *DailyBonusInteractor) GetRecentBonuses(ctx context.Context, req *inputport.GetRecentBonusesRequest) (*inputport.GetRecentBonusesResponse, error) {
+	bonuses, err := i.dailyBonusRepo.ReadRecentByUser(ctx, req.UserID, req.Limit)
 	if err != nil {
 		return nil, err
 	}
 
-	allCompletedCount, err := i.dailyBonusRepo.CountAllCompletedByUser(req.UserID)
+	allCompletedCount, err := i.dailyBonusRepo.CountAllCompletedByUser(ctx, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -300,19 +285,15 @@ func (i *DailyBonusInteractor) GetRecentBonuses(req *inputport.GetRecentBonusesR
 }
 
 // grantBonusPoints はボーナスポイントを付与（トランザクション内で実行）
-func (i *DailyBonusInteractor) grantBonusPoints(tx *gorm.DB, userID uuid.UUID, points int64, description string) (*entities.User, error) {
-	// ユーザーを取得してロック
-	user, err := i.userRepo.Read(userID)
-	if err != nil {
+func (i *DailyBonusInteractor) grantBonusPoints(ctx context.Context, userID uuid.UUID, points int64, description string) (*entities.User, error) {
+	// 残高を更新（SELECT FOR UPDATE使用）
+	if err := i.userRepo.UpdateBalanceWithLock(ctx, userID, points, false); err != nil {
 		return nil, err
 	}
 
-	// 残高を増やす
-	user.Balance += points
-	user.UpdatedAt = time.Now()
-
-	// ユーザーを更新
-	if err := tx.Save(user).Error; err != nil {
+	// 更新後のユーザー情報を取得
+	user, err := i.userRepo.Read(ctx, userID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -329,7 +310,7 @@ func (i *DailyBonusInteractor) grantBonusPoints(tx *gorm.DB, userID uuid.UUID, p
 		CompletedAt:     timePtr(time.Now()),
 	}
 
-	if err := i.transactionRepo.Create(tx, transaction); err != nil {
+	if err := i.transactionRepo.Create(ctx, transaction); err != nil {
 		return nil, errors.New("failed to create bonus transaction")
 	}
 

@@ -2,6 +2,14 @@ import { IFriendshipRepository } from '@/core/repositories/interfaces';
 import { FriendInfo, PendingRequestInfo, FriendRequestRequest, FriendActionRequest, Friendship } from '@/core/domain/Friendship';
 import { axiosInstance } from '../client';
 
+export interface UserBasicInfo {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  avatar_type?: string;
+}
+
 export class FriendshipRepository implements IFriendshipRepository {
   async sendRequest(request: FriendRequestRequest): Promise<{ message: string; friendship: Friendship }> {
     const response = await axiosInstance.post<{ message: string; friendship: Friendship }>(
@@ -42,6 +50,13 @@ export class FriendshipRepository implements IFriendshipRepository {
   async removeFriend(request: FriendActionRequest): Promise<{ message: string }> {
     const response = await axiosInstance.delete<{ message: string }>(
       `/api/friends/${request.friendship_id}`
+    );
+    return response.data;
+  }
+
+  async getUserById(userId: string): Promise<{ user: UserBasicInfo }> {
+    const response = await axiosInstance.get<{ user: UserBasicInfo }>(
+      `/api/users/${userId}`
     );
     return response.data;
   }

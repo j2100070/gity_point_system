@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
@@ -59,18 +60,18 @@ func NewUsernameChangeHistoryDataSource(db inframysql.DB) *UsernameChangeHistory
 }
 
 // Insert は新しいユーザー名変更履歴を挿入
-func (ds *UsernameChangeHistoryDataSourceImpl) Insert(history *entities.UsernameChangeHistory) error {
+func (ds *UsernameChangeHistoryDataSourceImpl) Insert(ctx context.Context, history *entities.UsernameChangeHistory) error {
 	model := &UsernameChangeHistoryModel{}
 	model.FromDomain(history)
 
-	return ds.db.GetDB().Create(model).Error
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // SelectListByUserID はユーザーIDで履歴を取得
-func (ds *UsernameChangeHistoryDataSourceImpl) SelectListByUserID(userID uuid.UUID, offset, limit int) ([]*entities.UsernameChangeHistory, error) {
+func (ds *UsernameChangeHistoryDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.UsernameChangeHistory, error) {
 	var models []UsernameChangeHistoryModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
@@ -90,9 +91,9 @@ func (ds *UsernameChangeHistoryDataSourceImpl) SelectListByUserID(userID uuid.UU
 }
 
 // CountByUserID はユーザーIDで履歴数を取得
-func (ds *UsernameChangeHistoryDataSourceImpl) CountByUserID(userID uuid.UUID) (int64, error) {
+func (ds *UsernameChangeHistoryDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&UsernameChangeHistoryModel{}).
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&UsernameChangeHistoryModel{}).
 		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err

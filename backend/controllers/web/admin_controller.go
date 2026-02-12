@@ -63,7 +63,7 @@ func (c *AdminController) GrantPoints(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.adminUC.GrantPoints(&inputport.GrantPointsRequest{
+	resp, err := c.adminUC.GrantPoints(ctx, &inputport.GrantPointsRequest{
 		AdminID:        adminID.(uuid.UUID),
 		UserID:         userID,
 		Amount:         req.Amount,
@@ -115,7 +115,7 @@ func (c *AdminController) DeductPoints(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.adminUC.DeductPoints(&inputport.DeductPointsRequest{
+	resp, err := c.adminUC.DeductPoints(ctx, &inputport.DeductPointsRequest{
 		AdminID:        adminID.(uuid.UUID),
 		UserID:         userID,
 		Amount:         req.Amount,
@@ -145,7 +145,7 @@ func (c *AdminController) ListAllUsers(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.adminUC.ListAllUsers(&inputport.ListAllUsersRequest{
+	resp, err := c.adminUC.ListAllUsers(ctx, &inputport.ListAllUsersRequest{
 		Offset: offset,
 		Limit:  limit,
 	})
@@ -172,7 +172,7 @@ func (c *AdminController) ListAllTransactions(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.adminUC.ListAllTransactions(&inputport.ListAllTransactionsRequest{
+	resp, err := c.adminUC.ListAllTransactions(ctx, &inputport.ListAllTransactionsRequest{
 		Offset: offset,
 		Limit:  limit,
 	})
@@ -212,7 +212,7 @@ func (c *AdminController) UpdateUserRole(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.adminUC.UpdateUserRole(&inputport.UpdateUserRoleRequest{
+	resp, err := c.adminUC.UpdateUserRole(ctx, &inputport.UpdateUserRoleRequest{
 		AdminID: adminID.(uuid.UUID),
 		UserID:  userID,
 		Role:    req.Role,
@@ -244,7 +244,7 @@ func (c *AdminController) DeactivateUser(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.adminUC.DeactivateUser(&inputport.DeactivateUserRequest{
+	resp, err := c.adminUC.DeactivateUser(ctx, &inputport.DeactivateUserRequest{
 		AdminID: adminID.(uuid.UUID),
 		UserID:  userID,
 	})

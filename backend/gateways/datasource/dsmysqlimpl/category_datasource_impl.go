@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -68,11 +69,11 @@ func NewCategoryDataSource(db inframysql.DB) dsmysql.CategoryDataSource {
 }
 
 // Insert は新しいカテゴリを挿入
-func (ds *CategoryDataSourceImpl) Insert(category *entities.Category) error {
+func (ds *CategoryDataSourceImpl) Insert(ctx context.Context, category *entities.Category) error {
 	model := &CategoryModel{}
 	model.FromDomain(category)
 
-	if err := ds.db.GetDB().Create(model).Error; err != nil {
+	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -81,10 +82,10 @@ func (ds *CategoryDataSourceImpl) Insert(category *entities.Category) error {
 }
 
 // Select はIDでカテゴリを検索
-func (ds *CategoryDataSourceImpl) Select(id uuid.UUID) (*entities.Category, error) {
+func (ds *CategoryDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Category, error) {
 	var model CategoryModel
 
-	err := ds.db.GetDB().Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("category not found")
@@ -96,10 +97,10 @@ func (ds *CategoryDataSourceImpl) Select(id uuid.UUID) (*entities.Category, erro
 }
 
 // SelectByCode はコードでカテゴリを検索
-func (ds *CategoryDataSourceImpl) SelectByCode(code string) (*entities.Category, error) {
+func (ds *CategoryDataSourceImpl) SelectByCode(ctx context.Context, code string) (*entities.Category, error) {
 	var model CategoryModel
 
-	err := ds.db.GetDB().Where("code = ? AND deleted_at IS NULL", code).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("code = ? AND deleted_at IS NULL", code).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("category not found")
@@ -111,28 +112,28 @@ func (ds *CategoryDataSourceImpl) SelectByCode(code string) (*entities.Category,
 }
 
 // Update はカテゴリ情報を更新
-func (ds *CategoryDataSourceImpl) Update(category *entities.Category) error {
+func (ds *CategoryDataSourceImpl) Update(ctx context.Context, category *entities.Category) error {
 	model := &CategoryModel{}
 	model.FromDomain(category)
 	model.UpdatedAt = time.Now()
 
-	return ds.db.GetDB().Where("id = ? AND deleted_at IS NULL", category.ID).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", category.ID).
 		Updates(model).Error
 }
 
 // Delete はカテゴリを論理削除
-func (ds *CategoryDataSourceImpl) Delete(id uuid.UUID) error {
+func (ds *CategoryDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	return ds.db.GetDB().Model(&CategoryModel{}).
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&CategoryModel{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("deleted_at", now).Error
 }
 
 // SelectList はカテゴリ一覧を取得
-func (ds *CategoryDataSourceImpl) SelectList(activeOnly bool) ([]*entities.Category, error) {
+func (ds *CategoryDataSourceImpl) SelectList(ctx context.Context, activeOnly bool) ([]*entities.Category, error) {
 	var models []CategoryModel
 
-	query := ds.db.GetDB().Where("deleted_at IS NULL")
+	query := inframysql.GetDB(ctx, ds.db.GetDB()).Where("deleted_at IS NULL")
 	if activeOnly {
 		query = query.Where("is_active = ?", true)
 	}
@@ -151,16 +152,16 @@ func (ds *CategoryDataSourceImpl) SelectList(activeOnly bool) ([]*entities.Categ
 }
 
 // Count はカテゴリ総数を取得
-func (ds *CategoryDataSourceImpl) Count() (int64, error) {
+func (ds *CategoryDataSourceImpl) Count(ctx context.Context) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&CategoryModel{}).Where("deleted_at IS NULL").Count(&count).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&CategoryModel{}).Where("deleted_at IS NULL").Count(&count).Error
 	return count, err
 }
 
 // ExistsCode はコードの存在確認
-func (ds *CategoryDataSourceImpl) ExistsCode(code string, excludeID *uuid.UUID) (bool, error) {
+func (ds *CategoryDataSourceImpl) ExistsCode(ctx context.Context, code string, excludeID *uuid.UUID) (bool, error) {
 	var count int64
-	query := ds.db.GetDB().Model(&CategoryModel{}).Where("code = ? AND deleted_at IS NULL", code)
+	query := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&CategoryModel{}).Where("code = ? AND deleted_at IS NULL", code)
 	if excludeID != nil {
 		query = query.Where("id != ?", *excludeID)
 	}

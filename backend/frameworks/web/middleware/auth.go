@@ -34,7 +34,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		}
 
 		// セッション検証
-		session, err := m.authUC.ValidateSession(sessionToken)
+		session, err := m.authUC.ValidateSession(c.Request.Context(), sessionToken)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
 			c.Abort()

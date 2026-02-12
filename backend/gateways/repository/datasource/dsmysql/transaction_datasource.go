@@ -1,6 +1,8 @@
 package dsmysql
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,38 +10,38 @@ import (
 // TransactionDataSource はMySQLのトランザクションデータソースインターフェース
 type TransactionDataSource interface {
 	// Insert は新しいトランザクションを挿入
-	Insert(tx interface{}, transaction *entities.Transaction) error
+	Insert(ctx context.Context, transaction *entities.Transaction) error
 
 	// Select はIDでトランザクションを検索
-	Select(id uuid.UUID) (*entities.Transaction, error)
+	Select(ctx context.Context, id uuid.UUID) (*entities.Transaction, error)
 
 	// SelectByIdempotencyKey は冪等性キーでトランザクションを検索
-	SelectByIdempotencyKey(key string) (*entities.Transaction, error)
+	SelectByIdempotencyKey(ctx context.Context, key string) (*entities.Transaction, error)
 
 	// SelectListByUserID はユーザーに関連するトランザクション一覧を取得
-	SelectListByUserID(userID uuid.UUID, offset, limit int) ([]*entities.Transaction, error)
+	SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Transaction, error)
 
 	// SelectListAll は全トランザクション一覧を取得（管理者用）
-	SelectListAll(offset, limit int) ([]*entities.Transaction, error)
+	SelectListAll(ctx context.Context, offset, limit int) ([]*entities.Transaction, error)
 
 	// Update はトランザクションを更新
-	Update(tx interface{}, transaction *entities.Transaction) error
+	Update(ctx context.Context, transaction *entities.Transaction) error
 
 	// CountByUserID はユーザーのトランザクション総数を取得
-	CountByUserID(userID uuid.UUID) (int64, error)
+	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
 }
 
 // IdempotencyKeyDataSource はMySQLの冪等性キーデータソースインターフェース
 type IdempotencyKeyDataSource interface {
 	// Insert は新しい冪等性キーを挿入（既存の場合はエラー）
-	Insert(key *entities.IdempotencyKey) error
+	Insert(ctx context.Context, key *entities.IdempotencyKey) error
 
 	// SelectByKey はキーで冪等性キーを検索
-	SelectByKey(key string) (*entities.IdempotencyKey, error)
+	SelectByKey(ctx context.Context, key string) (*entities.IdempotencyKey, error)
 
 	// Update は冪等性キーを更新
-	Update(key *entities.IdempotencyKey) error
+	Update(ctx context.Context, key *entities.IdempotencyKey) error
 
 	// DeleteExpired は期限切れの冪等性キーを削除
-	DeleteExpired() error
+	DeleteExpired(ctx context.Context) error
 }

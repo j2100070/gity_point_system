@@ -1,6 +1,8 @@
 package inputport
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
 )
@@ -8,16 +10,16 @@ import (
 // QRCodeInputPort はQRコード機能のユースケースインターフェース
 type QRCodeInputPort interface {
 	// GenerateReceiveQR は受取用QRコードを生成
-	GenerateReceiveQR(req *GenerateReceiveQRRequest) (*GenerateReceiveQRResponse, error)
+	GenerateReceiveQR(ctx context.Context, req *GenerateReceiveQRRequest) (*GenerateReceiveQRResponse, error)
 
 	// GenerateSendQR は送信用QRコードを生成
-	GenerateSendQR(req *GenerateSendQRRequest) (*GenerateSendQRResponse, error)
+	GenerateSendQR(ctx context.Context, req *GenerateSendQRRequest) (*GenerateSendQRResponse, error)
 
 	// ScanQR はQRコードをスキャンしてポイント転送
-	ScanQR(req *ScanQRRequest) (*ScanQRResponse, error)
+	ScanQR(ctx context.Context, req *ScanQRRequest) (*ScanQRResponse, error)
 
 	// GetQRCodeHistory はQRコード履歴を取得
-	GetQRCodeHistory(req *GetQRCodeHistoryRequest) (*GetQRCodeHistoryResponse, error)
+	GetQRCodeHistory(ctx context.Context, req *GetQRCodeHistoryRequest) (*GetQRCodeHistoryResponse, error)
 }
 
 // GenerateReceiveQRRequest は受取用QRコード生成リクエスト

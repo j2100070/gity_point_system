@@ -40,7 +40,7 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.productManagementUseCase.CreateProduct(&req)
+	resp, err := c.productManagementUseCase.CreateProduct(ctx, &req)
 	if err != nil {
 		c.logger.Error("Failed to create product", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -67,7 +67,7 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 
 	req.ProductID = productID
 
-	resp, err := c.productManagementUseCase.UpdateProduct(&req)
+	resp, err := c.productManagementUseCase.UpdateProduct(ctx, &req)
 	if err != nil {
 		c.logger.Error("Failed to update product", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -90,7 +90,7 @@ func (c *ProductController) DeleteProduct(ctx *gin.Context) {
 		ProductID: productID,
 	}
 
-	if err := c.productManagementUseCase.DeleteProduct(req); err != nil {
+	if err := c.productManagementUseCase.DeleteProduct(ctx, req); err != nil {
 		c.logger.Error("Failed to delete product", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -114,7 +114,7 @@ func (c *ProductController) GetProductList(ctx *gin.Context) {
 		Limit:         limit,
 	}
 
-	resp, err := c.productManagementUseCase.GetProductList(req)
+	resp, err := c.productManagementUseCase.GetProductList(ctx, req)
 	if err != nil {
 		c.logger.Error("Failed to get product list", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -158,7 +158,7 @@ func (c *ProductController) ExchangeProduct(ctx *gin.Context) {
 		Notes:     reqBody.Notes,
 	}
 
-	resp, err := c.productExchangeUseCase.ExchangeProduct(req)
+	resp, err := c.productExchangeUseCase.ExchangeProduct(ctx, req)
 	if err != nil {
 		c.logger.Error("Failed to exchange product", entities.NewField("error", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -186,7 +186,7 @@ func (c *ProductController) GetExchangeHistory(ctx *gin.Context) {
 		Limit:  limit,
 	}
 
-	resp, err := c.productExchangeUseCase.GetExchangeHistory(req)
+	resp, err := c.productExchangeUseCase.GetExchangeHistory(ctx, req)
 	if err != nil {
 		c.logger.Error("Failed to get exchange history", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -216,7 +216,7 @@ func (c *ProductController) CancelExchange(ctx *gin.Context) {
 		ExchangeID: exchangeID,
 	}
 
-	if err := c.productExchangeUseCase.CancelExchange(req); err != nil {
+	if err := c.productExchangeUseCase.CancelExchange(ctx, req); err != nil {
 		c.logger.Error("Failed to cancel exchange", entities.NewField("error", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -238,7 +238,7 @@ func (c *ProductController) MarkExchangeDelivered(ctx *gin.Context) {
 		ExchangeID: exchangeID,
 	}
 
-	if err := c.productExchangeUseCase.MarkExchangeDelivered(req); err != nil {
+	if err := c.productExchangeUseCase.MarkExchangeDelivered(ctx, req); err != nil {
 		c.logger.Error("Failed to mark exchange as delivered", entities.NewField("error", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -253,7 +253,7 @@ func (c *ProductController) GetAllExchanges(ctx *gin.Context) {
 	offset, _ := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 
-	resp, err := c.productExchangeUseCase.GetAllExchanges(offset, limit)
+	resp, err := c.productExchangeUseCase.GetAllExchanges(ctx, offset, limit)
 	if err != nil {
 		c.logger.Error("Failed to get all exchanges", entities.NewField("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -1,6 +1,8 @@
 package session
 
 import (
+	"context"
+
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/gity/point-system/usecases/repository"
@@ -25,36 +27,36 @@ func NewSessionRepository(
 }
 
 // Create は新しいセッションを作成
-func (r *RepositoryImpl) Create(session *entities.Session) error {
+func (r *RepositoryImpl) Create(ctx context.Context, session *entities.Session) error {
 	r.logger.Debug("Creating session", entities.NewField("user_id", session.UserID))
-	return r.sessionDS.Insert(session)
+	return r.sessionDS.Insert(ctx, session)
 }
 
 // ReadByToken はトークンでセッションを検索
-func (r *RepositoryImpl) ReadByToken(token string) (*entities.Session, error) {
-	return r.sessionDS.SelectByToken(token)
+func (r *RepositoryImpl) ReadByToken(ctx context.Context, token string) (*entities.Session, error) {
+	return r.sessionDS.SelectByToken(ctx, token)
 }
 
 // Update はセッションを更新
-func (r *RepositoryImpl) Update(session *entities.Session) error {
+func (r *RepositoryImpl) Update(ctx context.Context, session *entities.Session) error {
 	r.logger.Debug("Updating session", entities.NewField("session_id", session.ID))
-	return r.sessionDS.Update(session)
+	return r.sessionDS.Update(ctx, session)
 }
 
 // Delete はセッションを削除
-func (r *RepositoryImpl) Delete(id uuid.UUID) error {
+func (r *RepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	r.logger.Debug("Deleting session", entities.NewField("session_id", id))
-	return r.sessionDS.Delete(id)
+	return r.sessionDS.Delete(ctx, id)
 }
 
 // DeleteByUserID はユーザーの全セッションを削除
-func (r *RepositoryImpl) DeleteByUserID(userID uuid.UUID) error {
+func (r *RepositoryImpl) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
 	r.logger.Debug("Deleting user sessions", entities.NewField("user_id", userID))
-	return r.sessionDS.DeleteByUserID(userID)
+	return r.sessionDS.DeleteByUserID(ctx, userID)
 }
 
 // DeleteExpired は期限切れセッションを削除
-func (r *RepositoryImpl) DeleteExpired() error {
+func (r *RepositoryImpl) DeleteExpired(ctx context.Context) error {
 	r.logger.Debug("Deleting expired sessions")
-	return r.sessionDS.DeleteExpired()
+	return r.sessionDS.DeleteExpired(ctx)
 }

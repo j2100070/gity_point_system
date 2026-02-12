@@ -1,6 +1,7 @@
 package dsmysqlimpl
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -12,20 +13,20 @@ import (
 
 // ArchivedUserModel はGORM用のアーカイブユーザーモデル
 type ArchivedUserModel struct {
-	ID                uuid.UUID  `gorm:"type:uuid;primary_key"`
-	Username          string     `gorm:"type:varchar(255);not null"`
-	Email             string     `gorm:"type:varchar(255);not null"`
-	PasswordHash      string     `gorm:"type:varchar(255);not null"`
-	DisplayName       string     `gorm:"type:varchar(255);not null"`
-	Balance           int64      `gorm:"not null"`
-	Role              string     `gorm:"type:varchar(50);not null"`
-	AvatarURL         *string    `gorm:"type:varchar(500)"`
-	AvatarType        string     `gorm:"type:varchar(50)"`
-	EmailVerified     bool       `gorm:"not null"`
+	ID                uuid.UUID `gorm:"type:uuid;primary_key"`
+	Username          string    `gorm:"type:varchar(255);not null"`
+	Email             string    `gorm:"type:varchar(255);not null"`
+	PasswordHash      string    `gorm:"type:varchar(255);not null"`
+	DisplayName       string    `gorm:"type:varchar(255);not null"`
+	Balance           int64     `gorm:"not null"`
+	Role              string    `gorm:"type:varchar(50);not null"`
+	AvatarURL         *string   `gorm:"type:varchar(500)"`
+	AvatarType        string    `gorm:"type:varchar(50)"`
+	EmailVerified     bool      `gorm:"not null"`
 	EmailVerifiedAt   *time.Time
 	ArchivedAt        time.Time `gorm:"not null;default:now()"`
 	ArchivedBy        *uuid.UUID
-	DeletionReason    *string `gorm:"type:text"`
+	DeletionReason    *string   `gorm:"type:text"`
 	OriginalCreatedAt time.Time `gorm:"not null"`
 	OriginalUpdatedAt time.Time `gorm:"not null"`
 }
@@ -88,18 +89,18 @@ func NewArchivedUserDataSource(db inframysql.DB) *ArchivedUserDataSourceImpl {
 }
 
 // Insert は新しいアーカイブユーザーを挿入
-func (ds *ArchivedUserDataSourceImpl) Insert(archivedUser *entities.ArchivedUser) error {
+func (ds *ArchivedUserDataSourceImpl) Insert(ctx context.Context, archivedUser *entities.ArchivedUser) error {
 	model := &ArchivedUserModel{}
 	model.FromDomain(archivedUser)
 
-	return ds.db.GetDB().Create(model).Error
+	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // Select はIDでアーカイブユーザーを検索
-func (ds *ArchivedUserDataSourceImpl) Select(id uuid.UUID) (*entities.ArchivedUser, error) {
+func (ds *ArchivedUserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.ArchivedUser, error) {
 	var model ArchivedUserModel
 
-	err := ds.db.GetDB().Where("id = ?", id).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("archived user not found")
@@ -111,10 +112,10 @@ func (ds *ArchivedUserDataSourceImpl) Select(id uuid.UUID) (*entities.ArchivedUs
 }
 
 // SelectByUsername はユーザー名でアーカイブユーザーを検索
-func (ds *ArchivedUserDataSourceImpl) SelectByUsername(username string) (*entities.ArchivedUser, error) {
+func (ds *ArchivedUserDataSourceImpl) SelectByUsername(ctx context.Context, username string) (*entities.ArchivedUser, error) {
 	var model ArchivedUserModel
 
-	err := ds.db.GetDB().Where("username = ?", username).First(&model).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("username = ?", username).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("archived user not found")
@@ -126,10 +127,10 @@ func (ds *ArchivedUserDataSourceImpl) SelectByUsername(username string) (*entiti
 }
 
 // SelectList はアーカイブユーザー一覧を取得
-func (ds *ArchivedUserDataSourceImpl) SelectList(offset, limit int) ([]*entities.ArchivedUser, error) {
+func (ds *ArchivedUserDataSourceImpl) SelectList(ctx context.Context, offset, limit int) ([]*entities.ArchivedUser, error) {
 	var models []ArchivedUserModel
 
-	err := ds.db.GetDB().
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
 		Offset(offset).
 		Limit(limit).
 		Order("archived_at DESC").
@@ -148,9 +149,9 @@ func (ds *ArchivedUserDataSourceImpl) SelectList(offset, limit int) ([]*entities
 }
 
 // Count はアーカイブユーザー総数を取得
-func (ds *ArchivedUserDataSourceImpl) Count() (int64, error) {
+func (ds *ArchivedUserDataSourceImpl) Count(ctx context.Context) (int64, error) {
 	var count int64
-	err := ds.db.GetDB().Model(&ArchivedUserModel{}).Count(&count).Error
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ArchivedUserModel{}).Count(&count).Error
 	return count, err
 }
 
@@ -160,7 +161,7 @@ func (ds *ArchivedUserDataSourceImpl) Delete(id uuid.UUID) error {
 }
 
 // Restore はアーカイブユーザーを復元（トランザクション内で使用）
-func (ds *ArchivedUserDataSourceImpl) Restore(tx interface{}, archivedUser *entities.ArchivedUser, user *entities.User) error {
+func (ds *ArchivedUserDataSourceImpl) Restore(ctx context.Context, tx interface{}, archivedUser *entities.ArchivedUser, user *entities.User) error {
 	// トランザクションを*gorm.DBにキャスト
 	gormTx, ok := tx.(*gorm.DB)
 	if !ok {

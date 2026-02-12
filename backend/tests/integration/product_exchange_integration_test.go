@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -50,8 +51,11 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
 
 	// インタラクター作成
+
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+
 	productExchangeUC := interactor.NewProductExchangeInteractor(
-		db.GetDB(),
+		txManager,
 		productRepo,
 		productExchangeRepo,
 		userRepo,
@@ -61,31 +65,33 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 
 	// テストデータ準備
 	// ユーザー作成
+	randomID := uuid.New()
 	testUser := &entities.User{
-		ID:           uuid.New(),
-		Username:     "test_exchange_user",
-		Email:        "exchange@example.com",
-		PasswordHash: "$2a$10$test",
-		DisplayName:  "Exchange Test User",
-		Balance:      5000,
-		Role:         entities.RoleUser,
-		IsActive:     true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:             randomID,
+		Username:       "test_exchange_user_" + randomID.String(),
+		Email:          "exchange_" + randomID.String() + "@example.com",
+		PasswordHash:   "$2a$10$test",
+		DisplayName:    "Exchange Test User",
+		Balance:        5000,
+		Role:           entities.RoleUser,
+		IsActive:       true,
+		PersonalQRCode: "qr_" + randomID.String(),
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
-	err = userRepo.Create(testUser)
+	err = userRepo.Create(context.Background(), testUser)
 	require.NoError(t, err)
 
 	// 商品作成
 	testProduct, err := entities.NewProduct(
 		"統合テスト商品",
 		"統合テスト用の商品",
-		entities.CategorySnack,
+		"snack",
 		200,
 		10,
 	)
 	require.NoError(t, err)
-	err = productRepo.Create(testProduct)
+	err = productRepo.Create(context.Background(), testProduct)
 	require.NoError(t, err)
 
 	// テストケース
@@ -97,39 +103,41 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 			Notes:     "統合テスト",
 		}
 
-		resp, err := productExchangeUC.ExchangeProduct(req)
+		resp, err := productExchangeUC.ExchangeProduct(context.Background(), req)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, "completed", resp.Exchange.Status)
+		assert.Equal(t, entities.ExchangeStatusCompleted, resp.Exchange.Status)
 		assert.Equal(t, int64(400), resp.Exchange.PointsUsed)
 		assert.Equal(t, 2, resp.Exchange.Quantity)
 
 		// ユーザー残高確認
-		updatedUser, err := userRepo.Read(testUser.ID)
+		updatedUser, err := userRepo.Read(context.Background(), testUser.ID)
 		require.NoError(t, err)
 		assert.Equal(t, int64(4600), updatedUser.Balance, "残高が正しく減算されること")
 
 		// 商品在庫確認
-		updatedProduct, err := productRepo.Read(testProduct.ID)
+		updatedProduct, err := productRepo.Read(context.Background(), testProduct.ID)
 		require.NoError(t, err)
 		assert.Equal(t, 8, updatedProduct.Stock, "在庫が正しく減算されること")
 	})
 
 	t.Run("残高不足エラー", func(t *testing.T) {
 		// 残高不足のユーザー作成
+		poorUserID := uuid.New()
 		poorUser := &entities.User{
-			ID:           uuid.New(),
-			Username:     "poor_user",
-			Email:        "poor@example.com",
-			PasswordHash: "$2a$10$test",
-			DisplayName:  "Poor User",
-			Balance:      50,
-			Role:         entities.RoleUser,
-			IsActive:     true,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			ID:             poorUserID,
+			Username:       "poor_user_" + poorUserID.String(),
+			Email:          "poor_" + poorUserID.String() + "@example.com",
+			PasswordHash:   "$2a$10$test",
+			DisplayName:    "Poor User",
+			Balance:        50,
+			Role:           entities.RoleUser,
+			IsActive:       true,
+			PersonalQRCode: "qr_poor_" + poorUserID.String(),
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
 		}
-		err = userRepo.Create(poorUser)
+		err = userRepo.Create(context.Background(), poorUser)
 		require.NoError(t, err)
 
 		req := &inputport.ExchangeProductRequest{
@@ -139,7 +147,7 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 			Notes:     "残高不足テスト",
 		}
 
-		_, err := productExchangeUC.ExchangeProduct(req)
+		_, err := productExchangeUC.ExchangeProduct(context.Background(), req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient balance")
 	})
@@ -149,12 +157,12 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 		lowStockProduct, err := entities.NewProduct(
 			"在庫少商品",
 			"在庫が少ない商品",
-			entities.CategoryDrink,
+			"drink",
 			100,
 			1,
 		)
 		require.NoError(t, err)
-		err = productRepo.Create(lowStockProduct)
+		err = productRepo.Create(context.Background(), lowStockProduct)
 		require.NoError(t, err)
 
 		req := &inputport.ExchangeProductRequest{
@@ -164,9 +172,9 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 			Notes:     "在庫不足テスト",
 		}
 
-		_, err = productExchangeUC.ExchangeProduct(req)
+		_, err = productExchangeUC.ExchangeProduct(context.Background(), req)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot be exchanged")
+		assert.Contains(t, err.Error(), "insufficient stock")
 	})
 }
 
@@ -210,7 +218,7 @@ func TestProductManagementInteractor(t *testing.T) {
 			ImageURL:    "https://example.com/test.jpg",
 		}
 
-		resp, err := productManagementUC.CreateProduct(req)
+		resp, err := productManagementUC.CreateProduct(context.Background(), req)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, req.Name, resp.Product.Name)
@@ -227,7 +235,7 @@ func TestProductManagementInteractor(t *testing.T) {
 			Price:       100,
 			Stock:       10,
 		}
-		createResp, err := productManagementUC.CreateProduct(createReq)
+		createResp, err := productManagementUC.CreateProduct(context.Background(), createReq)
 		require.NoError(t, err)
 
 		// 更新
@@ -241,7 +249,7 @@ func TestProductManagementInteractor(t *testing.T) {
 			IsAvailable: false,
 		}
 
-		updateResp, err := productManagementUC.UpdateProduct(updateReq)
+		updateResp, err := productManagementUC.UpdateProduct(context.Background(), updateReq)
 		require.NoError(t, err)
 		assert.Equal(t, "更新された商品", updateResp.Product.Name)
 		assert.Equal(t, int64(120), updateResp.Product.Price)
@@ -257,7 +265,7 @@ func TestProductManagementInteractor(t *testing.T) {
 			Price:       500,
 			Stock:       5,
 		}
-		createResp, err := productManagementUC.CreateProduct(createReq)
+		createResp, err := productManagementUC.CreateProduct(context.Background(), createReq)
 		require.NoError(t, err)
 
 		// 削除
@@ -265,11 +273,11 @@ func TestProductManagementInteractor(t *testing.T) {
 			ProductID: createResp.Product.ID,
 		}
 
-		err = productManagementUC.DeleteProduct(deleteReq)
+		err = productManagementUC.DeleteProduct(context.Background(), deleteReq)
 		require.NoError(t, err)
 
 		// 削除確認（論理削除なので読み取りエラー）
-		_, err = productRepo.Read(createResp.Product.ID)
+		_, err = productRepo.Read(context.Background(), createResp.Product.ID)
 		assert.Error(t, err)
 	})
 
@@ -281,7 +289,7 @@ func TestProductManagementInteractor(t *testing.T) {
 			Limit:         10,
 		}
 
-		resp, err := productManagementUC.GetProductList(req)
+		resp, err := productManagementUC.GetProductList(context.Background(), req)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.GreaterOrEqual(t, len(resp.Products), 0)
@@ -296,7 +304,7 @@ func TestProductManagementInteractor(t *testing.T) {
 			Price:       100,
 			Stock:       10,
 		}
-		_, err := productManagementUC.CreateProduct(createReq)
+		_, err := productManagementUC.CreateProduct(context.Background(), createReq)
 		require.NoError(t, err)
 
 		req := &inputport.GetProductListRequest{
@@ -306,12 +314,12 @@ func TestProductManagementInteractor(t *testing.T) {
 			Limit:         10,
 		}
 
-		resp, err := productManagementUC.GetProductList(req)
+		resp, err := productManagementUC.GetProductList(context.Background(), req)
 		require.NoError(t, err)
 
 		// すべてsnackカテゴリであることを確認
 		for _, product := range resp.Products {
-			assert.Equal(t, entities.CategorySnack, product.Category)
+			assert.Equal(t, "snack", product.CategoryCode)
 		}
 	})
 }

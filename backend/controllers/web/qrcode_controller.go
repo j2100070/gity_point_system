@@ -53,7 +53,7 @@ func (c *QRCodeController) GenerateReceiveQR(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.qrCodeUC.GenerateReceiveQR(&inputport.GenerateReceiveQRRequest{
+	resp, err := c.qrCodeUC.GenerateReceiveQR(ctx, &inputport.GenerateReceiveQRRequest{
 		UserID: userID.(uuid.UUID),
 		Amount: req.Amount,
 	})
@@ -92,7 +92,7 @@ func (c *QRCodeController) GenerateSendQR(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.qrCodeUC.GenerateSendQR(&inputport.GenerateSendQRRequest{
+	resp, err := c.qrCodeUC.GenerateSendQR(ctx, &inputport.GenerateSendQRRequest{
 		UserID: userID.(uuid.UUID),
 		Amount: req.Amount,
 	})
@@ -133,7 +133,7 @@ func (c *QRCodeController) ScanQR(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.qrCodeUC.ScanQR(&inputport.ScanQRRequest{
+	resp, err := c.qrCodeUC.ScanQR(ctx, &inputport.ScanQRRequest{
 		UserID:         userID.(uuid.UUID),
 		Code:           req.Code,
 		Amount:         req.Amount,
@@ -167,7 +167,7 @@ func (c *QRCodeController) GetQRCodeHistory(ctx *gin.Context) {
 	}
 
 	// ユースケース実行
-	resp, err := c.qrCodeUC.GetQRCodeHistory(&inputport.GetQRCodeHistoryRequest{
+	resp, err := c.qrCodeUC.GetQRCodeHistory(ctx, &inputport.GetQRCodeHistoryRequest{
 		UserID: userID.(uuid.UUID),
 		Offset: offset,
 		Limit:  limit,
