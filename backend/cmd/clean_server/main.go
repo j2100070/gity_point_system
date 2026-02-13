@@ -97,8 +97,11 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
+	// TransactionManagerを作成（他のInteractorより先に作成）
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+
 	pointTransferUC := interactor.NewPointTransferInteractor(
-		db.GetDB(),
+		txManager,
 		userRepo,
 		transactionRepo,
 		idempotencyRepo,
@@ -118,9 +121,6 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		pointTransferUC,
 		logger,
 	)
-
-	// TransactionManagerを作成
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
 
 	dailyBonusUC := interactor.NewDailyBonusInteractor(
 		dailyBonusRepo,
@@ -182,7 +182,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	emailService := infraemail.NewConsoleEmailService(logger)
 
 	userSettingsUC := interactor.NewUserSettingsInteractor(
-		db.GetDB(),
+		txManager,
 		userRepo,
 		userSettingsRepo,
 		archivedUserRepo,

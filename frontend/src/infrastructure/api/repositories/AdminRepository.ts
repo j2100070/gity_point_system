@@ -6,18 +6,20 @@ import { axiosInstance } from '../client';
 export class AdminRepository implements IAdminRepository {
   async grantPoints(target_user_id: string, amount: number, description?: string): Promise<any> {
     const response = await axiosInstance.post('/api/admin/points/grant', {
-      target_user_id,
+      user_id: target_user_id,
       amount,
-      description,
+      description: description || 'Admin point grant',
+      idempotency_key: `grant-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     });
     return response.data;
   }
 
   async deductPoints(target_user_id: string, amount: number, description?: string): Promise<any> {
     const response = await axiosInstance.post('/api/admin/points/deduct', {
-      target_user_id,
+      user_id: target_user_id,
       amount,
-      description,
+      description: description || 'Admin point deduction',
+      idempotency_key: `deduct-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     });
     return response.data;
   }

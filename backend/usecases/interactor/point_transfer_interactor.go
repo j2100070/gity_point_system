@@ -8,12 +8,11 @@ import (
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
-	"gorm.io/gorm"
 )
 
 // PointTransferInteractor はポイント転送のユースケース実装
 type PointTransferInteractor struct {
-	db              *gorm.DB
+	txManager       repository.TransactionManager
 	userRepo        repository.UserRepository
 	transactionRepo repository.TransactionRepository
 	idempotencyRepo repository.IdempotencyKeyRepository
@@ -24,7 +23,7 @@ type PointTransferInteractor struct {
 
 // NewPointTransferInteractor は新しいPointTransferInteractorを作成
 func NewPointTransferInteractor(
-	db *gorm.DB,
+	txManager repository.TransactionManager,
 	userRepo repository.UserRepository,
 	transactionRepo repository.TransactionRepository,
 	idempotencyRepo repository.IdempotencyKeyRepository,
@@ -32,7 +31,7 @@ func NewPointTransferInteractor(
 	logger entities.Logger,
 ) *PointTransferInteractor {
 	return &PointTransferInteractor{
-		db:              db,
+		txManager:       txManager,
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
 		idempotencyRepo: idempotencyRepo,
@@ -115,10 +114,7 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 	var fromUser, toUser *entities.User
 	var transaction *entities.Transaction
 
-	err = i.db.Transaction(func(tx *gorm.DB) error {
-		// contextにトランザクションを埋め込む (一時的な解決策)
-		txCtx := context.WithValue(ctx, interface{}("tx"), tx)
-
+	err = i.txManager.Do(ctx, func(txCtx context.Context) error {
 		// 1. 送信者と受信者の存在確認
 		fromUser, err = i.userRepo.Read(txCtx, req.FromUserID)
 		if err != nil {

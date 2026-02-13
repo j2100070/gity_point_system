@@ -69,6 +69,30 @@ export const ConfirmTransferRequestPage: React.FC = () => {
     return `transfer-request-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   };
 
+  const playSuccessSound = () => {
+    // バックエンド経由で音声ファイルを配信（複数フォーマット対応）
+    const audioFormats = [
+      'http://localhost:8080/public/sample.voice.m4a',
+      'http://localhost:8080/public/sample.voice.wav'
+    ];
+
+    const tryPlayAudio = (index: number) => {
+      if (index >= audioFormats.length) {
+        console.warn('All audio formats failed to play');
+        return;
+      }
+
+      const audio = new Audio(audioFormats[index]);
+      audio.play().catch((err) => {
+        console.warn(`Audio format ${audioFormats[index]} failed:`, err);
+        // 次のフォーマットを試す
+        tryPlayAudio(index + 1);
+      });
+    };
+
+    tryPlayAudio(0);
+  };
+
   const handleSubmit = async () => {
     if (!amount || parseInt(amount) <= 0) {
       setError('送金額を入力してください');
@@ -92,6 +116,9 @@ export const ConfirmTransferRequestPage: React.FC = () => {
 
       // 成功時、受信者の情報を保存
       setToUser(response.to_user);
+
+      // 成功音を再生
+      playSuccessSound();
 
       // 成功画面に遷移
       navigate('/qr/scan/success', {

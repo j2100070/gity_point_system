@@ -48,6 +48,7 @@ services:
         condition: service_healthy
     volumes:
       - backend_uploads:/app/uploads
+      - ./backend/public:/app/public
     restart: unless-stopped
     networks:
       - point_system_network

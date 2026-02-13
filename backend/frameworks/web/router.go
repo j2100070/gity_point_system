@@ -53,6 +53,9 @@ func NewRouter(cfg *RouterConfig, timeProvider TimeProvider) *Router {
 	// アバター画像の静的ファイル配信
 	engine.Static("/uploads/avatars", "./uploads/avatars")
 
+	// 音声ファイルの静的ファイル配信
+	engine.Static("/public", "./public")
+
 	// ヘルスチェック
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

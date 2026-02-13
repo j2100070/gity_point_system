@@ -10,12 +10,11 @@ import (
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
 	"github.com/gity/point-system/usecases/service"
-	"gorm.io/gorm"
 )
 
 // UserSettingsInteractor はユーザー設定のユースケース実装
 type UserSettingsInteractor struct {
-	db                        *gorm.DB
+	txManager                 repository.TransactionManager
 	userRepo                  repository.UserRepository
 	userSettingsRepo          repository.UserSettingsRepository
 	archivedUserRepo          repository.ArchivedUserRepository
@@ -30,7 +29,7 @@ type UserSettingsInteractor struct {
 
 // NewUserSettingsInteractor は新しいUserSettingsInteractorを作成
 func NewUserSettingsInteractor(
-	db *gorm.DB,
+	txManager repository.TransactionManager,
 	userRepo repository.UserRepository,
 	userSettingsRepo repository.UserSettingsRepository,
 	archivedUserRepo repository.ArchivedUserRepository,
@@ -43,7 +42,7 @@ func NewUserSettingsInteractor(
 	logger entities.Logger,
 ) inputport.UserSettingsInputPort {
 	return &UserSettingsInteractor{
-		db:                        db,
+		txManager:                 txManager,
 		userRepo:                  userRepo,
 		userSettingsRepo:          userSettingsRepo,
 		archivedUserRepo:          archivedUserRepo,
@@ -447,39 +446,32 @@ func (i *UserSettingsInteractor) ArchiveAccount(ctx context.Context, req *inputp
 	}
 
 	// トランザクション開始
-	tx := i.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	err = i.txManager.Do(ctx, func(txCtx context.Context) error {
+		// アーカイブユーザーを作成
+		archivedUser := user.ToArchivedUser(&req.UserID, req.DeletionReason)
+
+		// アーカイブユーザーを保存
+		if err := i.archivedUserRepo.Create(txCtx, archivedUser); err != nil {
+			return fmt.Errorf("failed to archive user: %w", err)
 		}
-	}()
 
-	// アーカイブユーザーを作成
-	archivedUser := user.ToArchivedUser(&req.UserID, req.DeletionReason)
+		// 元のユーザーを削除（論理削除ではなく物理削除）
+		if err := i.userRepo.Delete(txCtx, user.ID); err != nil {
+			return fmt.Errorf("failed to delete user: %w", err)
+		}
 
-	// アーカイブユーザーを保存
-	if err := i.archivedUserRepo.Create(ctx, archivedUser); err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to archive user: %w", err)
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
-	// 元のユーザーを削除（論理削除ではなく物理削除）
-	// ※ この実装ではDeleteメソッドを使用しますが、実際には物理削除が必要な場合があります
-	if err := i.userRepo.Delete(ctx, user.ID); err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete user: %w", err)
-	}
-
-	// アバターファイルを削除
+	// アバターファイルを削除（トランザクション外で実行）
 	if user.AvatarType == entities.AvatarTypeUploaded && user.AvatarURL != nil {
 		if err := i.fileStorageService.DeleteAvatar(*user.AvatarURL); err != nil {
 			i.logger.Error("Failed to delete avatar file", entities.NewField("error", err))
 		}
-	}
-
-	// トランザクションをコミット
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	// アカウント削除通知メールを送信

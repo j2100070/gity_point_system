@@ -27,3 +27,8 @@ dist-ssr
 
 # Uploaded files
 uploads/
+
+# Audio files
+*.wav
+*.m4a
+*.mp3

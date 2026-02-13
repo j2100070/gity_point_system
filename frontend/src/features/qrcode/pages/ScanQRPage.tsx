@@ -68,6 +68,7 @@ export const ScanQRPage: React.FC = () => {
                 styles={{
                   container: { width: '100%' }
                 }}
+                audio={false}
               />
             </div>
           )}
