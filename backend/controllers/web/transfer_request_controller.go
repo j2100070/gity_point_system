@@ -7,26 +7,25 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gity/point-system/controllers/web/presenter"
 	"github.com/gity/point-system/usecases/inputport"
-	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
 )
 
 // TransferRequestController は送金リクエスト機能のコントローラー
 type TransferRequestController struct {
 	transferRequestUC inputport.TransferRequestInputPort
-	userRepo          repository.UserRepository
+	userQueryUC       inputport.UserQueryInputPort
 	presenter         *presenter.TransferRequestPresenter
 }
 
 // NewTransferRequestController は新しいTransferRequestControllerを作成
 func NewTransferRequestController(
 	transferRequestUC inputport.TransferRequestInputPort,
-	userRepo repository.UserRepository,
+	userQueryUC inputport.UserQueryInputPort,
 	presenter *presenter.TransferRequestPresenter,
 ) *TransferRequestController {
 	return &TransferRequestController{
 		transferRequestUC: transferRequestUC,
-		userRepo:          userRepo,
+		userQueryUC:       userQueryUC,
 		presenter:         presenter,
 	}
 }
@@ -42,7 +41,9 @@ func (c *TransferRequestController) GetPersonalQRCode(ctx *gin.Context) {
 	}
 
 	// ユーザー情報取得
-	user, err := c.userRepo.Read(ctx.Request.Context(), userID.(uuid.UUID))
+	resp, err := c.userQueryUC.GetUserByID(ctx.Request.Context(), &inputport.GetUserByIDRequest{
+		UserID: userID.(uuid.UUID),
+	})
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
@@ -50,9 +51,9 @@ func (c *TransferRequestController) GetPersonalQRCode(ctx *gin.Context) {
 
 	// レスポンス
 	ctx.JSON(http.StatusOK, gin.H{
-		"qr_code":      user.PersonalQRCode,
-		"display_name": user.DisplayName,
-		"username":     user.Username,
+		"qr_code":      resp.User.PersonalQRCode,
+		"display_name": resp.User.DisplayName,
+		"username":     resp.User.Username,
 	})
 }
 

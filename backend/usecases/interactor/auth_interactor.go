@@ -7,26 +7,29 @@ import (
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/gity/point-system/usecases/service"
 )
 
 // AuthInteractor は認証のユースケース実装
 type AuthInteractor struct {
-	userRepo    repository.UserRepository
-	sessionRepo repository.SessionRepository
-	logger      entities.Logger
+	userRepo        repository.UserRepository
+	sessionRepo     repository.SessionRepository
+	passwordService service.PasswordService
+	logger          entities.Logger
 }
 
 // NewAuthInteractor は新しいAuthInteractorを作成
 func NewAuthInteractor(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
+	passwordService service.PasswordService,
 	logger entities.Logger,
 ) inputport.AuthInputPort {
 	return &AuthInteractor{
-		userRepo:    userRepo,
-		sessionRepo: sessionRepo,
-		logger:      logger,
+		userRepo:        userRepo,
+		sessionRepo:     sessionRepo,
+		passwordService: passwordService,
+		logger:          logger,
 	}
 }
 
@@ -35,13 +38,13 @@ func (i *AuthInteractor) Register(ctx context.Context, req *inputport.RegisterRe
 	i.logger.Info("Registering new user", entities.NewField("username", req.Username))
 
 	// パスワードハッシュ化
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := i.passwordService.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
 	}
 
 	// ユーザー作成
-	user, err := entities.NewUser(req.Username, req.Email, string(hashedPassword), req.DisplayName)
+	user, err := entities.NewUser(req.Username, req.Email, hashedPassword, req.DisplayName)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +81,7 @@ func (i *AuthInteractor) Login(ctx context.Context, req *inputport.LoginRequest)
 	}
 
 	// パスワード検証
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+	if !i.passwordService.VerifyPassword(user.PasswordHash, req.Password) {
 		return nil, errors.New("invalid username or password")
 	}
 

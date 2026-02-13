@@ -8,6 +8,7 @@ import (
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
+	"github.com/gity/point-system/usecases/service"
 	"github.com/google/uuid"
 )
 
@@ -16,7 +17,8 @@ type DailyBonusInteractor struct {
 	dailyBonusRepo  repository.DailyBonusRepository
 	userRepo        repository.UserRepository
 	transactionRepo repository.TransactionRepository
-	txManager       repository.TransactionManager // TransactionManagerを使用
+	txManager       repository.TransactionManager
+	timeProvider    service.TimeProvider
 	logger          entities.Logger
 }
 
@@ -26,6 +28,7 @@ func NewDailyBonusInteractor(
 	userRepo repository.UserRepository,
 	transactionRepo repository.TransactionRepository,
 	txManager repository.TransactionManager,
+	timeProvider service.TimeProvider,
 	logger entities.Logger,
 ) *DailyBonusInteractor {
 	return &DailyBonusInteractor{
@@ -33,6 +36,7 @@ func NewDailyBonusInteractor(
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
 		txManager:       txManager,
+		timeProvider:    timeProvider,
 		logger:          logger,
 	}
 }
@@ -238,7 +242,7 @@ func (i *DailyBonusInteractor) CheckExchangeBonus(ctx context.Context, req *inpu
 
 // GetTodayBonus は本日のボーナス状況を取得
 func (i *DailyBonusInteractor) GetTodayBonus(ctx context.Context, req *inputport.GetTodayBonusRequest) (*inputport.GetTodayBonusResponse, error) {
-	now := time.Now()
+	now := i.timeProvider.Now()
 	dateOnly := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	dailyBonus, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, dateOnly)
@@ -298,6 +302,7 @@ func (i *DailyBonusInteractor) grantBonusPoints(ctx context.Context, userID uuid
 	}
 
 	// トランザクションレコードを作成
+	now := i.timeProvider.Now()
 	transaction := &entities.Transaction{
 		ID:              uuid.New(),
 		FromUserID:      nil, // システムから付与
@@ -306,8 +311,8 @@ func (i *DailyBonusInteractor) grantBonusPoints(ctx context.Context, userID uuid
 		TransactionType: "daily_bonus",
 		Status:          "completed",
 		Description:     description,
-		CreatedAt:       time.Now(),
-		CompletedAt:     timePtr(time.Now()),
+		CreatedAt:       now,
+		CompletedAt:     timePtr(now),
 	}
 
 	if err := i.transactionRepo.Create(ctx, transaction); err != nil {

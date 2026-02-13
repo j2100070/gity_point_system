@@ -36,8 +36,6 @@ export const TransferRequestsPage: React.FC = () => {
   };
 
   const handleApprove = async (requestId: string) => {
-    if (!window.confirm('この送金リクエストを承認しますか？')) return;
-
     try {
       await transferRequestRepository.approveTransferRequest(requestId);
       loadRequests();

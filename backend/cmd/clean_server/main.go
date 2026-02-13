@@ -15,6 +15,7 @@ import (
 	"github.com/gity/point-system/gateways/infra/inframysql"
 	"github.com/gity/point-system/gateways/infra/infrapassword"
 	"github.com/gity/point-system/gateways/infra/infrastorage"
+	"github.com/gity/point-system/gateways/infra/infratime"
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
 	dailybonusrepo "github.com/gity/point-system/gateways/repository/daily_bonus"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
@@ -90,10 +91,15 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	usernameChangeHistoryRepo := usersettingsrepo.NewUsernameChangeHistoryRepository(usernameChangeHistoryDS, logger)
 	passwordChangeHistoryRepo := usersettingsrepo.NewPasswordChangeHistoryRepository(passwordChangeHistoryDS, logger)
 
+	// === Service層 ===
+	passwordService := infrapassword.NewBcryptPasswordService()
+	timeProvider := infratime.NewSystemTimeProvider()
+
 	// === Interactor層 ===
 	authUC := interactor.NewAuthInteractor(
 		userRepo,
 		sessionRepo,
+		passwordService,
 		logger,
 	)
 
@@ -127,6 +133,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		userRepo,
 		transactionRepo,
 		txManager,
+		timeProvider,
 		logger,
 	)
 
@@ -169,7 +176,12 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		logger,
 	)
 
-	// === Service層 ===
+	userQueryUC := interactor.NewUserQueryInteractor(
+		userRepo,
+		logger,
+	)
+
+	// === Additional Service層 ===
 	fileStorageService, err := infrastorage.NewLocalStorage(&infrastorage.Config{
 		BaseDir:   "./uploads/avatars",
 		BaseURL:   "/uploads/avatars",
@@ -178,7 +190,6 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file storage service: %w", err)
 	}
-	passwordService := infrapassword.NewBcryptPasswordService()
 	emailService := infraemail.NewConsoleEmailService(logger)
 
 	userSettingsUC := interactor.NewUserSettingsInteractor(
@@ -208,9 +219,9 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	// === Controller層 ===
 	authController := web.NewAuthController(authUC, authPresenter)
 	pointController := web.NewPointController(pointTransferUC, pointPresenter)
-	friendController := web.NewFriendController(friendshipUC, userRepo, friendPresenter)
+	friendController := web.NewFriendController(friendshipUC, userQueryUC, friendPresenter)
 	qrcodeController := web.NewQRCodeController(qrcodeUC, qrcodePresenter)
-	transferRequestController := web.NewTransferRequestController(transferRequestUC, userRepo, transferRequestPresenter)
+	transferRequestController := web.NewTransferRequestController(transferRequestUC, userQueryUC, transferRequestPresenter)
 	dailyBonusController := web.NewDailyBonusController(dailyBonusUC, dailyBonusPresenter)
 	adminController := web.NewAdminController(adminUC, adminPresenter)
 	productController := web.NewProductController(productManagementUC, productExchangeUC, logger)
@@ -222,8 +233,8 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	csrfMiddleware := middleware.NewCSRFMiddleware()
 
 	// === Framework層 ===
-	timeProvider := frameworksweb.NewSystemTimeProvider()
-	router := frameworksweb.NewRouter(routerConfig, timeProvider)
+	frameworkTimeProvider := frameworksweb.NewSystemTimeProvider()
+	router := frameworksweb.NewRouter(routerConfig, frameworkTimeProvider)
 
 	// ルート登録
 	router.RegisterRoutes(

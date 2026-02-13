@@ -33,7 +33,7 @@ type UserRepository interface {
 	// 返り値のboolは更新が成功したかどうか（versionが一致したか）
 	Update(ctx context.Context, user *entities.User) (bool, error)
 
-	// UpdateBalanceWithLock は残高を更新（悲観的ロック: SELECT FOR UPDATE）
+	// UpdateBalanceWithLock は残高を更新（悲観的ロック）
 	// トランザクション内で使用する（contextからトランザクションを取得）
 	UpdateBalanceWithLock(ctx context.Context, userID uuid.UUID, amount int64, isDeduct bool) error
 

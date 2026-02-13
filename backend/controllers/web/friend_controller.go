@@ -7,26 +7,25 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gity/point-system/controllers/web/presenter"
 	"github.com/gity/point-system/usecases/inputport"
-	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
 )
 
 // FriendController は友達機能のコントローラー
 type FriendController struct {
 	friendshipUC inputport.FriendshipInputPort
-	userRepo     repository.UserRepository
+	userQueryUC  inputport.UserQueryInputPort
 	presenter    *presenter.FriendPresenter
 }
 
 // NewFriendController は新しいFriendControllerを作成
 func NewFriendController(
 	friendshipUC inputport.FriendshipInputPort,
-	userRepo repository.UserRepository,
+	userQueryUC inputport.UserQueryInputPort,
 	presenter *presenter.FriendPresenter,
 ) *FriendController {
 	return &FriendController{
 		friendshipUC: friendshipUC,
-		userRepo:     userRepo,
+		userQueryUC:  userQueryUC,
 		presenter:    presenter,
 	}
 }
@@ -40,7 +39,9 @@ func (c *FriendController) SearchUserByUsername(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userRepo.ReadByUsername(ctx.Request.Context(), username)
+	resp, err := c.userQueryUC.SearchUserByUsername(ctx.Request.Context(), &inputport.SearchUserByUsernameRequest{
+		Username: username,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
 		return
@@ -48,11 +49,11 @@ func (c *FriendController) SearchUserByUsername(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":           user.ID.String(),
-			"username":     user.Username,
-			"display_name": user.DisplayName,
-			"avatar_url":   user.AvatarURL,
-			"avatar_type":  user.AvatarType,
+			"id":           resp.User.ID.String(),
+			"username":     resp.User.Username,
+			"display_name": resp.User.DisplayName,
+			"avatar_url":   resp.User.AvatarURL,
+			"avatar_type":  resp.User.AvatarType,
 		},
 	})
 }
@@ -67,7 +68,9 @@ func (c *FriendController) GetUserByID(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userRepo.Read(ctx.Request.Context(), userID)
+	resp, err := c.userQueryUC.GetUserByID(ctx.Request.Context(), &inputport.GetUserByIDRequest{
+		UserID: userID,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "ユーザーが見つかりません"})
 		return
@@ -75,11 +78,11 @@ func (c *FriendController) GetUserByID(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":           user.ID.String(),
-			"username":     user.Username,
-			"display_name": user.DisplayName,
-			"avatar_url":   user.AvatarURL,
-			"avatar_type":  user.AvatarType,
+			"id":           resp.User.ID.String(),
+			"username":     resp.User.Username,
+			"display_name": resp.User.DisplayName,
+			"avatar_url":   resp.User.AvatarURL,
+			"avatar_type":  resp.User.AvatarType,
 		},
 	})
 }

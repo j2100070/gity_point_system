@@ -135,7 +135,6 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 		}
 
 		// 3. 残高更新（SELECT FOR UPDATEで悲観的ロック）
-		// デッドロック回避: UpdateBalancesWithLockが内部でUUIDの小さい順にロックを取得
 		updates := []repository.BalanceUpdate{
 			{UserID: req.FromUserID, Amount: req.Amount, IsDeduct: true}, // 送信者から減算
 			{UserID: req.ToUserID, Amount: req.Amount, IsDeduct: false},  // 受信者に加算
