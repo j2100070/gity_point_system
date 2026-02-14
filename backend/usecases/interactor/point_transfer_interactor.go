@@ -56,7 +56,7 @@ func (i *PointTransferInteractor) SetDailyBonusPort(dailyBonusPort inputport.Dai
 // 5. 友達チェック: 友達関係がある場合のみ転送可能（オプション）
 //
 // 技術的説明:
-// - 高い分離レベルで一貫したスナップショットを保証（金融システム要件）
+// - 高い分離レベルで一貫したスナップショットを保証
 // - ロック戦略: ID順序でロックを取得しデッドロックを回避
 // - エラーハンドリング: ロールバック処理を確実に実行
 func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
