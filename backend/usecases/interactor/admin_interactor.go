@@ -43,6 +43,11 @@ func (i *AdminInteractor) GrantPoints(ctx context.Context, req *inputport.GrantP
 		entities.NewField("user_id", req.UserID),
 		entities.NewField("amount", req.Amount))
 
+	// 金額検証
+	if req.Amount <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
+
 	// 管理者権限チェック
 	admin, err := i.userRepo.Read(ctx, req.AdminID)
 	if err != nil {
@@ -135,6 +140,11 @@ func (i *AdminInteractor) DeductPoints(ctx context.Context, req *inputport.Deduc
 		entities.NewField("admin_id", req.AdminID),
 		entities.NewField("user_id", req.UserID),
 		entities.NewField("amount", req.Amount))
+
+	// 金額検証
+	if req.Amount <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
 
 	// 管理者権限チェック
 	admin, err := i.userRepo.Read(ctx, req.AdminID)

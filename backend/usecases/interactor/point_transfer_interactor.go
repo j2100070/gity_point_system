@@ -50,16 +50,15 @@ func (i *PointTransferInteractor) SetDailyBonusPort(dailyBonusPort inputport.Dai
 //
 // セキュリティと整合性の保証:
 // 1. 冪等性: IdempotencyKeyで重複転送を防止
-// 2. トランザクション: DBトランザクションで原子性を保証
-// 3. 悲観的ロック: SELECT FOR UPDATEで競合を防止
+// 2. トランザクション: 原子性を保証し、全操作を一括でコミットまたはロールバック
+// 3. 悲観的ロック: 残高更新時に競合を防止
 // 4. 残高チェック: 送信者の残高を厳密にチェック
 // 5. 友達チェック: 友達関係がある場合のみ転送可能（オプション）
 //
 // 技術的説明:
-// - PostgreSQLのトランザクション分離レベル: REPEATABLE READ（金融システム要件）
-// - ロック戦略: SELECT FOR UPDATE + UUID順序ロック（デッドロック回避）
+// - 高い分離レベルで一貫したスナップショットを保証（金融システム要件）
+// - ロック戦略: ID順序でロックを取得しデッドロックを回避
 // - エラーハンドリング: ロールバック処理を確実に実行
-// - REPEATABLE READにより、トランザクション内で一貫したスナップショットを保証
 func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.TransferRequest) (*inputport.TransferResponse, error) {
 	i.logger.Info("Starting point transfer",
 		entities.NewField("from_user_id", req.FromUserID),
@@ -134,7 +133,7 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 			return errors.New("receiver account is not active")
 		}
 
-		// 3. 残高更新（SELECT FOR UPDATEで悲観的ロック）
+		// 3. 残高更新（悲観的ロックで競合を防止）
 		updates := []repository.BalanceUpdate{
 			{UserID: req.FromUserID, Amount: req.Amount, IsDeduct: true}, // 送信者から減算
 			{UserID: req.ToUserID, Amount: req.Amount, IsDeduct: false},  // 受信者に加算

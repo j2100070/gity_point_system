@@ -56,12 +56,6 @@ func (c *AdminController) GrantPoints(ctx *gin.Context) {
 		return
 	}
 
-	// 金額検証
-	if req.Amount <= 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "amount must be positive"})
-		return
-	}
-
 	// ユースケース実行
 	resp, err := c.adminUC.GrantPoints(ctx, &inputport.GrantPointsRequest{
 		AdminID:        adminID.(uuid.UUID),
@@ -105,12 +99,6 @@ func (c *AdminController) DeductPoints(ctx *gin.Context) {
 	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
-		return
-	}
-
-	// 金額検証
-	if req.Amount <= 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "amount must be positive"})
 		return
 	}
 

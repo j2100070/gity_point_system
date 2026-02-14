@@ -290,7 +290,7 @@ func (i *DailyBonusInteractor) GetRecentBonuses(ctx context.Context, req *inputp
 
 // grantBonusPoints はボーナスポイントを付与（トランザクション内で実行）
 func (i *DailyBonusInteractor) grantBonusPoints(ctx context.Context, userID uuid.UUID, points int64, description string) (*entities.User, error) {
-	// 残高を更新（SELECT FOR UPDATE使用）
+	// 残高を更新（悲観的ロックで競合を防止）
 	if err := i.userRepo.UpdateBalanceWithLock(ctx, userID, points, false); err != nil {
 		return nil, err
 	}

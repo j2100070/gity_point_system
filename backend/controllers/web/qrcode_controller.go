@@ -46,12 +46,6 @@ func (c *QRCodeController) GenerateReceiveQR(ctx *gin.Context) {
 		return
 	}
 
-	// 金額検証
-	if req.Amount != nil && *req.Amount <= 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "amount must be positive"})
-		return
-	}
-
 	// ユースケース実行
 	resp, err := c.qrCodeUC.GenerateReceiveQR(ctx, &inputport.GenerateReceiveQRRequest{
 		UserID: userID.(uuid.UUID),
@@ -82,12 +76,6 @@ func (c *QRCodeController) GenerateSendQR(ctx *gin.Context) {
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	// 金額検証
-	if req.Amount <= 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "amount must be positive"})
 		return
 	}
 
@@ -123,12 +111,6 @@ func (c *QRCodeController) ScanQR(ctx *gin.Context) {
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	// 金額検証
-	if req.Amount != nil && *req.Amount <= 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "amount must be positive"})
 		return
 	}
 
