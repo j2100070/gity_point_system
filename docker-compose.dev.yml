@@ -1,7 +1,7 @@
 services:
   # PostgreSQL データベース
   db:
-    image: postgres:15-alpine
+    image: postgres:15.16-alpine
     container_name: point_system_db
     environment:
       POSTGRES_USER: postgres
@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,7 +47,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - backend_uploads:/app/uploads    
+      - backend_uploads:/app/uploads
     restart: unless-stopped
     networks:
       - point_system_network
@@ -66,8 +66,8 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./frontend/src:/app/src:ro  # ソースコードのみマウント（読み取り専用）
-      - ./frontend/public:/app/public:ro  # publicディレクトリ（読み取り専用）
+      - ./frontend/src:/app/src:ro # ソースコードのみマウント（読み取り専用）
+      - ./frontend/public:/app/public:ro # publicディレクトリ（読み取り専用）
       # node_modulesはコンテナ内のものを使用（マウントしない）
     restart: unless-stopped
     networks:
