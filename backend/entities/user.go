@@ -30,9 +30,11 @@ type User struct {
 	Email           string
 	PasswordHash    string
 	DisplayName     string
-	Balance         int64      // ポイント残高
+	FirstName       string // 名前（プロフィール表示用）
+	LastName        string // 苗字（プロフィール表示用）
+	Balance         int64  // ポイント残高
 	Role            UserRole
-	Version         int        // 楽観的ロック用
+	Version         int // 楽観的ロック用
 	IsActive        bool
 	AvatarURL       *string    // アバター画像URL
 	AvatarType      AvatarType // アバタータイプ
@@ -44,7 +46,7 @@ type User struct {
 }
 
 // NewUser は新しいユーザーを作成
-func NewUser(username, email, passwordHash, displayName string) (*User, error) {
+func NewUser(username, email, passwordHash, displayName, firstName, lastName string) (*User, error) {
 	if username == "" {
 		return nil, errors.New("username is required")
 	}
@@ -65,6 +67,8 @@ func NewUser(username, email, passwordHash, displayName string) (*User, error) {
 		Email:          email,
 		PasswordHash:   passwordHash,
 		DisplayName:    displayName,
+		FirstName:      firstName,
+		LastName:       lastName,
 		Balance:        0,
 		Role:           RoleUser,
 		Version:        1,
@@ -72,7 +76,7 @@ func NewUser(username, email, passwordHash, displayName string) (*User, error) {
 		AvatarURL:      nil,
 		AvatarType:     AvatarTypeGenerated,
 		PersonalQRCode: GeneratePersonalQRCode(userID), // 個人QRコード生成
-		EmailVerified:  false,                           // 初期は未認証
+		EmailVerified:  false,                          // 初期は未認証
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}, nil
@@ -150,7 +154,7 @@ func (u *User) Activate() {
 }
 
 // UpdateProfile はプロフィール更新
-func (u *User) UpdateProfile(displayName, email string) error {
+func (u *User) UpdateProfile(displayName, email, firstName, lastName string) error {
 	changed := false
 
 	if displayName != "" && displayName != u.DisplayName {
@@ -162,6 +166,16 @@ func (u *User) UpdateProfile(displayName, email string) error {
 		u.Email = email
 		u.EmailVerified = false // メール変更時は再認証必要
 		u.EmailVerifiedAt = nil
+		changed = true
+	}
+
+	if firstName != u.FirstName {
+		u.FirstName = firstName
+		changed = true
+	}
+
+	if lastName != u.LastName {
+		u.LastName = lastName
 		changed = true
 	}
 

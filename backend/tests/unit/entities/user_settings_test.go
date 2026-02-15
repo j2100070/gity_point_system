@@ -15,10 +15,10 @@ import (
 
 func TestUser_UpdateProfile(t *testing.T) {
 	t.Run("表示名のみ更新", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Old Name")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Old Name", "", "")
 		originalEmail := user.Email
 
-		err := user.UpdateProfile("New Name", "")
+		err := user.UpdateProfile("New Name", "", "", "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "New Name", user.DisplayName)
@@ -27,10 +27,10 @@ func TestUser_UpdateProfile(t *testing.T) {
 	})
 
 	t.Run("メールアドレス変更時は認証リセット", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "old@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "old@example.com", "hash", "Test User", "", "")
 		user.VerifyEmail() // 認証済みにする
 
-		err := user.UpdateProfile("", "new@example.com")
+		err := user.UpdateProfile("", "new@example.com", "", "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "new@example.com", user.Email)
@@ -39,20 +39,62 @@ func TestUser_UpdateProfile(t *testing.T) {
 	})
 
 	t.Run("表示名とメールの両方を更新", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "old@example.com", "hash", "Old Name")
+		user, _ := entities.NewUser("testuser", "old@example.com", "hash", "Old Name", "", "")
 
-		err := user.UpdateProfile("New Name", "new@example.com")
+		err := user.UpdateProfile("New Name", "new@example.com", "", "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "New Name", user.DisplayName)
 		assert.Equal(t, "new@example.com", user.Email)
 		assert.False(t, user.EmailVerified)
 	})
+
+	t.Run("苗字・名前を更新", func(t *testing.T) {
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
+
+		err := user.UpdateProfile("", "", "太郎", "山田")
+		require.NoError(t, err)
+
+		assert.Equal(t, "太郎", user.FirstName)
+		assert.Equal(t, "山田", user.LastName)
+		assert.Equal(t, "Test User", user.DisplayName) // 表示名は変更なし
+	})
+
+	t.Run("表示名・メール・苗字・名前の全てを更新", func(t *testing.T) {
+		user, _ := entities.NewUser("testuser", "old@example.com", "hash", "Old Name", "", "")
+
+		err := user.UpdateProfile("New Name", "new@example.com", "花子", "佐藤")
+		require.NoError(t, err)
+
+		assert.Equal(t, "New Name", user.DisplayName)
+		assert.Equal(t, "new@example.com", user.Email)
+		assert.Equal(t, "花子", user.FirstName)
+		assert.Equal(t, "佐藤", user.LastName)
+	})
+}
+
+func TestUser_NewUser_WithRealName(t *testing.T) {
+	t.Run("苗字・名前付きでユーザー作成", func(t *testing.T) {
+		user, err := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "太郎", "山田")
+		require.NoError(t, err)
+
+		assert.Equal(t, "太郎", user.FirstName)
+		assert.Equal(t, "山田", user.LastName)
+		assert.Equal(t, "Test User", user.DisplayName)
+	})
+
+	t.Run("苗字・名前なしでユーザー作成", func(t *testing.T) {
+		user, err := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
+		require.NoError(t, err)
+
+		assert.Equal(t, "", user.FirstName)
+		assert.Equal(t, "", user.LastName)
+	})
 }
 
 func TestUser_UpdateUsername(t *testing.T) {
 	t.Run("ユーザー名を正常に変更", func(t *testing.T) {
-		user, _ := entities.NewUser("oldusername", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("oldusername", "test@example.com", "hash", "Test User", "", "")
 
 		err := user.UpdateUsername("newusername")
 		require.NoError(t, err)
@@ -61,7 +103,7 @@ func TestUser_UpdateUsername(t *testing.T) {
 	})
 
 	t.Run("空のユーザー名はエラー", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 
 		err := user.UpdateUsername("")
 		assert.Error(t, err)
@@ -69,7 +111,7 @@ func TestUser_UpdateUsername(t *testing.T) {
 	})
 
 	t.Run("同じユーザー名はエラー", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 
 		err := user.UpdateUsername("testuser")
 		assert.Error(t, err)
@@ -79,7 +121,7 @@ func TestUser_UpdateUsername(t *testing.T) {
 
 func TestUser_UpdateAvatar(t *testing.T) {
 	t.Run("アバターURLを正常に更新", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 
 		err := user.UpdateAvatar("https://example.com/avatar.jpg", entities.AvatarTypeUploaded)
 		require.NoError(t, err)
@@ -90,7 +132,7 @@ func TestUser_UpdateAvatar(t *testing.T) {
 	})
 
 	t.Run("無効なアバタータイプはエラー", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 
 		err := user.UpdateAvatar("https://example.com/avatar.jpg", "invalid")
 		assert.Error(t, err)
@@ -100,7 +142,7 @@ func TestUser_UpdateAvatar(t *testing.T) {
 
 func TestUser_DeleteAvatar(t *testing.T) {
 	t.Run("アバターを削除して自動生成に戻す", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		avatarURL := "https://example.com/avatar.jpg"
 		user.AvatarURL = &avatarURL
 		user.AvatarType = entities.AvatarTypeUploaded
@@ -114,7 +156,7 @@ func TestUser_DeleteAvatar(t *testing.T) {
 
 func TestUser_VerifyEmail(t *testing.T) {
 	t.Run("メールアドレスを認証", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 
 		assert.False(t, user.EmailVerified)
 		assert.Nil(t, user.EmailVerifiedAt)
@@ -128,7 +170,7 @@ func TestUser_VerifyEmail(t *testing.T) {
 
 func TestUser_UpdatePassword(t *testing.T) {
 	t.Run("パスワードを正常に更新", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "oldhash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "oldhash", "Test User", "", "")
 
 		err := user.UpdatePassword("newhash")
 		require.NoError(t, err)
@@ -137,7 +179,7 @@ func TestUser_UpdatePassword(t *testing.T) {
 	})
 
 	t.Run("空のパスワードハッシュはエラー", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 
 		err := user.UpdatePassword("")
 		assert.Error(t, err)
@@ -151,7 +193,7 @@ func TestUser_UpdatePassword(t *testing.T) {
 
 func TestUser_ToArchivedUser(t *testing.T) {
 	t.Run("ユーザーをアーカイブユーザーに変換", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		user.Balance = 1000
 		archivedBy := uuid.New()
 		reason := "User requested deletion"
@@ -170,7 +212,7 @@ func TestUser_ToArchivedUser(t *testing.T) {
 
 func TestArchivedUser_RestoreToUser(t *testing.T) {
 	t.Run("アーカイブユーザーをユーザーに復元", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		user.Balance = 1000
 		archivedBy := uuid.New()
 		archived := user.ToArchivedUser(&archivedBy, nil)

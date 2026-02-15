@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package integration
@@ -51,7 +52,7 @@ func TestUserDataSource_InsertWithNewFields(t *testing.T) {
 	ds := dsmysqlimpl.NewUserDataSource(db)
 
 	t.Run("新フィールド付きでユーザーを作成", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		avatarURL := "https://example.com/avatar.jpg"
 		user.AvatarURL = &avatarURL
 		user.AvatarType = entities.AvatarTypeUploaded
@@ -79,11 +80,11 @@ func TestUserDataSource_UpdateWithNewFields(t *testing.T) {
 	ds := dsmysqlimpl.NewUserDataSource(db)
 
 	t.Run("新フィールドを更新", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		require.NoError(t, ds.Insert(user))
 
 		// プロフィール更新
-		user.UpdateProfile("New Name", "")
+		user.UpdateProfile("New Name", "", "", "")
 		success, err := ds.Update(user)
 		require.NoError(t, err)
 		assert.True(t, success)
@@ -126,7 +127,7 @@ func TestArchivedUserDataSource_Insert(t *testing.T) {
 	ds := dsmysqlimpl.NewArchivedUserDataSource(db)
 
 	t.Run("アーカイブユーザーを作成", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		user.Balance = 1000
 		archivedBy := uuid.New()
 		reason := "User requested deletion"
@@ -153,7 +154,7 @@ func TestArchivedUserDataSource_SelectByUsername(t *testing.T) {
 	ds := dsmysqlimpl.NewArchivedUserDataSource(db)
 
 	t.Run("ユーザー名でアーカイブユーザーを検索", func(t *testing.T) {
-		user, _ := entities.NewUser("archiveduser", "archived@example.com", "hash", "Archived User")
+		user, _ := entities.NewUser("archiveduser", "archived@example.com", "hash", "Archived User", "", "")
 		archived := user.ToArchivedUser(nil, nil)
 		require.NoError(t, ds.Insert(archived))
 
@@ -177,6 +178,8 @@ func TestArchivedUserDataSource_SelectList(t *testing.T) {
 				"user"+string(rune('0'+i))+"@example.com",
 				"hash",
 				"User "+string(rune('0'+i)),
+				"",
+				"",
 			)
 			archived := user.ToArchivedUser(nil, nil)
 			require.NoError(t, ds.Insert(archived))
@@ -206,6 +209,8 @@ func TestArchivedUserDataSource_Count(t *testing.T) {
 				"countuser"+string(rune('0'+i))+"@example.com",
 				"hash",
 				"Count User",
+				"",
+				"",
 			)
 			archived := user.ToArchivedUser(nil, nil)
 			require.NoError(t, ds.Insert(archived))
@@ -301,7 +306,7 @@ func TestEmailVerificationDataSource_DeleteByUserID(t *testing.T) {
 
 	t.Run("ユーザーIDに紐づくトークンを削除", func(t *testing.T) {
 		// ユーザーを作成
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		require.NoError(t, userDS.Insert(user))
 
 		// ユーザーに紐づくトークンを作成
@@ -330,7 +335,7 @@ func TestUsernameChangeHistoryDataSource_Insert(t *testing.T) {
 	historyDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
 
 	t.Run("ユーザー名変更履歴を作成", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		require.NoError(t, userDS.Insert(user))
 
 		ipAddress := "192.168.1.1"
@@ -356,7 +361,7 @@ func TestUsernameChangeHistoryDataSource_CountByUserID(t *testing.T) {
 	historyDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
 
 	t.Run("ユーザーの変更履歴数を取得", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		require.NoError(t, userDS.Insert(user))
 
 		// 3つの履歴を作成
@@ -383,7 +388,7 @@ func TestPasswordChangeHistoryDataSource_Insert(t *testing.T) {
 	historyDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
 
 	t.Run("パスワード変更履歴を作成", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		require.NoError(t, userDS.Insert(user))
 
 		ipAddress := "192.168.1.1"
@@ -410,7 +415,7 @@ func TestPasswordChangeHistoryDataSource_CountByUserID(t *testing.T) {
 	historyDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
 
 	t.Run("ユーザーのパスワード変更履歴数を取得", func(t *testing.T) {
-		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User")
+		user, _ := entities.NewUser("testuser", "test@example.com", "hash", "Test User", "", "")
 		require.NoError(t, userDS.Insert(user))
 
 		// 2つの履歴を作成

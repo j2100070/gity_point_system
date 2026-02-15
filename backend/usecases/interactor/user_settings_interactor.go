@@ -81,7 +81,7 @@ func (i *UserSettingsInteractor) UpdateProfile(ctx context.Context, req *inputpo
 	}
 
 	// プロフィールを更新
-	if err := user.UpdateProfile(req.DisplayName, req.Email); err != nil {
+	if err := user.UpdateProfile(req.DisplayName, req.Email, req.FirstName, req.LastName); err != nil {
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}
 
@@ -406,7 +406,7 @@ func (i *UserSettingsInteractor) VerifyEmail(ctx context.Context, req *inputport
 		}
 
 		// メールアドレスを更新して認証
-		if err := user.UpdateProfile("", token.Email); err != nil {
+		if err := user.UpdateProfile("", token.Email, "", ""); err != nil {
 			return nil, fmt.Errorf("failed to update email: %w", err)
 		}
 

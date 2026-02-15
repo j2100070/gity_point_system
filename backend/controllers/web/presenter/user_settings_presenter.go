@@ -18,13 +18,15 @@ func (p *UserSettingsPresenter) PresentUpdateProfileResponse(resp *inputport.Upd
 	result := gin.H{
 		"message": "profile updated successfully",
 		"user": gin.H{
-			"id":                  resp.User.ID,
-			"username":            resp.User.Username,
-			"email":               resp.User.Email,
-			"display_name":        resp.User.DisplayName,
-			"avatar_url":          resp.User.AvatarURL,
-			"email_verified":      resp.User.EmailVerified,
-			"email_verified_at":   resp.User.EmailVerifiedAt,
+			"id":                resp.User.ID,
+			"username":          resp.User.Username,
+			"email":             resp.User.Email,
+			"display_name":      resp.User.DisplayName,
+			"first_name":        resp.User.FirstName,
+			"last_name":         resp.User.LastName,
+			"avatar_url":        resp.User.AvatarURL,
+			"email_verified":    resp.User.EmailVerified,
+			"email_verified_at": resp.User.EmailVerifiedAt,
 		},
 	}
 
@@ -53,6 +55,8 @@ func (p *UserSettingsPresenter) PresentVerifyEmailResponse(resp *inputport.Verif
 			"username":          resp.User.Username,
 			"email":             resp.User.Email,
 			"display_name":      resp.User.DisplayName,
+			"first_name":        resp.User.FirstName,
+			"last_name":         resp.User.LastName,
 			"email_verified":    resp.User.EmailVerified,
 			"email_verified_at": resp.User.EmailVerifiedAt,
 		},
@@ -63,16 +67,18 @@ func (p *UserSettingsPresenter) PresentVerifyEmailResponse(resp *inputport.Verif
 func (p *UserSettingsPresenter) PresentGetProfileResponse(resp *inputport.GetProfileResponse) gin.H {
 	return gin.H{
 		"user": gin.H{
-			"id":                  resp.User.ID,
-			"username":            resp.User.Username,
-			"email":               resp.User.Email,
-			"display_name":        resp.User.DisplayName,
-			"avatar_url":          resp.User.AvatarURL,
-			"email_verified":      resp.User.EmailVerified,
-			"email_verified_at":   resp.User.EmailVerifiedAt,
-			"balance":             resp.User.Balance,
-			"role":                resp.User.Role,
-			"created_at":          resp.User.CreatedAt,
+			"id":                resp.User.ID,
+			"username":          resp.User.Username,
+			"email":             resp.User.Email,
+			"display_name":      resp.User.DisplayName,
+			"first_name":        resp.User.FirstName,
+			"last_name":         resp.User.LastName,
+			"avatar_url":        resp.User.AvatarURL,
+			"email_verified":    resp.User.EmailVerified,
+			"email_verified_at": resp.User.EmailVerifiedAt,
+			"balance":           resp.User.Balance,
+			"role":              resp.User.Role,
+			"created_at":        resp.User.CreatedAt,
 		},
 	}
 }

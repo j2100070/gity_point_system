@@ -44,7 +44,7 @@ func (i *AuthInteractor) Register(ctx context.Context, req *inputport.RegisterRe
 	}
 
 	// ユーザー作成
-	user, err := entities.NewUser(req.Username, req.Email, hashedPassword, req.DisplayName)
+	user, err := entities.NewUser(req.Username, req.Email, hashedPassword, req.DisplayName, req.FirstName, req.LastName)
 	if err != nil {
 		return nil, err
 	}

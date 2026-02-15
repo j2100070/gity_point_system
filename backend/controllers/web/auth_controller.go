@@ -33,6 +33,8 @@ type RegisterRequest struct {
 	Email       string `json:"email" binding:"required,email"`
 	Password    string `json:"password" binding:"required,min=8"`
 	DisplayName string `json:"display_name" binding:"required,min=1,max=100"`
+	FirstName   string `json:"first_name" binding:"max=100"`
+	LastName    string `json:"last_name" binding:"max=100"`
 }
 
 // Register は新しいユーザーを登録
@@ -49,6 +51,8 @@ func (c *AuthController) Register(ctx *gin.Context, currentTime time.Time) {
 		Email:       req.Email,
 		Password:    req.Password,
 		DisplayName: req.DisplayName,
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
 	})
 
 	if err != nil {

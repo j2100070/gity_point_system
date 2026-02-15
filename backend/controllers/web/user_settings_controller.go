@@ -31,6 +31,8 @@ func NewUserSettingsController(
 type UpdateProfileRequest struct {
 	DisplayName string `json:"display_name" binding:"required,min=1,max=100"`
 	Email       string `json:"email" binding:"required,email"`
+	FirstName   string `json:"first_name" binding:"max=100"`
+	LastName    string `json:"last_name" binding:"max=100"`
 }
 
 // UpdateProfile はプロフィールを更新
@@ -52,6 +54,8 @@ func (c *UserSettingsController) UpdateProfile(ctx *gin.Context) {
 		UserID:      userID.(uuid.UUID),
 		DisplayName: req.DisplayName,
 		Email:       req.Email,
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
 	})
 
 	if err != nil {

@@ -187,10 +187,10 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
+		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender", "", "")
 		sender.Balance = 10000
 		sender.IsActive = true
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 		receiver.IsActive = true
 
 		userRepo.setUser(sender)
@@ -222,10 +222,10 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
+		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender", "", "")
 		sender.Balance = 10000
 		sender.IsActive = true
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 		receiver.IsActive = true
 
 		userRepo.setUser(sender)
@@ -257,7 +257,7 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 		receiver.IsActive = true
 		userRepo.setUser(receiver)
 
@@ -284,10 +284,10 @@ func TestTransferRequestInteractor_CreateTransferRequest(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
+		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender", "", "")
 		sender.Balance = 100 // 残高不足
 		sender.IsActive = true
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 		receiver.IsActive = true
 
 		userRepo.setUser(sender)
@@ -315,9 +315,9 @@ func TestTransferRequestInteractor_ApproveTransferRequest(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
+		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender", "", "")
 		sender.Balance = 10000
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 		receiver.Balance = 5000
 
 		userRepo.setUser(sender)
@@ -549,8 +549,8 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender", "", "")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 
 		userRepo.setUser(sender)
 		userRepo.setUser(receiver)
@@ -579,8 +579,8 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 		ptPort := newMockPointTransferPort()
 		logger := &mockTransferRequestLogger{}
 
-		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender")
-		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver")
+		sender, _ := entities.NewUser("sender", "sender@example.com", "hash", "Sender", "", "")
+		receiver, _ := entities.NewUser("receiver", "receiver@example.com", "hash", "Receiver", "", "")
 
 		userRepo.setUser(sender)
 		userRepo.setUser(receiver)

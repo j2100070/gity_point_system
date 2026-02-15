@@ -31,6 +31,8 @@ type RegisterRequest struct {
 	Email       string
 	Password    string
 	DisplayName string
+	FirstName   string
+	LastName    string
 }
 
 // RegisterResponse は登録レスポンス

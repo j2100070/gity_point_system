@@ -30,7 +30,7 @@ func TestTransactionIsolation_RepeatableRead(t *testing.T) {
 	userRepo := user.NewUserRepositoryImpl(db)
 
 	// テストユーザーを作成
-	testUser, err := entities.NewUser("isolation_test", "isolation@test.com", "hash", "Isolation Test")
+	testUser, err := entities.NewUser("isolation_test", "isolation@test.com", "hash", "Isolation Test", "", "")
 	testUser.Balance = 10000
 	require.NoError(t, err)
 	require.NoError(t, userRepo.Create(testUser))
@@ -91,6 +91,8 @@ func TestTransactionIsolation_PhantomRead(t *testing.T) {
 					fmt.Sprintf("phantom_%d@test.com", time.Now().UnixNano()),
 					"hash",
 					"Phantom User",
+					"",
+					"",
 				)
 				newUser.Balance = 10000
 				db.Create(newUser)
@@ -119,9 +121,9 @@ func TestConcurrentTransactions_DeadlockPrevention(t *testing.T) {
 	userRepo := user.NewUserRepositoryImpl(db)
 
 	// 2人のユーザーを作成
-	userA, _ := entities.NewUser("userA", "userA@test.com", "hash", "User A")
+	userA, _ := entities.NewUser("userA", "userA@test.com", "hash", "User A", "", "")
 	userA.Balance = 5000
-	userB, _ := entities.NewUser("userB", "userB@test.com", "hash", "User B")
+	userB, _ := entities.NewUser("userB", "userB@test.com", "hash", "User B", "", "")
 	userB.Balance = 5000
 
 	require.NoError(t, userRepo.Create(userA))
@@ -194,7 +196,7 @@ func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 	userRepo := user.NewUserRepositoryImpl(db)
 
 	// テストユーザーを作成
-	testUser, _ := entities.NewUser("concurrent_test", "concurrent@test.com", "hash", "Concurrent Test")
+	testUser, _ := entities.NewUser("concurrent_test", "concurrent@test.com", "hash", "Concurrent Test", "", "")
 	testUser.Balance = 100000
 	require.NoError(t, userRepo.Create(testUser))
 
@@ -236,7 +238,7 @@ func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 
 	userRepo := user.NewUserRepositoryImpl(db)
 
-	testUser, _ := entities.NewUser("lost_update_test", "lost@test.com", "hash", "Lost Update Test")
+	testUser, _ := entities.NewUser("lost_update_test", "lost@test.com", "hash", "Lost Update Test", "", "")
 	testUser.Balance = 10000
 	require.NoError(t, userRepo.Create(testUser))
 
@@ -304,6 +306,8 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 			fmt.Sprintf("user%d@test.com", i),
 			"hash",
 			fmt.Sprintf("User %d", i),
+			"",
+			"",
 		)
 		u.Balance = 10000
 		require.NoError(t, userRepo.Create(u))
@@ -413,9 +417,9 @@ func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 
 	userRepo := user.NewUserRepositoryImpl(db)
 
-	sender, _ := entities.NewUser("sender", "sender@test.com", "hash", "Sender")
+	sender, _ := entities.NewUser("sender", "sender@test.com", "hash", "Sender", "", "")
 	sender.Balance = 10000
-	receiver, _ := entities.NewUser("receiver", "receiver@test.com", "hash", "Receiver")
+	receiver, _ := entities.NewUser("receiver", "receiver@test.com", "hash", "Receiver", "", "")
 	receiver.Balance = 5000
 
 	require.NoError(t, userRepo.Create(sender))
@@ -512,7 +516,7 @@ func TestTransactionRollback_OnError(t *testing.T) {
 
 	userRepo := user.NewUserRepositoryImpl(db)
 
-	testUser, _ := entities.NewUser("rollback_test", "rollback@test.com", "hash", "Rollback Test")
+	testUser, _ := entities.NewUser("rollback_test", "rollback@test.com", "hash", "Rollback Test", "", "")
 	testUser.Balance = 5000
 	require.NoError(t, userRepo.Create(testUser))
 

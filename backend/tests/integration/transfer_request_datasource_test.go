@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package integration
@@ -39,7 +40,7 @@ func setupTransferRequestTestDB(t *testing.T) inframysql.DB {
 
 func createTestUserForTransferRequest(t *testing.T, db inframysql.DB, username string) *entities.User {
 	userDS := dsmysqlimpl.NewUserDataSource(db)
-	user, err := entities.NewUser(username, username+"@example.com", "hash", "User "+username)
+	user, err := entities.NewUser(username, username+"@example.com", "hash", "User "+username, "", "")
 	require.NoError(t, err)
 	user.Balance = 10000 // 初期残高設定
 	require.NoError(t, userDS.Insert(user))

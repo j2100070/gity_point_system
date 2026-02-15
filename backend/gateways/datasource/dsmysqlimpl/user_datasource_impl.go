@@ -13,24 +13,26 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// UserModel はGORM用のユーザーモデル
+// UserModel はGORMのユーザーモデル
 type UserModel struct {
-	ID              uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Username        string    `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Email           string    `gorm:"type:varchar(255);uniqueIndex;not null"`
-	PasswordHash    string    `gorm:"type:varchar(255);not null"`
-	DisplayName     string    `gorm:"type:varchar(255);not null"`
-	Balance         int64     `gorm:"not null;default:0;check:balance >= 0"`
-	Role            string    `gorm:"type:varchar(50);not null;default:'user'"`
-	Version         int       `gorm:"not null;default:1"`
-	IsActive        bool      `gorm:"not null;default:true"`
-	AvatarURL       *string   `gorm:"type:varchar(500)"`
-	AvatarType      string    `gorm:"type:varchar(50);default:'generated'"`
-	PersonalQRCode  string    `gorm:"type:varchar(255);uniqueIndex;not null"`
-	EmailVerified   bool      `gorm:"not null;default:false"`
-	EmailVerifiedAt *time.Time
-	CreatedAt       time.Time `gorm:"not null;default:now()"`
-	UpdatedAt       time.Time `gorm:"not null;default:now()"`
+	ID              string     `gorm:"column:id;primaryKey;type:char(36)"`
+	Username        string     `gorm:"column:username;uniqueIndex;not null"`
+	Email           string     `gorm:"column:email;uniqueIndex;not null"`
+	PasswordHash    string     `gorm:"column:password_hash;not null"`
+	DisplayName     string     `gorm:"column:display_name;not null"`
+	FirstName       string     `gorm:"column:first_name;not null;default:''"`
+	LastName        string     `gorm:"column:last_name;not null;default:''"`
+	Balance         int64      `gorm:"column:balance;not null;default:0"`
+	Role            string     `gorm:"column:role;not null;default:'user'"`
+	Version         int        `gorm:"column:version;not null;default:1"`
+	IsActive        bool       `gorm:"column:is_active;not null;default:true"`
+	AvatarURL       *string    `gorm:"column:avatar_url"`
+	AvatarType      string     `gorm:"column:avatar_type;not null;default:'generated'"`
+	PersonalQRCode  string     `gorm:"column:personal_qr_code"`
+	EmailVerified   bool       `gorm:"column:email_verified;not null;default:false"`
+	EmailVerifiedAt *time.Time `gorm:"column:email_verified_at"`
+	CreatedAt       time.Time  `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 // TableName はテーブル名を指定
@@ -39,34 +41,39 @@ func (UserModel) TableName() string {
 }
 
 // ToDomain はドメインモデルに変換
-func (u *UserModel) ToDomain() *entities.User {
+func (m *UserModel) ToDomain() *entities.User {
+	userID, _ := uuid.Parse(m.ID)
 	return &entities.User{
-		ID:              u.ID,
-		Username:        u.Username,
-		Email:           u.Email,
-		PasswordHash:    u.PasswordHash,
-		DisplayName:     u.DisplayName,
-		Balance:         u.Balance,
-		Role:            entities.UserRole(u.Role),
-		Version:         u.Version,
-		IsActive:        u.IsActive,
-		AvatarURL:       u.AvatarURL,
-		AvatarType:      entities.AvatarType(u.AvatarType),
-		PersonalQRCode:  u.PersonalQRCode,
-		EmailVerified:   u.EmailVerified,
-		EmailVerifiedAt: u.EmailVerifiedAt,
-		CreatedAt:       u.CreatedAt,
-		UpdatedAt:       u.UpdatedAt,
+		ID:              userID,
+		Username:        m.Username,
+		Email:           m.Email,
+		PasswordHash:    m.PasswordHash,
+		DisplayName:     m.DisplayName,
+		FirstName:       m.FirstName,
+		LastName:        m.LastName,
+		Balance:         m.Balance,
+		Role:            entities.UserRole(m.Role),
+		Version:         m.Version,
+		IsActive:        m.IsActive,
+		AvatarURL:       m.AvatarURL,
+		AvatarType:      entities.AvatarType(m.AvatarType),
+		PersonalQRCode:  m.PersonalQRCode,
+		EmailVerified:   m.EmailVerified,
+		EmailVerifiedAt: m.EmailVerifiedAt,
+		CreatedAt:       m.CreatedAt,
+		UpdatedAt:       m.UpdatedAt,
 	}
 }
 
 // FromDomain はドメインモデルから変換
 func (u *UserModel) FromDomain(user *entities.User) {
-	u.ID = user.ID
+	u.ID = user.ID.String()
 	u.Username = user.Username
 	u.Email = user.Email
 	u.PasswordHash = user.PasswordHash
 	u.DisplayName = user.DisplayName
+	u.FirstName = user.FirstName
+	u.LastName = user.LastName
 	u.Balance = user.Balance
 	u.Role = string(user.Role)
 	u.Version = user.Version
@@ -110,7 +117,7 @@ func (ds *UserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entiti
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
-	err := db.Where("id = ?", id).First(&model).Error
+	err := db.Where("id = ?", id.String()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -160,13 +167,14 @@ func (ds *UserDataSourceImpl) Update(ctx context.Context, user *entities.User) (
 	model.FromDomain(user)
 
 	// 楽観的ロック: versionが一致する場合のみ更新
-	result := db.Model(&UserModel{}).
-		Where("id = ? AND version = ?", user.ID, user.Version-1).
+	result := db.Model(&UserModel{}).Where("id = ? AND version = ?", user.ID.String(), user.Version-1).
 		Updates(map[string]interface{}{
 			"username":          model.Username,
 			"email":             model.Email,
 			"password_hash":     model.PasswordHash,
 			"display_name":      model.DisplayName,
+			"first_name":        model.FirstName,
+			"last_name":         model.LastName,
 			"balance":           model.Balance,
 			"role":              model.Role,
 			"version":           model.Version,

@@ -19,6 +19,8 @@ export const SettingsPage: React.FC = () => {
   // プロフィール編集
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState('');
 
@@ -54,6 +56,8 @@ export const SettingsPage: React.FC = () => {
       setProfile(data);
       setDisplayName(data.display_name);
       setEmail(data.email);
+      setFirstName(data.first_name || '');
+      setLastName(data.last_name || '');
       setLoading(false);
     } catch (err: any) {
       setError(err.response?.data?.error || 'プロフィールの読み込みに失敗しました');
@@ -77,6 +81,8 @@ export const SettingsPage: React.FC = () => {
       const response = await settingsRepo.updateProfile({
         display_name: displayName,
         email: email,
+        first_name: firstName,
+        last_name: lastName,
       });
       console.log('[SettingsPage] Profile updated successfully:', {
         new_version: (response.user as any).version,
@@ -85,6 +91,8 @@ export const SettingsPage: React.FC = () => {
       // フォームの値も更新されたプロフィールで同期
       setDisplayName(response.user.display_name);
       setEmail(response.user.email);
+      setFirstName(response.user.first_name || '');
+      setLastName(response.user.last_name || '');
       setProfileSuccess(response.message);
       if (response.email_verification_sent) {
         setProfileSuccess(response.message + ' メール認証が必要です。');
@@ -277,31 +285,28 @@ export const SettingsPage: React.FC = () => {
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'profile'
+            className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'profile'
                 ? 'text-primary-600 border-b-2 border-primary-600'
                 : 'text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             プロフィール
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'security'
+            className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'security'
                 ? 'text-primary-600 border-b-2 border-primary-600'
                 : 'text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             セキュリティ
           </button>
           <button
             onClick={() => setActiveTab('account')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'account'
+            className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'account'
                 ? 'text-primary-600 border-b-2 border-primary-600'
                 : 'text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             アカウント
           </button>
@@ -393,6 +398,32 @@ export const SettingsPage: React.FC = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      苗字
+                    </label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      placeholder="任意"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      名前
+                    </label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      placeholder="任意"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -42,6 +42,8 @@ type UpdateProfileRequest struct {
 	UserID      uuid.UUID
 	DisplayName string
 	Email       string
+	FirstName   string
+	LastName    string
 }
 
 // UpdateProfileResponse はプロフィール更新レスポンス
@@ -86,9 +88,9 @@ type DeleteAvatarRequest struct {
 
 // SendEmailVerificationRequest はメール認証送信リクエスト
 type SendEmailVerificationRequest struct {
-	UserID    *uuid.UUID           // 登録時はnil、メール変更時はユーザーID
-	Email     string               // 認証するメールアドレス
-	TokenType entities.TokenType   // "registration" | "email_change"
+	UserID    *uuid.UUID         // 登録時はnil、メール変更時はユーザーID
+	Email     string             // 認証するメールアドレス
+	TokenType entities.TokenType // "registration" | "email_change"
 }
 
 // VerifyEmailRequest はメール認証リクエスト

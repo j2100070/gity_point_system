@@ -4,6 +4,8 @@ export interface UserProfile {
   username: string;
   email: string;
   display_name: string;
+  first_name?: string;
+  last_name?: string;
   avatar_url?: string;
   email_verified: boolean;
   email_verified_at?: string;
@@ -16,6 +18,8 @@ export interface UserProfile {
 export interface UpdateProfileRequest {
   display_name: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 // プロフィール更新レスポンス
