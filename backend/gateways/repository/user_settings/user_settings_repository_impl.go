@@ -31,6 +31,8 @@ func (r *UserSettingsRepositoryImpl) UpdateProfile(ctx context.Context, user *en
 	return r.userDS.UpdatePartial(ctx, user.ID, map[string]interface{}{
 		"display_name":      user.DisplayName,
 		"email":             user.Email,
+		"first_name":        user.FirstName,
+		"last_name":         user.LastName,
 		"email_verified":    user.EmailVerified,
 		"email_verified_at": user.EmailVerifiedAt,
 		"avatar_url":        user.AvatarURL,
