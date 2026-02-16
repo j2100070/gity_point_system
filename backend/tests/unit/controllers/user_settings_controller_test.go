@@ -117,6 +117,8 @@ func TestUpdateProfile(t *testing.T) {
 		reqBody := web.UpdateProfileRequest{
 			DisplayName: "Updated Name",
 			Email:       "updated@example.com",
+			FirstName:   "太郎",
+			LastName:    "田中",
 		}
 
 		c, w := setupTestContext("PUT", "/api/settings/profile", reqBody)

@@ -8,7 +8,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string, displayName: string, firstName?: string, lastName?: string) => Promise<void>;
+  register: (username: string, email: string, password: string, displayName: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateUserBalance: (newBalance: number) => void;
@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (username: string, email: string, password: string, displayName: string, firstName?: string, lastName?: string) => {
+  register: async (username: string, email: string, password: string, displayName: string, firstName: string, lastName: string) => {
     set({ isLoading: true, error: null });
     try {
       const response = await authRepository.register({

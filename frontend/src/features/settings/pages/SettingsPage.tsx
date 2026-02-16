@@ -286,8 +286,8 @@ export const SettingsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('profile')}
             className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'profile'
-                ? 'text-primary-600 border-b-2 border-primary-600'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'text-primary-600 border-b-2 border-primary-600'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
           >
             プロフィール
@@ -295,8 +295,8 @@ export const SettingsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('security')}
             className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'security'
-                ? 'text-primary-600 border-b-2 border-primary-600'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'text-primary-600 border-b-2 border-primary-600'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
           >
             セキュリティ
@@ -304,8 +304,8 @@ export const SettingsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('account')}
             className={`flex-1 py-3 px-4 text-sm font-medium ${activeTab === 'account'
-                ? 'text-primary-600 border-b-2 border-primary-600'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'text-primary-600 border-b-2 border-primary-600'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
           >
             アカウント
@@ -407,9 +407,9 @@ export const SettingsPage: React.FC = () => {
                     <input
                       type="text"
                       value={lastName}
+                      required
                       onChange={(e) => setLastName(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="任意"
                     />
                   </div>
                   <div>
@@ -419,9 +419,9 @@ export const SettingsPage: React.FC = () => {
                     <input
                       type="text"
                       value={firstName}
+                      required
                       onChange={(e) => setFirstName(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="任意"
                     />
                   </div>
                 </div>

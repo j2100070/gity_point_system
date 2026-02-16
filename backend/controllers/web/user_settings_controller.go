@@ -31,8 +31,8 @@ func NewUserSettingsController(
 type UpdateProfileRequest struct {
 	DisplayName string `json:"display_name" binding:"required,min=1,max=100"`
 	Email       string `json:"email" binding:"required,email"`
-	FirstName   string `json:"first_name" binding:"max=100"`
-	LastName    string `json:"last_name" binding:"max=100"`
+	FirstName   string `json:"first_name" binding:"required,max=100"`
+	LastName    string `json:"last_name" binding:"required,max=100"`
 }
 
 // UpdateProfile はプロフィールを更新

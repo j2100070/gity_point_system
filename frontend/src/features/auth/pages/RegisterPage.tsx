@@ -92,10 +92,10 @@ export const RegisterPage: React.FC = () => {
                   id="lastName"
                   name="lastName"
                   type="text"
+                  required
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  placeholder="任意"
                 />
               </div>
               <div>
@@ -106,10 +106,10 @@ export const RegisterPage: React.FC = () => {
                   id="firstName"
                   name="firstName"
                   type="text"
+                  required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  placeholder="任意"
                 />
               </div>
             </div>

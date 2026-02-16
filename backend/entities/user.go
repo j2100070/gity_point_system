@@ -59,6 +59,12 @@ func NewUser(username, email, passwordHash, displayName, firstName, lastName str
 	if displayName == "" {
 		return nil, errors.New("display name is required")
 	}
+	if firstName == "" {
+		return nil, errors.New("first name is required")
+	}
+	if lastName == "" {
+		return nil, errors.New("last name is required")
+	}
 
 	userID := uuid.New()
 	return &User{

@@ -3,8 +3,8 @@ export interface User {
   username: string;
   email: string;
   display_name: string;
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  last_name: string;
   avatar_url?: string;
   personal_qr_code?: string;
   balance: number;
@@ -24,8 +24,8 @@ export interface RegisterRequest {
   email: string;
   password: string;
   display_name: string;
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  last_name: string;
 }
 
 export interface AuthResponse {
