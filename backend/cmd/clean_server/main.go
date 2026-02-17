@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gity/point-system/config"
 	"github.com/gity/point-system/controllers/web"
@@ -10,18 +11,19 @@ import (
 	frameworksweb "github.com/gity/point-system/frameworks/web"
 	"github.com/gity/point-system/frameworks/web/middleware"
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/infra/infraakerun"
 	"github.com/gity/point-system/gateways/infra/infraemail"
 	"github.com/gity/point-system/gateways/infra/infralogger"
 	"github.com/gity/point-system/gateways/infra/inframysql"
 	"github.com/gity/point-system/gateways/infra/infrapassword"
 	"github.com/gity/point-system/gateways/infra/infrastorage"
-	"github.com/gity/point-system/gateways/infra/infratime"
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
 	dailybonusrepo "github.com/gity/point-system/gateways/repository/daily_bonus"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
 	sessionrepo "github.com/gity/point-system/gateways/repository/session"
+	systemsettingsrepo "github.com/gity/point-system/gateways/repository/system_settings"
 	transactionrepo "github.com/gity/point-system/gateways/repository/transaction"
 	transferrequestrepo "github.com/gity/point-system/gateways/repository/transfer_request"
 	userrepo "github.com/gity/point-system/gateways/repository/user"
@@ -31,8 +33,9 @@ import (
 
 // AppContainer はアプリケーションの依存関係を管理
 type AppContainer struct {
-	Router *frameworksweb.Router
-	DB     inframysql.DB
+	Router       *frameworksweb.Router
+	DB           inframysql.DB
+	akerunWorker *infraakerun.AkerunWorker
 }
 
 // NewAppContainer は新しいAppContainerを作成（手動DI）
@@ -72,6 +75,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	emailVerificationDS := dsmysqlimpl.NewEmailVerificationDataSource(db)
 	usernameChangeHistoryDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
 	passwordChangeHistoryDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
+	systemSettingsDS := dsmysqlimpl.NewSystemSettingsDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -90,10 +94,10 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 	emailVerificationRepo := usersettingsrepo.NewEmailVerificationRepository(emailVerificationDS, logger)
 	usernameChangeHistoryRepo := usersettingsrepo.NewUsernameChangeHistoryRepository(usernameChangeHistoryDS, logger)
 	passwordChangeHistoryRepo := usersettingsrepo.NewPasswordChangeHistoryRepository(passwordChangeHistoryDS, logger)
+	systemSettingsRepo := systemsettingsrepo.NewSystemSettingsRepository(systemSettingsDS)
 
 	// === Service層 ===
 	passwordService := infrapassword.NewBcryptPasswordService()
-	timeProvider := infratime.NewSystemTimeProvider()
 
 	// === Interactor層 ===
 	authUC := interactor.NewAuthInteractor(
@@ -130,15 +134,9 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 
 	dailyBonusUC := interactor.NewDailyBonusInteractor(
 		dailyBonusRepo,
-		userRepo,
-		transactionRepo,
-		txManager,
-		timeProvider,
+		systemSettingsRepo,
 		logger,
 	)
-
-	// 循環依存を避けるため、DailyBonusPortを後から設定
-	pointTransferUC.SetDailyBonusPort(dailyBonusUC)
 
 	qrcodeUC := interactor.NewQRCodeInteractor(
 		qrcodeRepo,
@@ -167,9 +165,6 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		transactionRepo,
 		logger,
 	)
-
-	// 循環依存を避けるため、DailyBonusPortを後から設定
-	productExchangeUC.SetDailyBonusPort(dailyBonusUC)
 
 	categoryUC := interactor.NewCategoryManagementInteractor(
 		categoryRepo,
@@ -252,21 +247,48 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		csrfMiddleware,
 	)
 
+	// === Akerun Worker層 ===
+	akerunClient := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
+		AccessToken:    os.Getenv("AKERUN_ACCESS_TOKEN"),
+		OrganizationID: os.Getenv("AKERUN_ORGANIZATION_ID"),
+	})
+
+	akerunWorker := infraakerun.NewAkerunWorker(
+		akerunClient,
+		dailyBonusRepo,
+		userRepo,
+		transactionRepo,
+		txManager,
+		systemSettingsRepo,
+		logger,
+	)
+
 	logger.Info("AppContainer initialized successfully")
 	logger.Info("All repositories, interactors, and controllers are ready")
 
 	return &AppContainer{
-		Router: router,
-		DB:     db,
+		Router:       router,
+		DB:           db,
+		akerunWorker: akerunWorker,
 	}, nil
 }
 
 // Close はアプリケーションのリソースを解放
 func (c *AppContainer) Close() error {
+	if c.akerunWorker != nil {
+		c.akerunWorker.Stop()
+	}
 	if c.DB != nil {
 		return c.DB.Close()
 	}
 	return nil
+}
+
+// StartWorkers はバックグラウンドワーカーを開始
+func (c *AppContainer) StartWorkers() {
+	if c.akerunWorker != nil {
+		c.akerunWorker.Start()
+	}
 }
 
 func main() {
@@ -296,6 +318,9 @@ func main() {
 		log.Fatalf("Failed to initialize app: %v", err)
 	}
 	defer app.Close()
+
+	// バックグラウンドワーカー開始
+	app.StartWorkers()
 
 	// サーバー起動
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)

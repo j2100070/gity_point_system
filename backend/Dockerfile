@@ -18,10 +18,13 @@ FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates postgresql-client
 
 COPY --from=builder /app/bin/server ./server
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 EXPOSE 8080
 
-CMD ["./server"]
+ENTRYPOINT ["./entrypoint.sh"]

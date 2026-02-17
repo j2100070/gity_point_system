@@ -176,6 +176,26 @@ export const AdminDashboardPage: React.FC = () => {
           </Link>
 
           <Link
+            to="/admin/bonus-settings"
+            className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center mr-4">
+                <svg className="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                </svg>
+              </div>
+              <div>
+                <div className="font-medium text-gray-900">ボーナス設定</div>
+                <div className="text-sm text-gray-500">Akerun入退室ボーナスのポイント数設定</div>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          <Link
             to="/dashboard"
             className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
           >

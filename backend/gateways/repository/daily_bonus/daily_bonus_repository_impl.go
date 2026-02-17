@@ -24,16 +24,6 @@ func (r *DailyBonusRepositoryImpl) Create(ctx context.Context, bonus *entities.D
 	return r.ds.Insert(ctx, bonus)
 }
 
-// Update はデイリーボーナスを更新
-func (r *DailyBonusRepositoryImpl) Update(ctx context.Context, bonus *entities.DailyBonus) error {
-	return r.ds.Update(ctx, bonus)
-}
-
-// Read はIDでデイリーボーナスを取得
-func (r *DailyBonusRepositoryImpl) Read(ctx context.Context, id uuid.UUID) (*entities.DailyBonus, error) {
-	return r.ds.Select(ctx, id)
-}
-
 // ReadByUserAndDate はユーザーIDと日付でデイリーボーナスを取得
 func (r *DailyBonusRepositoryImpl) ReadByUserAndDate(ctx context.Context, userID uuid.UUID, date time.Time) (*entities.DailyBonus, error) {
 	return r.ds.SelectByUserAndDate(ctx, userID, date)
@@ -44,7 +34,17 @@ func (r *DailyBonusRepositoryImpl) ReadRecentByUser(ctx context.Context, userID 
 	return r.ds.SelectRecentByUser(ctx, userID, limit)
 }
 
-// CountAllCompletedByUser はユーザーの全達成回数をカウント
-func (r *DailyBonusRepositoryImpl) CountAllCompletedByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	return r.ds.CountAllCompletedByUser(ctx, userID)
+// CountByUser はユーザーのボーナス獲得日数をカウント
+func (r *DailyBonusRepositoryImpl) CountByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return r.ds.CountByUser(ctx, userID)
+}
+
+// GetLastPolledAt は前回ポーリング時刻を取得
+func (r *DailyBonusRepositoryImpl) GetLastPolledAt(ctx context.Context) (time.Time, error) {
+	return r.ds.GetLastPolledAt(ctx)
+}
+
+// UpdateLastPolledAt はポーリング時刻を更新
+func (r *DailyBonusRepositoryImpl) UpdateLastPolledAt(ctx context.Context, t time.Time) error {
+	return r.ds.UpdateLastPolledAt(ctx, t)
 }

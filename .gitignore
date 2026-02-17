@@ -25,6 +25,9 @@ dist-ssr
 
 .claude/*
 
+# Environment variables
+.env
+
 # Uploaded files
 uploads/
 

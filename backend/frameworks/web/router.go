@@ -190,12 +190,6 @@ func (r *Router) RegisterRoutes(
 				transferRequests.DELETE("/:id", transferRequestController.CancelTransferRequest)
 			}
 
-			// デイリーボーナス（POST - 状態変更あり）
-			dailyBonusWithCSRF := protectedWithCSRF.Group("/daily-bonus")
-			{
-				dailyBonusWithCSRF.POST("/claim-login", dailyBonusController.ClaimLoginBonus)
-			}
-
 			// 商品交換（ユーザー）
 			products := protectedWithCSRF.Group("/products")
 			{
@@ -245,6 +239,10 @@ func (r *Router) RegisterRoutes(
 				admin.POST("/categories", categoryController.CreateCategory)
 				admin.PUT("/categories/:id", categoryController.UpdateCategory)
 				admin.DELETE("/categories/:id", categoryController.DeleteCategory)
+
+				// ボーナス設定（Akerun入退室ボーナスのポイント数）
+				admin.GET("/bonus-settings", dailyBonusController.GetBonusSettings)
+				admin.PUT("/bonus-settings", dailyBonusController.UpdateBonusSettings)
 			}
 		}
 	}

@@ -45,6 +45,7 @@ import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
 import { AdminTransactionsPage } from '@/features/admin/pages/AdminTransactionsPage';
 import { AdminCategoriesPage } from '@/features/admin/pages/AdminCategoriesPage';
+import { AdminBonusSettingsPage } from '@/features/admin/pages/AdminBonusSettingsPage';
 import { AdminProductsPage } from '@/features/products/pages/AdminProductsPage';
 
 function App() {
@@ -253,6 +254,14 @@ function App() {
             element={
               <ProtectedRoute adminOnly>
                 <AdminCategoriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/bonus-settings"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminBonusSettingsPage />
               </ProtectedRoute>
             }
           />

@@ -17,7 +17,7 @@ export const DailyBonusPage = () => {
       setError(null);
       const [todayData, recentData] = await Promise.all([
         dailyBonusApi.getTodayBonus(),
-        dailyBonusApi.getRecentBonuses(7),
+        dailyBonusApi.getRecentBonuses(14),
       ]);
       setTodayBonus(todayData);
       setRecentBonuses(recentData);
@@ -72,21 +72,16 @@ export const DailyBonusPage = () => {
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-bold">デイリーボーナス</h1>
+            <h1 className="text-2xl font-bold">入退室ボーナス</h1>
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Today's Bonus Card */}
-        <DailyBonusCard
-          dailyBonus={todayBonus.daily_bonus}
-          allCompletedCount={todayBonus.all_completed_count}
-          canClaimLoginBonus={todayBonus.can_claim_login_bonus}
-          onBonusClaimed={fetchData}
-        />
+        {/* 今日のボーナスカード */}
+        <DailyBonusCard todayBonus={todayBonus} />
 
-        {/* Recent History */}
+        {/* 最近のボーナス履歴 */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-gray-600" />
@@ -110,19 +105,17 @@ export const DailyBonusPage = () => {
                         weekday: "short",
                       })}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      達成: {bonus.completed_count}/3
-                      {bonus.all_completed && (
-                        <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                          全達成
-                        </span>
-                      )}
+                    <div className="text-sm text-gray-500">
+                      {bonus.accessed_at
+                        ? new Date(bonus.accessed_at).toLocaleTimeString("ja-JP", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }) + " に入退室"
+                        : ""}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-purple-600">
-                      +{bonus.total_bonus_points}P
-                    </div>
+                  <div className="font-bold text-purple-600">
+                    +{bonus.bonus_points}P
                   </div>
                 </div>
               ))
@@ -130,7 +123,7 @@ export const DailyBonusPage = () => {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* 統計 */}
         <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg shadow-md p-6 text-white">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-5 h-5" />
@@ -138,16 +131,13 @@ export const DailyBonusPage = () => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white bg-opacity-20 rounded-lg p-3">
-              <div className="text-sm opacity-90">全達成回数</div>
-              <div className="text-3xl font-bold">{recentBonuses.all_completed_count}</div>
+              <div className="text-sm opacity-90">累計獲得日数</div>
+              <div className="text-3xl font-bold">{recentBonuses.total_days}</div>
             </div>
             <div className="bg-white bg-opacity-20 rounded-lg p-3">
-              <div className="text-sm opacity-90">今週の獲得</div>
+              <div className="text-sm opacity-90">直近合計</div>
               <div className="text-3xl font-bold">
-                {recentBonuses.bonuses
-                  .slice(0, 7)
-                  .reduce((sum, b) => sum + b.total_bonus_points, 0)}
-                P
+                {recentBonuses.bonuses.reduce((sum, b) => sum + b.bonus_points, 0)}P
               </div>
             </div>
           </div>

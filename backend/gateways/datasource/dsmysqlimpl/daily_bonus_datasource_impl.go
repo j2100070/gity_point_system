@@ -10,29 +10,33 @@ import (
 	"gorm.io/gorm"
 )
 
-// DailyBonusModel はデイリーボーナスのGORMモデル
+// DailyBonusModel はAkerun入退室ベースのデイリーボーナスGORMモデル
 type DailyBonusModel struct {
-	ID                  uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID              uuid.UUID  `gorm:"type:uuid;not null;index:idx_daily_bonuses_user_date"`
-	BonusDate           time.Time  `gorm:"type:date;not null;index:idx_daily_bonuses_user_date"`
-	LoginCompleted      bool       `gorm:"default:false;not null"`
-	LoginCompletedAt    *time.Time `gorm:"type:timestamptz"`
-	TransferCompleted   bool       `gorm:"default:false;not null"`
-	TransferCompletedAt *time.Time `gorm:"type:timestamptz"`
-	TransferTxID        *uuid.UUID `gorm:"type:uuid;column:transfer_transaction_id"`
-	ExchangeCompleted   bool       `gorm:"default:false;not null"`
-	ExchangeCompletedAt *time.Time `gorm:"type:timestamptz"`
-	ExchangeID          *uuid.UUID `gorm:"type:uuid"`
-	AllCompleted        bool       `gorm:"default:false;not null"`
-	AllCompletedAt      *time.Time `gorm:"type:timestamptz"`
-	TotalBonusPoints    int64      `gorm:"default:0;not null"`
-	CreatedAt           time.Time  `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
-	UpdatedAt           time.Time  `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
+	ID             uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID         uuid.UUID  `gorm:"type:uuid;not null"`
+	BonusDate      time.Time  `gorm:"type:date;not null"`
+	BonusPoints    int64      `gorm:"default:5;not null"`
+	AkerunAccessID *string    `gorm:"type:text"`
+	AkerunUserName *string    `gorm:"type:text"`
+	AccessedAt     *time.Time `gorm:"type:timestamptz"`
+	CreatedAt      time.Time  `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
 }
 
 // TableName はテーブル名を指定
 func (DailyBonusModel) TableName() string {
 	return "daily_bonuses"
+}
+
+// AkerunPollStateModel はポーリング状態のGORMモデル
+type AkerunPollStateModel struct {
+	ID           int       `gorm:"primary_key;default:1"`
+	LastPolledAt time.Time `gorm:"type:timestamptz;not null"`
+	UpdatedAt    time.Time `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
+}
+
+// TableName はテーブル名を指定
+func (AkerunPollStateModel) TableName() string {
+	return "akerun_poll_state"
 }
 
 // DailyBonusDataSource はデイリーボーナスのデータソース
@@ -47,46 +51,40 @@ func NewDailyBonusDataSource(db inframysql.DB) *DailyBonusDataSource {
 
 // toEntity はGORMモデルをエンティティに変換
 func (ds *DailyBonusDataSource) toEntity(model *DailyBonusModel) *entities.DailyBonus {
-	return &entities.DailyBonus{
-		ID:                  model.ID,
-		UserID:              model.UserID,
-		BonusDate:           model.BonusDate,
-		LoginCompleted:      model.LoginCompleted,
-		LoginCompletedAt:    model.LoginCompletedAt,
-		TransferCompleted:   model.TransferCompleted,
-		TransferCompletedAt: model.TransferCompletedAt,
-		TransferTxID:        model.TransferTxID,
-		ExchangeCompleted:   model.ExchangeCompleted,
-		ExchangeCompletedAt: model.ExchangeCompletedAt,
-		ExchangeID:          model.ExchangeID,
-		AllCompleted:        model.AllCompleted,
-		AllCompletedAt:      model.AllCompletedAt,
-		TotalBonusPoints:    model.TotalBonusPoints,
-		CreatedAt:           model.CreatedAt,
-		UpdatedAt:           model.UpdatedAt,
+	bonus := &entities.DailyBonus{
+		ID:          model.ID,
+		UserID:      model.UserID,
+		BonusDate:   model.BonusDate,
+		BonusPoints: model.BonusPoints,
+		AccessedAt:  model.AccessedAt,
+		CreatedAt:   model.CreatedAt,
 	}
+	if model.AkerunAccessID != nil {
+		bonus.AkerunAccessID = *model.AkerunAccessID
+	}
+	if model.AkerunUserName != nil {
+		bonus.AkerunUserName = *model.AkerunUserName
+	}
+	return bonus
 }
 
 // toModel はエンティティをGORMモデルに変換
 func (ds *DailyBonusDataSource) toModel(bonus *entities.DailyBonus) *DailyBonusModel {
-	return &DailyBonusModel{
-		ID:                  bonus.ID,
-		UserID:              bonus.UserID,
-		BonusDate:           bonus.BonusDate,
-		LoginCompleted:      bonus.LoginCompleted,
-		LoginCompletedAt:    bonus.LoginCompletedAt,
-		TransferCompleted:   bonus.TransferCompleted,
-		TransferCompletedAt: bonus.TransferCompletedAt,
-		TransferTxID:        bonus.TransferTxID,
-		ExchangeCompleted:   bonus.ExchangeCompleted,
-		ExchangeCompletedAt: bonus.ExchangeCompletedAt,
-		ExchangeID:          bonus.ExchangeID,
-		AllCompleted:        bonus.AllCompleted,
-		AllCompletedAt:      bonus.AllCompletedAt,
-		TotalBonusPoints:    bonus.TotalBonusPoints,
-		CreatedAt:           bonus.CreatedAt,
-		UpdatedAt:           bonus.UpdatedAt,
+	model := &DailyBonusModel{
+		ID:          bonus.ID,
+		UserID:      bonus.UserID,
+		BonusDate:   bonus.BonusDate,
+		BonusPoints: bonus.BonusPoints,
+		AccessedAt:  bonus.AccessedAt,
+		CreatedAt:   bonus.CreatedAt,
 	}
+	if bonus.AkerunAccessID != "" {
+		model.AkerunAccessID = &bonus.AkerunAccessID
+	}
+	if bonus.AkerunUserName != "" {
+		model.AkerunUserName = &bonus.AkerunUserName
+	}
+	return model
 }
 
 // Insert はデイリーボーナスを挿入
@@ -96,32 +94,10 @@ func (ds *DailyBonusDataSource) Insert(ctx context.Context, bonus *entities.Dail
 	return db.Create(model).Error
 }
 
-// Update はデイリーボーナスを更新
-func (ds *DailyBonusDataSource) Update(ctx context.Context, bonus *entities.DailyBonus) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
-	model := ds.toModel(bonus)
-	return db.Save(model).Error
-}
-
-// Select はIDでデイリーボーナスを取得
-func (ds *DailyBonusDataSource) Select(ctx context.Context, id uuid.UUID) (*entities.DailyBonus, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
-	var model DailyBonusModel
-	err := db.Where("id = ?", id).First(&model).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return ds.toEntity(&model), nil
-}
-
 // SelectByUserAndDate はユーザーIDと日付でデイリーボーナスを取得
 func (ds *DailyBonusDataSource) SelectByUserAndDate(ctx context.Context, userID uuid.UUID, date time.Time) (*entities.DailyBonus, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var model DailyBonusModel
-	// 日付のみで比較（時刻は無視）
 	dateOnly := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	err := db.Where("user_id = ? AND bonus_date = ?", userID, dateOnly).First(&model).Error
 	if err != nil {
@@ -153,12 +129,37 @@ func (ds *DailyBonusDataSource) SelectRecentByUser(ctx context.Context, userID u
 	return bonuses, nil
 }
 
-// CountAllCompletedByUser はユーザーの全達成回数をカウント
-func (ds *DailyBonusDataSource) CountAllCompletedByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+// CountByUser はユーザーのボーナス獲得日数をカウント
+func (ds *DailyBonusDataSource) CountByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	var count int64
 	err := db.Model(&DailyBonusModel{}).
-		Where("user_id = ? AND all_completed = ?", userID, true).
+		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err
+}
+
+// GetLastPolledAt は前回ポーリング時刻を取得
+func (ds *DailyBonusDataSource) GetLastPolledAt(ctx context.Context) (time.Time, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	var model AkerunPollStateModel
+	err := db.First(&model).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return time.Now().Add(-24 * time.Hour), nil // デフォルト: 24時間前
+		}
+		return time.Time{}, err
+	}
+	return model.LastPolledAt, nil
+}
+
+// UpdateLastPolledAt はポーリング時刻を更新
+func (ds *DailyBonusDataSource) UpdateLastPolledAt(ctx context.Context, t time.Time) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	return db.Model(&AkerunPollStateModel{}).
+		Where("id = 1").
+		Updates(map[string]interface{}{
+			"last_polled_at": t,
+			"updated_at":     time.Now(),
+		}).Error
 }
