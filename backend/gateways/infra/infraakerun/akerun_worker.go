@@ -9,6 +9,7 @@ import (
 
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/repository"
+	"github.com/gity/point-system/usecases/service"
 	"github.com/google/uuid"
 )
 
@@ -20,6 +21,7 @@ type AkerunWorker struct {
 	transactionRepo    repository.TransactionRepository
 	txManager          repository.TransactionManager
 	systemSettingsRepo repository.SystemSettingsRepository
+	timeProvider       service.TimeProvider
 	logger             entities.Logger
 	interval           time.Duration
 	stopCh             chan struct{}
@@ -33,6 +35,7 @@ func NewAkerunWorker(
 	transactionRepo repository.TransactionRepository,
 	txManager repository.TransactionManager,
 	systemSettingsRepo repository.SystemSettingsRepository,
+	timeProvider service.TimeProvider,
 	logger entities.Logger,
 ) *AkerunWorker {
 	return &AkerunWorker{
@@ -42,6 +45,7 @@ func NewAkerunWorker(
 		transactionRepo:    transactionRepo,
 		txManager:          txManager,
 		systemSettingsRepo: systemSettingsRepo,
+		timeProvider:       timeProvider,
 		logger:             logger,
 		interval:           5 * time.Minute,
 		stopCh:             make(chan struct{}),
@@ -92,7 +96,7 @@ func (w *AkerunWorker) poll() {
 		return
 	}
 
-	now := time.Now()
+	now := w.timeProvider.Now()
 
 	// Akerun APIから履歴取得（差分のみ）
 	accesses, err := w.client.GetAccesses(ctx, lastPolledAt, now)

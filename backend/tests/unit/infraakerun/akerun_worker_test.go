@@ -227,6 +227,11 @@ func (m *mockLogger) Warn(msg string, fields ...entities.Field)  {}
 func (m *mockLogger) Error(msg string, fields ...entities.Field) { m.errors = append(m.errors, msg) }
 func (m *mockLogger) Fatal(msg string, fields ...entities.Field) {}
 
+// mockTimeProvider はテスト用の時刻プロバイダー
+type mockTimeProvider struct{}
+
+func (m *mockTimeProvider) Now() time.Time { return time.Now() }
+
 // ========================================
 // Helper: Akerun APIモックサーバー
 // ========================================
@@ -370,6 +375,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 			transactionRepo,
 			txManager,
 			systemSettingsRepo,
+			&mockTimeProvider{},
 			logger,
 		)
 
@@ -448,7 +454,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, logger,
+			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -498,7 +504,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, logger,
+			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -554,7 +560,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, logger,
+			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -608,7 +614,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, logger,
+			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===

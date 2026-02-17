@@ -260,6 +260,7 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 		transactionRepo,
 		txManager,
 		systemSettingsRepo,
+		frameworkTimeProvider,
 		logger,
 	)
 

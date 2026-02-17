@@ -71,10 +71,12 @@ func (c *AkerunClient) GetAccesses(ctx context.Context, after, before time.Time)
 	endpoint := fmt.Sprintf("%s/v3/organizations/%s/accesses",
 		c.config.BaseURL, c.config.OrganizationID)
 
+	// Akerun APIはJST (UTC+9) でのdatetimeを期待する
+	jst := time.FixedZone("JST", 9*60*60)
 	params := url.Values{}
 	params.Set("limit", "300")
-	params.Set("datetime_after", after.Format(time.RFC3339))
-	params.Set("datetime_before", before.Format(time.RFC3339))
+	params.Set("datetime_after", after.In(jst).Format(time.RFC3339))
+	params.Set("datetime_before", before.In(jst).Format(time.RFC3339))
 
 	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
 
