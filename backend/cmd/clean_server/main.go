@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/gity/point-system/config"
 	"github.com/gity/point-system/controllers/web"
@@ -39,8 +38,23 @@ type AppContainer struct {
 }
 
 // NewAppContainer は新しいAppContainerを作成（手動DI）
-func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.RouterConfig) (*AppContainer, error) {
+func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	// === Infra層 ===
+	dbConfig := &inframysql.Config{
+		Host:     cfg.Database.Host,
+		Port:     cfg.Database.Port,
+		User:     cfg.Database.User,
+		Password: cfg.Database.Password,
+		DBName:   cfg.Database.DBName,
+		SSLMode:  cfg.Database.SSLMode,
+		Env:      cfg.Server.Env,
+	}
+
+	routerConfig := &frameworksweb.RouterConfig{
+		Env:            cfg.Server.Env,
+		AllowedOrigins: cfg.Security.AllowedOrigins,
+	}
+
 	db, err := inframysql.NewPostgresDB(dbConfig)
 	if err != nil {
 		return nil, err
@@ -249,8 +263,8 @@ func NewAppContainer(dbConfig *inframysql.Config, routerConfig *frameworksweb.Ro
 
 	// === Akerun Worker層 ===
 	akerunClient := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
-		AccessToken:    os.Getenv("AKERUN_ACCESS_TOKEN"),
-		OrganizationID: os.Getenv("AKERUN_ORGANIZATION_ID"),
+		AccessToken:    cfg.Akerun.AccessToken,
+		OrganizationID: cfg.Akerun.OrganizationID,
 	})
 
 	akerunWorker := infraakerun.NewAkerunWorker(
@@ -296,25 +310,8 @@ func main() {
 	// 設定読み込み
 	cfg := config.LoadConfig()
 
-	// データベース設定
-	dbConfig := &inframysql.Config{
-		Host:     cfg.Database.Host,
-		Port:     cfg.Database.Port,
-		User:     cfg.Database.User,
-		Password: cfg.Database.Password,
-		DBName:   cfg.Database.DBName,
-		SSLMode:  cfg.Database.SSLMode,
-		Env:      cfg.Server.Env,
-	}
-
-	// ルーター設定
-	routerConfig := &frameworksweb.RouterConfig{
-		Env:            cfg.Server.Env,
-		AllowedOrigins: cfg.Security.AllowedOrigins,
-	}
-
 	// 依存性注入（手動DI）
-	app, err := NewAppContainer(dbConfig, routerConfig)
+	app, err := NewAppContainer(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize app: %v", err)
 	}

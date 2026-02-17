@@ -11,6 +11,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Security SecurityConfig
+	Akerun   AkerunConfig
 }
 
 // ServerConfig はサーバー設定
@@ -36,6 +37,12 @@ type SecurityConfig struct {
 	SessionSecret  string   // セッション暗号化キー
 }
 
+// AkerunConfig はAkerun API設定
+type AkerunConfig struct {
+	AccessToken    string
+	OrganizationID string
+}
+
 // LoadConfig は設定をロード
 func LoadConfig() *Config {
 	return &Config{
@@ -55,6 +62,10 @@ func LoadConfig() *Config {
 		Security: SecurityConfig{
 			AllowedOrigins: getAllowedOrigins(),
 			SessionSecret:  getEnv("SESSION_SECRET", "change-this-in-production-very-secret-key-32bytes"),
+		},
+		Akerun: AkerunConfig{
+			AccessToken:    getEnv("AKERUN_ACCESS_TOKEN", ""),
+			OrganizationID: getEnv("AKERUN_ORGANIZATION_ID", ""),
 		},
 	}
 }

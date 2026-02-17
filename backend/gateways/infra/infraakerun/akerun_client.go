@@ -95,7 +95,6 @@ func (c *AkerunClient) GetAccesses(ctx context.Context, after, before time.Time)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		fmt.Printf("Akerun API Error:\nURL: %s\nStatus: %d\nBody: %s\n", fullURL, resp.StatusCode, string(body))
 		return nil, fmt.Errorf("Akerun API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
