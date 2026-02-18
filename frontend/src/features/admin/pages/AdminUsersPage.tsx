@@ -4,10 +4,13 @@ import { AdminRepository } from '@/infrastructure/api/repositories/AdminReposito
 import { User } from '@/core/domain/User';
 
 const adminRepository = new AdminRepository();
+const PAGE_SIZE = 20;
 
 export const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [modalType, setModalType] = useState<'grant' | 'deduct' | 'role' | null>(null);
   const [amount, setAmount] = useState('');
@@ -18,18 +21,22 @@ export const AdminUsersPage: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [currentPage]);
 
   const loadUsers = async () => {
+    setLoading(true);
     try {
-      const data = await adminRepository.getAllUsers(0, 100);
+      const data = await adminRepository.getAllUsers(currentPage * PAGE_SIZE, PAGE_SIZE);
       setUsers(data.users);
+      setTotalCount(data.total);
     } catch (error) {
       console.error('Failed to load users:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const handleGrantPoints = async () => {
     if (!selectedUser || !amount) return;
@@ -110,18 +117,36 @@ export const AdminUsersPage: React.FC = () => {
     setDescription('');
   };
 
+  // ページネーションで表示するページ番号の範囲を計算
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages - 1, start + maxVisible - 1);
+    start = Math.max(0, end - maxVisible + 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 md:pb-6">
-      <div className="flex items-center mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="mr-4 p-2 hover:bg-gray-100 rounded-full"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-2xl font-bold">ユーザー管理</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <button
+            onClick={() => navigate(-1)}
+            className="mr-4 p-2 hover:bg-gray-100 rounded-full"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-2xl font-bold">ユーザー管理</h1>
+        </div>
+        <div className="text-sm text-gray-500">
+          全 {totalCount.toLocaleString()} ユーザー
+        </div>
       </div>
 
       {loading ? (
@@ -129,102 +154,153 @@ export const AdminUsersPage: React.FC = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ユーザー
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    メール
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    残高
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    役割
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ステータス
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{user.display_name}</div>
-                          <div className="text-sm text-gray-500">@{user.username}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.balance.toLocaleString()} P
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'admin'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {user.role === 'admin' ? '管理者' : 'ユーザー'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {user.is_active ? '有効' : '無効'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => openModal(user, 'grant')}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        付与
-                      </button>
-                      <button
-                        onClick={() => openModal(user, 'deduct')}
-                        className="text-orange-600 hover:text-orange-900"
-                      >
-                        減算
-                      </button>
-                      <button
-                        onClick={() => openModal(user, 'role')}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        役割
-                      </button>
-                      {user.is_active && (
-                        <button
-                          onClick={() => handleDeactivateUser(user.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          無効化
-                        </button>
-                      )}
-                    </td>
+        <>
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ユーザー
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      メール
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      残高
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      役割
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ステータス
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      操作
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{user.display_name}</div>
+                            <div className="text-sm text-gray-500">@{user.username}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{user.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.balance.toLocaleString()} P
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-green-100 text-green-800'
+                          }`}>
+                          {user.role === 'admin' ? '管理者' : 'ユーザー'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                          }`}>
+                          {user.is_active ? '有効' : '無効'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => openModal(user, 'grant')}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          付与
+                        </button>
+                        <button
+                          onClick={() => openModal(user, 'deduct')}
+                          className="text-orange-600 hover:text-orange-900"
+                        >
+                          減算
+                        </button>
+                        <button
+                          onClick={() => openModal(user, 'role')}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          役割
+                        </button>
+                        {user.is_active && (
+                          <button
+                            onClick={() => handleDeactivateUser(user.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            無効化
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* ページネーション */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-white rounded-xl shadow px-6 py-4">
+              <div className="text-sm text-gray-500">
+                {currentPage * PAGE_SIZE + 1}〜{Math.min((currentPage + 1) * PAGE_SIZE, totalCount)} 件 / {totalCount.toLocaleString()} 件
+              </div>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => setCurrentPage(0)}
+                  disabled={currentPage === 0}
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  «
+                </button>
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 0}
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ‹
+                </button>
+                {getPageNumbers().map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-2 text-sm rounded-lg border ${page === currentPage
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'border-gray-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    {page + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1}
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages - 1)}
+                  disabled={currentPage >= totalPages - 1}
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  »
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* モーダル */}
@@ -302,8 +378,8 @@ export const AdminUsersPage: React.FC = () => {
                   modalType === 'grant'
                     ? handleGrantPoints
                     : modalType === 'deduct'
-                    ? handleDeductPoints
-                    : handleChangeRole
+                      ? handleDeductPoints
+                      : handleChangeRole
                 }
                 disabled={processing || (modalType !== 'role' && !amount)}
                 className="flex-1 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
