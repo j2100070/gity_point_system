@@ -112,13 +112,12 @@ func (u *User) CanTransfer(amount int64) error {
 	return nil
 }
 
-// Deduct はポイントを減算（楽観的ロック対応）
+// Deduct はポイントを減算
 func (u *User) Deduct(amount int64) error {
 	if err := u.CanTransfer(amount); err != nil {
 		return err
 	}
 	u.Balance -= amount
-	u.Version++
 	u.UpdatedAt = time.Now()
 	return nil
 }
@@ -129,7 +128,6 @@ func (u *User) Add(amount int64) error {
 		return errors.New("amount must be positive")
 	}
 	u.Balance += amount
-	u.Version++
 	u.UpdatedAt = time.Now()
 	return nil
 }
@@ -140,7 +138,6 @@ func (u *User) UpdateRole(newRole UserRole) error {
 		return errors.New("invalid role")
 	}
 	u.Role = newRole
-	u.Version++
 	u.UpdatedAt = time.Now()
 	return nil
 }
@@ -148,14 +145,12 @@ func (u *User) UpdateRole(newRole UserRole) error {
 // Deactivate はユーザーを無効化
 func (u *User) Deactivate() {
 	u.IsActive = false
-	u.Version++
 	u.UpdatedAt = time.Now()
 }
 
 // Activate はユーザーを有効化
 func (u *User) Activate() {
 	u.IsActive = true
-	u.Version++
 	u.UpdatedAt = time.Now()
 }
 
@@ -186,7 +181,6 @@ func (u *User) UpdateProfile(displayName, email, firstName, lastName string) err
 	}
 
 	if changed {
-		u.Version++
 		u.UpdatedAt = time.Now()
 	}
 
@@ -203,7 +197,6 @@ func (u *User) UpdateUsername(newUsername string) error {
 	}
 
 	u.Username = newUsername
-	u.Version++
 	u.UpdatedAt = time.Now()
 	return nil
 }
@@ -216,7 +209,6 @@ func (u *User) UpdateAvatar(avatarURL string, avatarType AvatarType) error {
 
 	u.AvatarURL = &avatarURL
 	u.AvatarType = avatarType
-	u.Version++
 	u.UpdatedAt = time.Now()
 	return nil
 }
@@ -225,7 +217,6 @@ func (u *User) UpdateAvatar(avatarURL string, avatarType AvatarType) error {
 func (u *User) DeleteAvatar() {
 	u.AvatarURL = nil
 	u.AvatarType = AvatarTypeGenerated
-	u.Version++
 	u.UpdatedAt = time.Now()
 }
 
@@ -234,7 +225,6 @@ func (u *User) VerifyEmail() {
 	u.EmailVerified = true
 	now := time.Now()
 	u.EmailVerifiedAt = &now
-	u.Version++
 	u.UpdatedAt = now
 }
 
@@ -245,7 +235,6 @@ func (u *User) UpdatePassword(newPasswordHash string) error {
 	}
 
 	u.PasswordHash = newPasswordHash
-	u.Version++
 	u.UpdatedAt = time.Now()
 	return nil
 }

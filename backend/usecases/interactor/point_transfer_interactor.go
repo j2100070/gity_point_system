@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
@@ -17,6 +18,7 @@ type PointTransferInteractor struct {
 	transactionRepo repository.TransactionRepository
 	idempotencyRepo repository.IdempotencyKeyRepository
 	friendshipRepo  repository.FriendshipRepository
+	pointBatchRepo  repository.PointBatchRepository
 	logger          entities.Logger
 }
 
@@ -27,6 +29,7 @@ func NewPointTransferInteractor(
 	transactionRepo repository.TransactionRepository,
 	idempotencyRepo repository.IdempotencyKeyRepository,
 	friendshipRepo repository.FriendshipRepository,
+	pointBatchRepo repository.PointBatchRepository,
 	logger entities.Logger,
 ) *PointTransferInteractor {
 	return &PointTransferInteractor{
@@ -35,6 +38,7 @@ func NewPointTransferInteractor(
 		transactionRepo: transactionRepo,
 		idempotencyRepo: idempotencyRepo,
 		friendshipRepo:  friendshipRepo,
+		pointBatchRepo:  pointBatchRepo,
 		logger:          logger,
 	}
 }
@@ -155,7 +159,18 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 			return err
 		}
 
-		// 7. 冪等性キーを完了状態に
+		// 7. ポイントバッチ: 送信者のバッチからFIFO消費
+		if err := i.pointBatchRepo.ConsumePointsFIFO(txCtx, req.FromUserID, req.Amount); err != nil {
+			return fmt.Errorf("failed to consume point batches: %w", err)
+		}
+
+		// 8. ポイントバッチ: 受信者のバッチを作成
+		batch := entities.NewPointBatch(req.ToUserID, req.Amount, entities.PointBatchSourceTransfer, &transaction.ID, time.Now())
+		if err := i.pointBatchRepo.Create(txCtx, batch); err != nil {
+			return fmt.Errorf("failed to create point batch: %w", err)
+		}
+
+		// 9. 冪等性キーを完了状態に
 		idempotencyKey.Status = "completed"
 		idempotencyKey.TransactionID = &transaction.ID
 		if err := i.idempotencyRepo.Update(ctx, idempotencyKey); err != nil {

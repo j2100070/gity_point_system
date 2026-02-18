@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/usecases/inputport"
@@ -16,6 +17,7 @@ type AdminInteractor struct {
 	userRepo        repository.UserRepository
 	transactionRepo repository.TransactionRepository
 	idempotencyRepo repository.IdempotencyKeyRepository
+	pointBatchRepo  repository.PointBatchRepository
 	logger          entities.Logger
 }
 
@@ -25,6 +27,7 @@ func NewAdminInteractor(
 	userRepo repository.UserRepository,
 	transactionRepo repository.TransactionRepository,
 	idempotencyRepo repository.IdempotencyKeyRepository,
+	pointBatchRepo repository.PointBatchRepository,
 	logger entities.Logger,
 ) inputport.AdminInputPort {
 	return &AdminInteractor{
@@ -32,6 +35,7 @@ func NewAdminInteractor(
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
 		idempotencyRepo: idempotencyRepo,
+		pointBatchRepo:  pointBatchRepo,
 		logger:          logger,
 	}
 }
@@ -107,6 +111,12 @@ func (i *AdminInteractor) GrantPoints(ctx context.Context, req *inputport.GrantP
 
 		if err := i.transactionRepo.Create(txCtx, transaction); err != nil {
 			return err
+		}
+
+		// ポイントバッチ作成
+		batch := entities.NewPointBatch(req.UserID, req.Amount, entities.PointBatchSourceAdminGrant, &transaction.ID, time.Now())
+		if err := i.pointBatchRepo.Create(txCtx, batch); err != nil {
+			return fmt.Errorf("failed to create point batch: %w", err)
 		}
 
 		// 冪等性キー保存
@@ -309,29 +319,39 @@ func (i *AdminInteractor) UpdateUserRole(ctx context.Context, req *inputport.Upd
 		return nil, errors.New("unauthorized: admin role required")
 	}
 
-	// ユーザー取得
-	user, err := i.userRepo.Read(ctx, req.UserID)
-	if err != nil {
-		return nil, errors.New("user not found")
-	}
-
 	// 役割検証
 	if req.Role != "user" && req.Role != "admin" {
 		return nil, errors.New("invalid role: must be 'user' or 'admin'")
 	}
 
-	// 役割更新
-	user.Role = entities.UserRole(req.Role)
+	// 楽観ロック競合時リトライ（最大3回）
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		user, err := i.userRepo.Read(ctx, req.UserID)
+		if err != nil {
+			return nil, errors.New("user not found")
+		}
 
-	if _, err := i.userRepo.Update(ctx, user); err != nil {
-		return nil, err
+		if err := user.UpdateRole(entities.UserRole(req.Role)); err != nil {
+			return nil, err
+		}
+
+		updated, err := i.userRepo.Update(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		if updated {
+			i.logger.Info("User role updated successfully",
+				entities.NewField("user_id", req.UserID),
+				entities.NewField("role", req.Role))
+			return &inputport.UpdateUserRoleResponse{User: user}, nil
+		}
+
+		i.logger.Info("Optimistic lock conflict, retrying",
+			entities.NewField("attempt", attempt+1))
 	}
 
-	i.logger.Info("User role updated successfully",
-		entities.NewField("user_id", req.UserID),
-		entities.NewField("role", req.Role))
-
-	return &inputport.UpdateUserRoleResponse{User: user}, nil
+	return nil, errors.New("update conflict: please retry later")
 }
 
 // DeactivateUser はユーザーを無効化
@@ -349,25 +369,33 @@ func (i *AdminInteractor) DeactivateUser(ctx context.Context, req *inputport.Dea
 		return nil, errors.New("unauthorized: admin role required")
 	}
 
-	// ユーザー取得
-	user, err := i.userRepo.Read(ctx, req.UserID)
-	if err != nil {
-		return nil, errors.New("user not found")
-	}
-
 	// 自分自身を無効化しようとしていないかチェック
 	if req.AdminID == req.UserID {
 		return nil, errors.New("cannot deactivate yourself")
 	}
 
-	// ユーザー無効化
-	user.IsActive = false
+	// 楽観ロック競合時リトライ（最大3回）
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		user, err := i.userRepo.Read(ctx, req.UserID)
+		if err != nil {
+			return nil, errors.New("user not found")
+		}
 
-	if _, err := i.userRepo.Update(ctx, user); err != nil {
-		return nil, err
+		user.Deactivate()
+
+		updated, err := i.userRepo.Update(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		if updated {
+			i.logger.Info("User deactivated successfully", entities.NewField("user_id", req.UserID))
+			return &inputport.DeactivateUserResponse{User: user}, nil
+		}
+
+		i.logger.Info("Optimistic lock conflict, retrying",
+			entities.NewField("attempt", attempt+1))
 	}
 
-	i.logger.Info("User deactivated successfully", entities.NewField("user_id", req.UserID))
-
-	return &inputport.DeactivateUserResponse{User: user}, nil
+	return nil, errors.New("update conflict: please retry later")
 }

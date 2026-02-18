@@ -39,17 +39,14 @@ export class AdminRepository implements IAdminRepository {
   }
 
   async changeUserRole(target_user_id: string, new_role: string): Promise<any> {
-    const response = await axiosInstance.post('/api/admin/users/role', {
-      target_user_id,
-      new_role,
+    const response = await axiosInstance.put(`/api/admin/users/${target_user_id}/role`, {
+      role: new_role,
     });
     return response.data;
   }
 
   async deactivateUser(target_user_id: string): Promise<any> {
-    const response = await axiosInstance.post('/api/admin/users/deactivate', {
-      target_user_id,
-    });
+    const response = await axiosInstance.post(`/api/admin/users/${target_user_id}/deactivate`);
     return response.data;
   }
 }

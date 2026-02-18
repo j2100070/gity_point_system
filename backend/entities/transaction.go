@@ -11,10 +11,11 @@ import (
 type TransactionType string
 
 const (
-	TransactionTypeTransfer    TransactionType = "transfer"      // ユーザー間送金
-	TransactionTypeAdminGrant  TransactionType = "admin_grant"   // 管理者付与
-	TransactionTypeAdminDeduct TransactionType = "admin_deduct"  // 管理者減算
-	TransactionTypeSystemGrant TransactionType = "system_grant"  // システム付与
+	TransactionTypeTransfer     TransactionType = "transfer"      // ユーザー間送金
+	TransactionTypeAdminGrant   TransactionType = "admin_grant"   // 管理者付与
+	TransactionTypeAdminDeduct  TransactionType = "admin_deduct"  // 管理者減算
+	TransactionTypeSystemGrant  TransactionType = "system_grant"  // システム付与
+	TransactionTypeSystemExpire TransactionType = "system_expire" // ポイント期限切れ
 )
 
 // TransactionStatus は取引状態
@@ -30,12 +31,12 @@ const (
 // Transaction はポイント取引エンティティ
 type Transaction struct {
 	ID              uuid.UUID
-	FromUserID      *uuid.UUID        // 送信者（nilの場合はシステム付与）
-	ToUserID        *uuid.UUID        // 受信者（nilの場合はシステムへの返却）
+	FromUserID      *uuid.UUID // 送信者（nilの場合はシステム付与）
+	ToUserID        *uuid.UUID // 受信者（nilの場合はシステムへの返却）
 	Amount          int64
 	TransactionType TransactionType
 	Status          TransactionStatus
-	IdempotencyKey  *string           // 冪等性キー
+	IdempotencyKey  *string // 冪等性キー
 	Description     string
 	Metadata        map[string]interface{} // 追加メタデータ（JSONBとして保存）
 	CreatedAt       time.Time

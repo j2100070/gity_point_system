@@ -21,6 +21,7 @@ type AkerunWorker struct {
 	transactionRepo    repository.TransactionRepository
 	txManager          repository.TransactionManager
 	systemSettingsRepo repository.SystemSettingsRepository
+	pointBatchRepo     repository.PointBatchRepository
 	timeProvider       service.TimeProvider
 	logger             entities.Logger
 	interval           time.Duration
@@ -36,6 +37,7 @@ func NewAkerunWorker(
 	transactionRepo repository.TransactionRepository,
 	txManager repository.TransactionManager,
 	systemSettingsRepo repository.SystemSettingsRepository,
+	pointBatchRepo repository.PointBatchRepository,
 	timeProvider service.TimeProvider,
 	logger entities.Logger,
 ) *AkerunWorker {
@@ -46,6 +48,7 @@ func NewAkerunWorker(
 		transactionRepo:    transactionRepo,
 		txManager:          txManager,
 		systemSettingsRepo: systemSettingsRepo,
+		pointBatchRepo:     pointBatchRepo,
 		timeProvider:       timeProvider,
 		logger:             logger,
 		interval:           5 * time.Minute,
@@ -305,6 +308,12 @@ func (w *AkerunWorker) processAccesses(ctx context.Context, accesses []AccessRec
 			}
 			if err := w.userRepo.UpdateBalancesWithLock(txCtx, updates); err != nil {
 				return fmt.Errorf("failed to update balance: %w", err)
+			}
+
+			// ポイントバッチ作成
+			batch := entities.NewPointBatch(userID, bonusPoints, entities.PointBatchSourceDailyBonus, &tx.ID, time.Now())
+			if err := w.pointBatchRepo.Create(txCtx, batch); err != nil {
+				return fmt.Errorf("failed to create point batch: %w", err)
 			}
 
 			return nil

@@ -18,6 +18,7 @@ type ProductExchangeInteractor struct {
 	exchangeRepo    repository.ProductExchangeRepository
 	userRepo        repository.UserRepository
 	transactionRepo repository.TransactionRepository
+	pointBatchRepo  repository.PointBatchRepository
 	logger          entities.Logger
 }
 
@@ -28,6 +29,7 @@ func NewProductExchangeInteractor(
 	exchangeRepo repository.ProductExchangeRepository,
 	userRepo repository.UserRepository,
 	transactionRepo repository.TransactionRepository,
+	pointBatchRepo repository.PointBatchRepository,
 	logger entities.Logger,
 ) *ProductExchangeInteractor {
 	return &ProductExchangeInteractor{
@@ -36,6 +38,7 @@ func NewProductExchangeInteractor(
 		exchangeRepo:    exchangeRepo,
 		userRepo:        userRepo,
 		transactionRepo: transactionRepo,
+		pointBatchRepo:  pointBatchRepo,
 		logger:          logger,
 	}
 }
@@ -125,6 +128,11 @@ func (i *ProductExchangeInteractor) ExchangeProduct(ctx context.Context, req *in
 
 		if err := i.transactionRepo.Create(ctx, transaction); err != nil {
 			return fmt.Errorf("failed to save transaction: %w", err)
+		}
+
+		// 9. ポイントバッチ: FIFO消費
+		if err := i.pointBatchRepo.ConsumePointsFIFO(ctx, req.UserID, totalPoints); err != nil {
+			return fmt.Errorf("failed to consume point batches: %w", err)
 		}
 
 		// 9. 商品交換記録を作成

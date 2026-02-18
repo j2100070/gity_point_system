@@ -10,6 +10,7 @@ import (
 	frameworksweb "github.com/gity/point-system/frameworks/web"
 	"github.com/gity/point-system/frameworks/web/middleware"
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/infra"
 	"github.com/gity/point-system/gateways/infra/infraakerun"
 	"github.com/gity/point-system/gateways/infra/infraemail"
 	"github.com/gity/point-system/gateways/infra/infralogger"
@@ -19,6 +20,7 @@ import (
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
 	dailybonusrepo "github.com/gity/point-system/gateways/repository/daily_bonus"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
+	pointbatchrepo "github.com/gity/point-system/gateways/repository/point_batch"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
 	sessionrepo "github.com/gity/point-system/gateways/repository/session"
@@ -32,9 +34,10 @@ import (
 
 // AppContainer はアプリケーションの依存関係を管理
 type AppContainer struct {
-	Router       *frameworksweb.Router
-	DB           inframysql.DB
-	akerunWorker *infraakerun.AkerunWorker
+	Router            *frameworksweb.Router
+	DB                inframysql.DB
+	akerunWorker      *infraakerun.AkerunWorker
+	pointExpiryWorker *infra.PointExpiryWorker
 }
 
 // NewAppContainer は新しいAppContainerを作成（手動DI）
@@ -90,6 +93,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	usernameChangeHistoryDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
 	passwordChangeHistoryDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
 	systemSettingsDS := dsmysqlimpl.NewSystemSettingsDataSource(db)
+	pointBatchDS := dsmysqlimpl.NewPointBatchDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -109,6 +113,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	usernameChangeHistoryRepo := usersettingsrepo.NewUsernameChangeHistoryRepository(usernameChangeHistoryDS, logger)
 	passwordChangeHistoryRepo := usersettingsrepo.NewPasswordChangeHistoryRepository(passwordChangeHistoryDS, logger)
 	systemSettingsRepo := systemsettingsrepo.NewSystemSettingsRepository(systemSettingsDS)
+	pointBatchRepo := pointbatchrepo.NewPointBatchRepository(pointBatchDS)
 
 	// === Service層 ===
 	passwordService := infrapassword.NewBcryptPasswordService()
@@ -130,6 +135,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		transactionRepo,
 		idempotencyRepo,
 		friendshipRepo,
+		pointBatchRepo,
 		logger,
 	)
 
@@ -163,6 +169,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		userRepo,
 		transactionRepo,
 		idempotencyRepo,
+		pointBatchRepo,
 		logger,
 	)
 
@@ -177,6 +184,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		productExchangeRepo,
 		userRepo,
 		transactionRepo,
+		pointBatchRepo,
 		logger,
 	)
 
@@ -274,7 +282,16 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		transactionRepo,
 		txManager,
 		systemSettingsRepo,
+		pointBatchRepo,
 		frameworkTimeProvider,
+		logger,
+	)
+
+	pointExpiryWorker := infra.NewPointExpiryWorker(
+		pointBatchRepo,
+		userRepo,
+		transactionRepo,
+		txManager,
 		logger,
 	)
 
@@ -282,9 +299,10 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	logger.Info("All repositories, interactors, and controllers are ready")
 
 	return &AppContainer{
-		Router:       router,
-		DB:           db,
-		akerunWorker: akerunWorker,
+		Router:            router,
+		DB:                db,
+		akerunWorker:      akerunWorker,
+		pointExpiryWorker: pointExpiryWorker,
 	}, nil
 }
 
@@ -292,6 +310,9 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 func (c *AppContainer) Close() error {
 	if c.akerunWorker != nil {
 		c.akerunWorker.Stop()
+	}
+	if c.pointExpiryWorker != nil {
+		c.pointExpiryWorker.Stop()
 	}
 	if c.DB != nil {
 		return c.DB.Close()
@@ -303,6 +324,9 @@ func (c *AppContainer) Close() error {
 func (c *AppContainer) StartWorkers() {
 	if c.akerunWorker != nil {
 		c.akerunWorker.Start()
+	}
+	if c.pointExpiryWorker != nil {
+		c.pointExpiryWorker.Start()
 	}
 }
 

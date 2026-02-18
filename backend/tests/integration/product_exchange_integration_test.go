@@ -9,6 +9,7 @@ import (
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
 	"github.com/gity/point-system/gateways/infra/infralogger"
 	"github.com/gity/point-system/gateways/infra/inframysql"
+	pointbatchrepo "github.com/gity/point-system/gateways/repository/point_batch"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
 	transactionrepo "github.com/gity/point-system/gateways/repository/transaction"
 	userrepo "github.com/gity/point-system/gateways/repository/user"
@@ -44,11 +45,13 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
 	productDS := dsmysqlimpl.NewProductDataSource(db)
 	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
+	pointBatchDS := dsmysqlimpl.NewPointBatchDataSource(db)
 
 	userRepo := userrepo.NewUserRepository(userDS, logger)
 	transactionRepo := transactionrepo.NewTransactionRepository(transactionDS, logger)
 	productRepo := productrepo.NewProductRepository(productDS, logger)
 	productExchangeRepo := productrepo.NewProductExchangeRepository(productExchangeDS, logger)
+	pointBatchRepo := pointbatchrepo.NewPointBatchRepository(pointBatchDS)
 
 	// インタラクター作成
 
@@ -60,6 +63,7 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 		productExchangeRepo,
 		userRepo,
 		transactionRepo,
+		pointBatchRepo,
 		logger,
 	)
 

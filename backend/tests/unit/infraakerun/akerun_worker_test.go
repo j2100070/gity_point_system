@@ -211,6 +211,22 @@ func (m *mockSystemSettingsRepo) SetSetting(ctx context.Context, key, value, des
 	return nil
 }
 
+// mockPointBatchRepo は PointBatchRepository のモック
+type mockPointBatchRepo struct{}
+
+func (m *mockPointBatchRepo) Create(ctx context.Context, batch *entities.PointBatch) error {
+	return nil
+}
+func (m *mockPointBatchRepo) ConsumePointsFIFO(ctx context.Context, userID uuid.UUID, amount int64) error {
+	return nil
+}
+func (m *mockPointBatchRepo) FindExpiredBatches(ctx context.Context, before time.Time, limit int) ([]*entities.PointBatch, error) {
+	return nil, nil
+}
+func (m *mockPointBatchRepo) MarkExpired(ctx context.Context, batchID uuid.UUID) error {
+	return nil
+}
+
 // mockLogger はテスト用ログ
 type mockLogger struct {
 	infos  []string
@@ -381,6 +397,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 			transactionRepo,
 			txManager,
 			systemSettingsRepo,
+			&mockPointBatchRepo{},
 			&mockTimeProvider{now: time.Now()},
 			logger,
 		)
@@ -461,7 +478,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
+			txManager, systemSettingsRepo, &mockPointBatchRepo{}, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -512,7 +529,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
+			txManager, systemSettingsRepo, &mockPointBatchRepo{}, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -569,7 +586,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
+			txManager, systemSettingsRepo, &mockPointBatchRepo{}, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -624,7 +641,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, transactionRepo,
-			txManager, systemSettingsRepo, &mockTimeProvider{}, logger,
+			txManager, systemSettingsRepo, &mockPointBatchRepo{}, &mockTimeProvider{}, logger,
 		)
 
 		// === Execute ===
@@ -799,7 +816,7 @@ func TestRecoveryPolling(t *testing.T) {
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, newMockTransactionRepo(),
 			&mockTxManager{}, newMockSystemSettingsRepo(),
-			newMockTimeProvider(nowTime), newMockLogger(),
+			&mockPointBatchRepo{}, newMockTimeProvider(nowTime), newMockLogger(),
 		)
 		worker.SetRecoverySleepForTest(0)
 
@@ -838,7 +855,7 @@ func TestRecoveryPolling(t *testing.T) {
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, newMockTransactionRepo(),
 			&mockTxManager{}, newMockSystemSettingsRepo(),
-			newMockTimeProvider(nowTime), newMockLogger(),
+			&mockPointBatchRepo{}, newMockTimeProvider(nowTime), newMockLogger(),
 		)
 		worker.SetRecoverySleepForTest(0)
 
@@ -878,7 +895,7 @@ func TestRecoveryPolling(t *testing.T) {
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, userRepo, newMockTransactionRepo(),
 			&mockTxManager{}, newMockSystemSettingsRepo(),
-			newMockTimeProvider(nowTime), newMockLogger(),
+			&mockPointBatchRepo{}, newMockTimeProvider(nowTime), newMockLogger(),
 		)
 		worker.SetRecoverySleepForTest(0)
 
@@ -920,7 +937,7 @@ func TestRecoveryPolling(t *testing.T) {
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, newMockUserRepo(), newMockTransactionRepo(),
 			&mockTxManager{}, newMockSystemSettingsRepo(),
-			newMockTimeProvider(nowTime), newMockLogger(),
+			&mockPointBatchRepo{}, newMockTimeProvider(nowTime), newMockLogger(),
 		)
 		worker.SetRecoverySleepForTest(0)
 
@@ -969,7 +986,7 @@ func TestRecoveryPolling(t *testing.T) {
 		worker := infraakerun.NewAkerunWorker(
 			client, dailyBonusRepo, newMockUserRepo(), newMockTransactionRepo(),
 			&mockTxManager{}, newMockSystemSettingsRepo(),
-			newMockTimeProvider(nowTime), newMockLogger(),
+			&mockPointBatchRepo{}, newMockTimeProvider(nowTime), newMockLogger(),
 		)
 		worker.SetRecoverySleepForTest(0)
 

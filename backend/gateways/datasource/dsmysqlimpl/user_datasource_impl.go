@@ -161,13 +161,15 @@ func (ds *UserDataSourceImpl) SelectByEmail(ctx context.Context, email string) (
 }
 
 // Update はユーザー情報を更新（楽観的ロック対応）
+// versionはDB側でアトミックにインクリメントするため、呼び出し側でのVersion++は不要
 func (ds *UserDataSourceImpl) Update(ctx context.Context, user *entities.User) (bool, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	model := &UserModel{}
 	model.FromDomain(user)
 
-	// 楽観的ロック: versionが一致する場合のみ更新
-	result := db.Model(&UserModel{}).Where("id = ? AND version = ?", user.ID.String(), user.Version-1).
+	// 楽観的ロック: 現在のversionが一致する場合のみ更新
+	// versionはDB側でアトミックにインクリメント
+	result := db.Model(&UserModel{}).Where("id = ? AND version = ?", user.ID.String(), user.Version).
 		Updates(map[string]interface{}{
 			"username":          model.Username,
 			"email":             model.Email,
@@ -177,7 +179,7 @@ func (ds *UserDataSourceImpl) Update(ctx context.Context, user *entities.User) (
 			"last_name":         model.LastName,
 			"balance":           model.Balance,
 			"role":              model.Role,
-			"version":           model.Version,
+			"version":           gorm.Expr("version + 1"),
 			"is_active":         model.IsActive,
 			"avatar_url":        model.AvatarURL,
 			"avatar_type":       model.AvatarType,
