@@ -124,6 +124,12 @@ func (m *mockUserRepo) ReadList(ctx context.Context, offset, limit int) ([]*enti
 func (m *mockUserRepo) Count(ctx context.Context) (int64, error) {
 	return int64(len(m.users)), nil
 }
+func (m *mockUserRepo) ReadListWithSearch(ctx context.Context, search, sortBy, sortOrder string, offset, limit int) ([]*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) CountWithSearch(ctx context.Context, search string) (int64, error) {
+	return 0, nil
+}
 func (m *mockUserRepo) UpdateBalanceWithLock(ctx context.Context, userID uuid.UUID, amount int64, isDeduct bool) error {
 	return nil
 }

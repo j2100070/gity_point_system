@@ -44,8 +44,14 @@ type UserRepository interface {
 	// ReadList はユーザー一覧を取得（ページネーション対応）
 	ReadList(ctx context.Context, offset, limit int) ([]*entities.User, error)
 
+	// ReadListWithSearch は検索・ソート付きでユーザー一覧を取得
+	ReadListWithSearch(ctx context.Context, search, sortBy, sortOrder string, offset, limit int) ([]*entities.User, error)
+
 	// Count はユーザー総数を取得
 	Count(ctx context.Context) (int64, error)
+
+	// CountWithSearch は検索条件付きでユーザー総数を取得
+	CountWithSearch(ctx context.Context, search string) (int64, error)
 
 	// Delete はユーザーを論理削除
 	Delete(ctx context.Context, id uuid.UUID) error

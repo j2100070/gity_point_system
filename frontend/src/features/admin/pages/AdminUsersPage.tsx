@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminRepository } from '@/infrastructure/api/repositories/AdminRepository';
 import { User } from '@/core/domain/User';
 
 const adminRepository = new AdminRepository();
 const PAGE_SIZE = 20;
+
+type SortField = '' | 'username' | 'display_name' | 'balance' | 'role' | 'created_at';
+type SortOrder = 'asc' | 'desc';
 
 export const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -17,16 +20,37 @@ export const AdminUsersPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [newRole, setNewRole] = useState<'user' | 'admin'>('user');
   const [processing, setProcessing] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortField>('');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const navigate = useNavigate();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 検索入力のデバウンス
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setSearch(value);
+      setCurrentPage(0);
+    }, 300);
+  }, []);
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage]);
+  }, [currentPage, search, sortBy, sortOrder]);
 
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const data = await adminRepository.getAllUsers(currentPage * PAGE_SIZE, PAGE_SIZE);
+      const data = await adminRepository.getAllUsers(
+        currentPage * PAGE_SIZE,
+        PAGE_SIZE,
+        search || undefined,
+        sortBy || undefined,
+        sortBy ? sortOrder : undefined,
+      );
       setUsers(data.users);
       setTotalCount(data.total);
     } catch (error) {
@@ -34,6 +58,21 @@ export const AdminUsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder(field === 'balance' ? 'desc' : 'asc');
+    }
+    setCurrentPage(0);
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortBy !== field) return <span className="ml-1 text-gray-300">⇅</span>;
+    return <span className="ml-1">{sortOrder === 'asc' ? '▲' : '▼'}</span>;
   };
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -149,6 +188,32 @@ export const AdminUsersPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 検索バー */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="名前・ユーザー名・IDで検索..."
+          className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+        />
+        {searchInput && (
+          <button
+            onClick={() => { setSearchInput(''); setSearch(''); setCurrentPage(0); }}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -160,17 +225,26 @@ export const AdminUsersPage: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ユーザー
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('display_name')}
+                    >
+                      ユーザー{renderSortIcon('display_name')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       メール
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      残高
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('balance')}
+                    >
+                      残高{renderSortIcon('balance')}
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      役割
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('role')}
+                    >
+                      役割{renderSortIcon('role')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ステータス
@@ -201,16 +275,16 @@ export const AdminUsersPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-green-100 text-green-800'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-green-100 text-green-800'
                           }`}>
                           {user.role === 'admin' ? '管理者' : 'ユーザー'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
                           }`}>
                           {user.is_active ? '有効' : '無効'}
                         </span>
@@ -276,8 +350,8 @@ export const AdminUsersPage: React.FC = () => {
                     key={page}
                     onClick={() => setCurrentPage(page)}
                     className={`px-3 py-2 text-sm rounded-lg border ${page === currentPage
-                        ? 'bg-primary-600 text-white border-primary-600'
-                        : 'border-gray-300 hover:bg-gray-50'
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {page + 1}

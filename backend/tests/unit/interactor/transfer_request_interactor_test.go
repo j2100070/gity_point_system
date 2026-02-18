@@ -136,6 +136,12 @@ func (m *mockUserRepoForTR) ReadList(ctx context.Context, offset, limit int) ([]
 }
 func (m *mockUserRepoForTR) Count(ctx context.Context) (int64, error)       { return 0, nil }
 func (m *mockUserRepoForTR) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockUserRepoForTR) ReadListWithSearch(ctx context.Context, search, sortBy, sortOrder string, offset, limit int) ([]*entities.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForTR) CountWithSearch(ctx context.Context, search string) (int64, error) {
+	return 0, nil
+}
 func (m *mockUserRepoForTR) ReadPersonalQRCode(ctx context.Context, userID uuid.UUID) (string, error) {
 	return "", nil
 }

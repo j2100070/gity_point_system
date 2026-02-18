@@ -45,8 +45,14 @@ type UserDataSource interface {
 	// SelectList はユーザー一覧を取得
 	SelectList(ctx context.Context, offset, limit int) ([]*entities.User, error)
 
+	// SelectListWithSearch は検索・ソート付きでユーザー一覧を取得
+	SelectListWithSearch(ctx context.Context, search string, sortBy string, sortOrder string, offset, limit int) ([]*entities.User, error)
+
 	// Count はユーザー総数を取得
 	Count(ctx context.Context) (int64, error)
+
+	// CountWithSearch は検索条件付きでユーザー総数を取得
+	CountWithSearch(ctx context.Context, search string) (int64, error)
 
 	// Delete はユーザーを論理削除
 	Delete(ctx context.Context, id uuid.UUID) error

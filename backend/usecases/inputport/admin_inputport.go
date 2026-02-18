@@ -64,8 +64,11 @@ type DeductPointsResponse struct {
 
 // ListAllUsersRequest はユーザー一覧取得リクエスト
 type ListAllUsersRequest struct {
-	Offset int
-	Limit  int
+	Offset    int
+	Limit     int
+	Search    string // 名前・ユーザー名・IDで検索
+	SortBy    string // created_at, balance, role, username, display_name
+	SortOrder string // asc, desc
 }
 
 // ListAllUsersResponse はユーザー一覧取得レスポンス

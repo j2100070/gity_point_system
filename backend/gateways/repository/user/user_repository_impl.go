@@ -88,9 +88,19 @@ func (r *RepositoryImpl) ReadList(ctx context.Context, offset, limit int) ([]*en
 	return r.userDS.SelectList(ctx, offset, limit)
 }
 
+// ReadListWithSearch は検索・ソート付きでユーザー一覧を取得
+func (r *RepositoryImpl) ReadListWithSearch(ctx context.Context, search, sortBy, sortOrder string, offset, limit int) ([]*entities.User, error) {
+	return r.userDS.SelectListWithSearch(ctx, search, sortBy, sortOrder, offset, limit)
+}
+
 // Count はユーザー総数を取得
 func (r *RepositoryImpl) Count(ctx context.Context) (int64, error) {
 	return r.userDS.Count(ctx)
+}
+
+// CountWithSearch は検索条件付きでユーザー総数を取得
+func (r *RepositoryImpl) CountWithSearch(ctx context.Context, search string) (int64, error) {
+	return r.userDS.CountWithSearch(ctx, search)
 }
 
 // Delete はユーザーを論理削除

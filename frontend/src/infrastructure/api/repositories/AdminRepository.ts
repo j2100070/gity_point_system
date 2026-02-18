@@ -24,9 +24,15 @@ export class AdminRepository implements IAdminRepository {
     return response.data;
   }
 
-  async getAllUsers(offset: number = 0, limit: number = 20): Promise<{ users: User[]; total: number }> {
+  async getAllUsers(offset: number = 0, limit: number = 20, search?: string, sortBy?: string, sortOrder?: string): Promise<{ users: User[]; total: number }> {
+    const params = new URLSearchParams();
+    params.set('offset', String(offset));
+    params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    if (sortBy) params.set('sort_by', sortBy);
+    if (sortOrder) params.set('sort_order', sortOrder);
     const response = await axiosInstance.get<{ users: User[]; total: number }>(
-      `/api/admin/users?offset=${offset}&limit=${limit}`
+      `/api/admin/users?${params.toString()}`
     );
     return response.data;
   }

@@ -132,10 +132,17 @@ func (c *AdminController) ListAllUsers(ctx *gin.Context) {
 		limit = 50
 	}
 
+	search := ctx.Query("search")
+	sortBy := ctx.Query("sort_by")
+	sortOrder := ctx.Query("sort_order")
+
 	// ユースケース実行
 	resp, err := c.adminUC.ListAllUsers(ctx, &inputport.ListAllUsersRequest{
-		Offset: offset,
-		Limit:  limit,
+		Offset:    offset,
+		Limit:     limit,
+		Search:    search,
+		SortBy:    sortBy,
+		SortOrder: sortOrder,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

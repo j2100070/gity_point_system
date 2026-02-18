@@ -253,14 +253,28 @@ func (i *AdminInteractor) DeductPoints(ctx context.Context, req *inputport.Deduc
 
 // ListAllUsers はすべてのユーザー一覧を取得
 func (i *AdminInteractor) ListAllUsers(ctx context.Context, req *inputport.ListAllUsersRequest) (*inputport.ListAllUsersResponse, error) {
-	users, err := i.userRepo.ReadList(ctx, req.Offset, req.Limit)
-	if err != nil {
-		return nil, err
-	}
+	var users []*entities.User
+	var total int64
+	var err error
 
-	total, err := i.userRepo.Count(ctx)
-	if err != nil {
-		total = int64(len(users))
+	if req.Search != "" || req.SortBy != "" {
+		users, err = i.userRepo.ReadListWithSearch(ctx, req.Search, req.SortBy, req.SortOrder, req.Offset, req.Limit)
+		if err != nil {
+			return nil, err
+		}
+		total, err = i.userRepo.CountWithSearch(ctx, req.Search)
+		if err != nil {
+			total = int64(len(users))
+		}
+	} else {
+		users, err = i.userRepo.ReadList(ctx, req.Offset, req.Limit)
+		if err != nil {
+			return nil, err
+		}
+		total, err = i.userRepo.Count(ctx)
+		if err != nil {
+			total = int64(len(users))
+		}
 	}
 
 	return &inputport.ListAllUsersResponse{

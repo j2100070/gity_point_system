@@ -375,3 +375,64 @@ func (ds *UserDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 	return db.Delete(&UserModel{}, "id = ?", id).Error
 }
+
+// applySearchCondition は検索条件をクエリに適用
+func (ds *UserDataSourceImpl) applySearchCondition(db *gorm.DB, search string) *gorm.DB {
+	if search == "" {
+		return db
+	}
+	pattern := "%" + search + "%"
+	return db.Where(
+		"username ILIKE ? OR display_name ILIKE ? OR CAST(id AS TEXT) ILIKE ?",
+		pattern, pattern, pattern,
+	)
+}
+
+// SelectListWithSearch は検索・ソート付きでユーザー一覧を取得
+func (ds *UserDataSourceImpl) SelectListWithSearch(ctx context.Context, search string, sortBy string, sortOrder string, offset, limit int) ([]*entities.User, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	query := db.Model(&UserModel{})
+
+	// 検索条件適用
+	query = ds.applySearchCondition(query, search)
+
+	// ソート（ホワイトリスト方式で安全に）
+	allowedSortColumns := map[string]string{
+		"created_at":   "created_at",
+		"balance":      "balance",
+		"role":         "role",
+		"username":     "username",
+		"display_name": "display_name",
+	}
+	col, ok := allowedSortColumns[sortBy]
+	if !ok {
+		col = "created_at"
+	}
+	order := "DESC"
+	if sortOrder == "asc" {
+		order = "ASC"
+	}
+	query = query.Order(col + " " + order)
+
+	var models []UserModel
+	err := query.Offset(offset).Limit(limit).Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]*entities.User, len(models))
+	for i, model := range models {
+		users[i] = model.ToDomain()
+	}
+	return users, nil
+}
+
+// CountWithSearch は検索条件付きでユーザー総数を取得
+func (ds *UserDataSourceImpl) CountWithSearch(ctx context.Context, search string) (int64, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	query := db.Model(&UserModel{})
+	query = ds.applySearchCondition(query, search)
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
+}
