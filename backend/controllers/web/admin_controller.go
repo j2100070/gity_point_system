@@ -166,10 +166,21 @@ func (c *AdminController) ListAllTransactions(ctx *gin.Context) {
 		limit = 50
 	}
 
+	transactionType := ctx.Query("transaction_type")
+	dateFrom := ctx.Query("date_from")
+	dateTo := ctx.Query("date_to")
+	sortBy := ctx.Query("sort_by")
+	sortOrder := ctx.Query("sort_order")
+
 	// ユースケース実行
 	resp, err := c.adminUC.ListAllTransactions(ctx, &inputport.ListAllTransactionsRequest{
-		Offset: offset,
-		Limit:  limit,
+		Offset:          offset,
+		Limit:           limit,
+		TransactionType: transactionType,
+		DateFrom:        dateFrom,
+		DateTo:          dateTo,
+		SortBy:          sortBy,
+		SortOrder:       sortOrder,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

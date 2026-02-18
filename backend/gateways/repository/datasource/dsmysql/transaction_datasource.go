@@ -24,6 +24,15 @@ type TransactionDataSource interface {
 	// SelectListAll は全トランザクション一覧を取得（管理者用）
 	SelectListAll(ctx context.Context, offset, limit int) ([]*entities.Transaction, error)
 
+	// SelectListAllWithFilter はフィルタ・ソート付きで全トランザクション一覧を取得
+	SelectListAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.Transaction, error)
+
+	// CountAll は全トランザクション総数を取得
+	CountAll(ctx context.Context) (int64, error)
+
+	// CountAllWithFilter はフィルタ付きで全トランザクション総数を取得
+	CountAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo string) (int64, error)
+
 	// Update はトランザクションを更新
 	Update(ctx context.Context, transaction *entities.Transaction) error
 

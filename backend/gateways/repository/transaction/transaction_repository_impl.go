@@ -52,6 +52,21 @@ func (r *RepositoryImpl) ReadListAll(ctx context.Context, offset, limit int) ([]
 	return r.transactionDS.SelectListAll(ctx, offset, limit)
 }
 
+// ReadListAllWithFilter はフィルタ・ソート付きで全トランザクション一覧を取得
+func (r *RepositoryImpl) ReadListAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.Transaction, error) {
+	return r.transactionDS.SelectListAllWithFilter(ctx, transactionType, dateFrom, dateTo, sortBy, sortOrder, offset, limit)
+}
+
+// CountAll は全トランザクション総数を取得
+func (r *RepositoryImpl) CountAll(ctx context.Context) (int64, error) {
+	return r.transactionDS.CountAll(ctx)
+}
+
+// CountAllWithFilter はフィルタ付きで全トランザクション総数を取得
+func (r *RepositoryImpl) CountAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo string) (int64, error) {
+	return r.transactionDS.CountAllWithFilter(ctx, transactionType, dateFrom, dateTo)
+}
+
 // Update はトランザクションを更新
 func (r *RepositoryImpl) Update(ctx context.Context, transaction *entities.Transaction) error {
 	r.logger.Debug("Updating transaction", entities.NewField("transaction_id", transaction.ID))

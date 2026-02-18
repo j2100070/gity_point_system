@@ -185,6 +185,15 @@ func (m *mockTransactionRepo) Update(ctx context.Context, tx *entities.Transacti
 func (m *mockTransactionRepo) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	return 0, nil
 }
+func (m *mockTransactionRepo) ReadListAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.Transaction, error) {
+	return nil, nil
+}
+func (m *mockTransactionRepo) CountAll(ctx context.Context) (int64, error) {
+	return 0, nil
+}
+func (m *mockTransactionRepo) CountAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo string) (int64, error) {
+	return 0, nil
+}
 
 // mockTxManager は TransactionManager のモック（そのまま実行）
 type mockTxManager struct{}

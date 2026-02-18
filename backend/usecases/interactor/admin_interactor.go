@@ -285,9 +285,30 @@ func (i *AdminInteractor) ListAllUsers(ctx context.Context, req *inputport.ListA
 
 // ListAllTransactions はすべての取引履歴を取得
 func (i *AdminInteractor) ListAllTransactions(ctx context.Context, req *inputport.ListAllTransactionsRequest) (*inputport.ListAllTransactionsResponse, error) {
-	transactions, err := i.transactionRepo.ReadListAll(ctx, req.Offset, req.Limit)
-	if err != nil {
-		return nil, err
+	var transactions []*entities.Transaction
+	var total int64
+	var err error
+
+	hasFilter := req.TransactionType != "" || req.DateFrom != "" || req.DateTo != "" || req.SortBy != ""
+
+	if hasFilter {
+		transactions, err = i.transactionRepo.ReadListAllWithFilter(ctx, req.TransactionType, req.DateFrom, req.DateTo, req.SortBy, req.SortOrder, req.Offset, req.Limit)
+		if err != nil {
+			return nil, err
+		}
+		total, err = i.transactionRepo.CountAllWithFilter(ctx, req.TransactionType, req.DateFrom, req.DateTo)
+		if err != nil {
+			total = int64(len(transactions))
+		}
+	} else {
+		transactions, err = i.transactionRepo.ReadListAll(ctx, req.Offset, req.Limit)
+		if err != nil {
+			return nil, err
+		}
+		total, err = i.transactionRepo.CountAll(ctx)
+		if err != nil {
+			total = int64(len(transactions))
+		}
 	}
 
 	// 各トランザクションにユーザー情報を付与
@@ -318,7 +339,7 @@ func (i *AdminInteractor) ListAllTransactions(ctx context.Context, req *inputpor
 
 	return &inputport.ListAllTransactionsResponse{
 		Transactions: transactionsWithUsers,
-		Total:        len(transactions),
+		Total:        int(total),
 	}, nil
 }
 

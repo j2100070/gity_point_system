@@ -76,7 +76,7 @@ func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int)
 	return holders, nil
 }
 
-// GetDailyStats は日別統計を取得
+// GetDailyStats は日別統計を取得（期間内の全日をゼロ埋めで返す）
 func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time.Time) ([]*dsmysql.DailyStatResult, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
@@ -102,14 +102,36 @@ func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time
 		return nil, err
 	}
 
-	stats := make([]*dsmysql.DailyStatResult, 0, len(results))
+	// DBの結果をマップに変換
+	dataMap := make(map[string]*dsmysql.DailyStatResult, len(results))
 	for _, r := range results {
-		stats = append(stats, &dsmysql.DailyStatResult{
+		key := r.Date.Format("2006-01-02")
+		dataMap[key] = &dsmysql.DailyStatResult{
 			Date:        r.Date,
 			Issued:      r.Issued,
 			Consumed:    r.Consumed,
 			Transferred: r.Transferred,
-		})
+		}
+	}
+
+	// since から今日まで全日分のデータを生成（ない日はゼロ埋め）
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	start := time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, since.Location())
+
+	stats := make([]*dsmysql.DailyStatResult, 0)
+	for d := start; !d.After(today); d = d.AddDate(0, 0, 1) {
+		key := d.Format("2006-01-02")
+		if entry, ok := dataMap[key]; ok {
+			stats = append(stats, entry)
+		} else {
+			stats = append(stats, &dsmysql.DailyStatResult{
+				Date:        d,
+				Issued:      0,
+				Consumed:    0,
+				Transferred: 0,
+			})
+		}
 	}
 	return stats, nil
 }

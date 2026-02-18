@@ -37,9 +37,25 @@ export class AdminRepository implements IAdminRepository {
     return response.data;
   }
 
-  async getAllTransactions(offset: number = 0, limit: number = 20): Promise<{ transactions: Transaction[]; total: number }> {
+  async getAllTransactions(
+    offset: number = 0,
+    limit: number = 20,
+    transactionType?: string,
+    dateFrom?: string,
+    dateTo?: string,
+    sortBy?: string,
+    sortOrder?: string,
+  ): Promise<{ transactions: Transaction[]; total: number }> {
+    const params = new URLSearchParams();
+    params.set('offset', String(offset));
+    params.set('limit', String(limit));
+    if (transactionType) params.set('transaction_type', transactionType);
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    if (sortBy) params.set('sort_by', sortBy);
+    if (sortOrder) params.set('sort_order', sortOrder);
     const response = await axiosInstance.get<{ transactions: Transaction[]; total: number }>(
-      `/api/admin/transactions?offset=${offset}&limit=${limit}`
+      `/api/admin/transactions?${params.toString()}`
     );
     return response.data;
   }

@@ -268,8 +268,11 @@ export const AdminAnalyticsPage: React.FC = () => {
 
                 {/* トランザクション種別構成 */}
                 <div className="bg-white rounded-xl shadow">
-                    <div className="p-4 border-b border-gray-200">
+                    <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-gray-900">トランザクション種別構成</h2>
+                        <Link to="/admin/transactions" className="text-sm text-primary-600 hover:underline">
+                            全トランザクション →
+                        </Link>
                     </div>
                     <div className="p-4">
                         <table className="w-full">
@@ -282,8 +285,12 @@ export const AdminAnalyticsPage: React.FC = () => {
                             </thead>
                             <tbody>
                                 {data.transaction_type_breakdown.map((item) => (
-                                    <tr key={item.type} className="border-b border-gray-50">
-                                        <td className="py-3 text-sm font-medium text-gray-900">
+                                    <tr
+                                        key={item.type}
+                                        className="border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors"
+                                        onClick={() => navigate(`/admin/transactions?type=${item.type}`)}
+                                    >
+                                        <td className="py-3 text-sm font-medium text-primary-600 hover:underline">
                                             {getTypeLabel(item.type)}
                                         </td>
                                         <td className="py-3 text-sm text-right text-gray-600">

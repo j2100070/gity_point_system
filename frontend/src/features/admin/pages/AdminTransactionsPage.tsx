@@ -1,27 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminRepository } from '@/infrastructure/api/repositories/AdminRepository';
 import { Transaction } from '@/core/domain/Transaction';
 
 const adminRepository = new AdminRepository();
 const PAGE_SIZE = 20;
 
+type SortField = '' | 'created_at' | 'amount';
+type SortOrder = 'asc' | 'desc';
+
 export const AdminTransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
-  const [filter, setFilter] = useState<string>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URLからフィルタ初期値を取得
+  const [filter, setFilter] = useState<string>(searchParams.get('type') || 'all');
+  const [dateFrom, setDateFrom] = useState(searchParams.get('date_from') || '');
+  const [dateTo, setDateTo] = useState(searchParams.get('date_to') || '');
+  const [sortBy, setSortBy] = useState<SortField>((searchParams.get('sort_by') as SortField) || '');
+  const [sortOrder, setSortOrder] = useState<SortOrder>((searchParams.get('sort_order') as SortOrder) || 'desc');
   const navigate = useNavigate();
 
   useEffect(() => {
     loadTransactions();
-  }, [currentPage]);
+  }, [currentPage, filter, dateFrom, dateTo, sortBy, sortOrder]);
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const data = await adminRepository.getAllTransactions(currentPage * PAGE_SIZE, PAGE_SIZE);
+      const data = await adminRepository.getAllTransactions(
+        currentPage * PAGE_SIZE,
+        PAGE_SIZE,
+        filter !== 'all' ? filter : undefined,
+        dateFrom || undefined,
+        dateTo || undefined,
+        sortBy || undefined,
+        sortBy ? sortOrder : undefined,
+      );
       setTransactions(data.transactions);
       setTotalCount(data.total);
     } catch (error) {
@@ -33,10 +51,49 @@ export const AdminTransactionsPage: React.FC = () => {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  const handleFilterChange = (newFilter: string) => {
+  const handleFilterChange = useCallback((newFilter: string) => {
     setFilter(newFilter);
     setCurrentPage(0);
+    // URLにフィルタを反映
+    const params = new URLSearchParams();
+    if (newFilter !== 'all') params.set('type', newFilter);
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    setSearchParams(params, { replace: true });
+  }, [dateFrom, dateTo, setSearchParams]);
+
+  const handleDateChange = useCallback((field: 'from' | 'to', value: string) => {
+    if (field === 'from') setDateFrom(value);
+    else setDateTo(value);
+    setCurrentPage(0);
+  }, []);
+
+  const handleSort = useCallback((field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder(field === 'amount' ? 'desc' : 'desc');
+    }
+    setCurrentPage(0);
+  }, [sortBy, sortOrder]);
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortBy !== field) return <span className="ml-1 text-gray-300">⇅</span>;
+    return <span className="ml-1">{sortOrder === 'asc' ? '▲' : '▼'}</span>;
   };
+
+  const clearFilters = () => {
+    setFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setSortBy('');
+    setSortOrder('desc');
+    setCurrentPage(0);
+    setSearchParams({}, { replace: true });
+  };
+
+  const hasActiveFilters = filter !== 'all' || dateFrom || dateTo;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -59,6 +116,10 @@ export const AdminTransactionsPage: React.FC = () => {
         return { label: '管理者減算', color: 'bg-orange-100 text-orange-800' };
       case 'system_grant':
         return { label: 'システム付与', color: 'bg-purple-100 text-purple-800' };
+      case 'daily_bonus':
+        return { label: '出勤ボーナス', color: 'bg-teal-100 text-teal-800' };
+      case 'system_expire':
+        return { label: 'システム失効', color: 'bg-red-100 text-red-800' };
       default:
         return { label: type, color: 'bg-gray-100 text-gray-800' };
     }
@@ -79,11 +140,6 @@ export const AdminTransactionsPage: React.FC = () => {
     }
   };
 
-  const filteredTransactions = transactions.filter((tx) => {
-    if (filter === 'all') return true;
-    return tx.transaction_type === filter;
-  });
-
   // ページネーションで表示するページ番号の範囲を計算
   const getPageNumbers = () => {
     const pages: number[] = [];
@@ -96,6 +152,16 @@ export const AdminTransactionsPage: React.FC = () => {
     }
     return pages;
   };
+
+  const filterButtons = [
+    { key: 'all', label: '全て' },
+    { key: 'transfer', label: 'ユーザー送信' },
+    { key: 'admin_grant', label: '管理者付与' },
+    { key: 'admin_deduct', label: '管理者減算' },
+    { key: 'system_grant', label: 'システム付与' },
+    { key: 'daily_bonus', label: '出勤ボーナス' },
+    { key: 'system_expire', label: 'システム失効' },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 md:pb-6">
@@ -117,44 +183,46 @@ export const AdminTransactionsPage: React.FC = () => {
       </div>
 
       {/* フィルター */}
-      <div className="bg-white rounded-xl shadow p-4">
+      <div className="bg-white rounded-xl shadow p-4 space-y-4">
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handleFilterChange('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all'
+          {filterButtons.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => handleFilterChange(key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === key
                 ? 'bg-primary-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            全て
-          </button>
-          <button
-            onClick={() => handleFilterChange('transfer')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'transfer'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            ユーザー送信
-          </button>
-          <button
-            onClick={() => handleFilterChange('admin_grant')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'admin_grant'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            管理者付与
-          </button>
-          <button
-            onClick={() => handleFilterChange('admin_deduct')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'admin_deduct'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            管理者減算
-          </button>
+                }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* 日付フィルター */}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-gray-500 font-medium">期間:</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => handleDateChange('from', e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+          <span className="text-gray-400">〜</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => handleDateChange('to', e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              フィルタをクリア
+            </button>
+          )}
         </div>
       </div>
 
@@ -169,8 +237,11 @@ export const AdminTransactionsPage: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      日時
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      日時{renderSortIcon('created_at')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       種類
@@ -181,8 +252,11 @@ export const AdminTransactionsPage: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       送信先
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      金額
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('amount')}
+                    >
+                      金額{renderSortIcon('amount')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ステータス
@@ -193,7 +267,7 @@ export const AdminTransactionsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredTransactions.map((tx) => {
+                  {transactions.map((tx) => {
                     const typeInfo = getTypeLabel(tx.transaction_type);
                     const statusInfo = getStatusLabel(tx.status);
                     return (
@@ -243,7 +317,7 @@ export const AdminTransactionsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            {filteredTransactions.length === 0 && (
+            {transactions.length === 0 && (
               <div className="text-center py-12">
                 <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -279,8 +353,8 @@ export const AdminTransactionsPage: React.FC = () => {
                     key={page}
                     onClick={() => setCurrentPage(page)}
                     className={`px-3 py-2 text-sm rounded-lg border ${page === currentPage
-                        ? 'bg-primary-600 text-white border-primary-600'
-                        : 'border-gray-300 hover:bg-gray-50'
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {page + 1}

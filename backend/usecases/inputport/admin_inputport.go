@@ -79,8 +79,13 @@ type ListAllUsersResponse struct {
 
 // ListAllTransactionsRequest は取引履歴一覧取得リクエスト
 type ListAllTransactionsRequest struct {
-	Offset int
-	Limit  int
+	Offset          int
+	Limit           int
+	TransactionType string // フィルタ: transfer, admin_grant, admin_deduct, system_grant, daily_bonus, etc.
+	DateFrom        string // フィルタ: 開始日（YYYY-MM-DD）
+	DateTo          string // フィルタ: 終了日（YYYY-MM-DD）
+	SortBy          string // ソート列: created_at, amount
+	SortOrder       string // ソート順: asc, desc
 }
 
 // TransactionWithUsers はユーザー情報付きトランザクション

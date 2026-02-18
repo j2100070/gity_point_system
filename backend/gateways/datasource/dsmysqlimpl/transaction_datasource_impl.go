@@ -182,6 +182,72 @@ func (ds *TransactionDataSourceImpl) SelectListAll(ctx context.Context, offset, 
 	return transactions, nil
 }
 
+// applyFilterConditions はフィルタ条件を適用するヘルパー
+func (ds *TransactionDataSourceImpl) applyFilterConditions(query *gorm.DB, transactionType, dateFrom, dateTo string) *gorm.DB {
+	if transactionType != "" {
+		query = query.Where("transaction_type = ?", transactionType)
+	}
+	if dateFrom != "" {
+		query = query.Where("created_at >= ?", dateFrom+" 00:00:00")
+	}
+	if dateTo != "" {
+		query = query.Where("created_at <= ?", dateTo+" 23:59:59")
+	}
+	return query
+}
+
+// SelectListAllWithFilter はフィルタ・ソート付きで全トランザクション一覧を取得
+func (ds *TransactionDataSourceImpl) SelectListAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.Transaction, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	query := db.Model(&TransactionModel{})
+
+	query = ds.applyFilterConditions(query, transactionType, dateFrom, dateTo)
+
+	// ソート（ホワイトリスト方式）
+	allowedSortColumns := map[string]string{
+		"created_at": "created_at",
+		"amount":     "amount",
+	}
+	col, ok := allowedSortColumns[sortBy]
+	if !ok {
+		col = "created_at"
+	}
+	order := "DESC"
+	if sortOrder == "asc" {
+		order = "ASC"
+	}
+	query = query.Order(col + " " + order)
+
+	var models []TransactionModel
+	err := query.Offset(offset).Limit(limit).Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+
+	transactions := make([]*entities.Transaction, len(models))
+	for i, model := range models {
+		transactions[i] = model.ToDomain()
+	}
+	return transactions, nil
+}
+
+// CountAll は全トランザクション総数を取得
+func (ds *TransactionDataSourceImpl) CountAll(ctx context.Context) (int64, error) {
+	var count int64
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&TransactionModel{}).Count(&count).Error
+	return count, err
+}
+
+// CountAllWithFilter はフィルタ付きで全トランザクション総数を取得
+func (ds *TransactionDataSourceImpl) CountAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo string) (int64, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	query := db.Model(&TransactionModel{})
+	query = ds.applyFilterConditions(query, transactionType, dateFrom, dateTo)
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
+}
+
 // Update はトランザクションを更新
 func (ds *TransactionDataSourceImpl) Update(ctx context.Context, transaction *entities.Transaction) error {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
