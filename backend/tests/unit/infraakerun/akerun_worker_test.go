@@ -228,9 +228,15 @@ func (m *mockLogger) Error(msg string, fields ...entities.Field) { m.errors = ap
 func (m *mockLogger) Fatal(msg string, fields ...entities.Field) {}
 
 // mockTimeProvider はテスト用の時刻プロバイダー
-type mockTimeProvider struct{}
+type mockTimeProvider struct {
+	now time.Time
+}
 
-func (m *mockTimeProvider) Now() time.Time { return time.Now() }
+func newMockTimeProvider(t time.Time) *mockTimeProvider {
+	return &mockTimeProvider{now: t}
+}
+
+func (m *mockTimeProvider) Now() time.Time { return m.now }
 
 // ========================================
 // Helper: Akerun APIモックサーバー
@@ -375,7 +381,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 			transactionRepo,
 			txManager,
 			systemSettingsRepo,
-			&mockTimeProvider{},
+			&mockTimeProvider{now: time.Now()},
 			logger,
 		)
 
@@ -387,6 +393,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 		accesses, err := client.GetAccesses(ctx,
 			time.Date(2017, 7, 23, 10, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 19, 0, 0, 0, time.UTC),
+			300,
 		)
 		require.NoError(t, err)
 		require.Len(t, accesses, 2, "Akerun APIから2件のアクセス記録を取得")
@@ -462,6 +469,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 		accesses, err := client.GetAccesses(ctx,
 			time.Date(2017, 7, 23, 10, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 19, 0, 0, 0, time.UTC),
+			300,
 		)
 		require.NoError(t, err)
 		worker.ProcessAccessesForTest(ctx, accesses)
@@ -512,6 +520,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 		accesses, err := client.GetAccesses(ctx,
 			time.Date(2017, 7, 23, 10, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 19, 0, 0, 0, time.UTC),
+			300,
 		)
 		require.NoError(t, err)
 		worker.ProcessAccessesForTest(ctx, accesses)
@@ -568,6 +577,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 		accesses, err := client.GetAccesses(ctx,
 			time.Date(2017, 7, 23, 10, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 19, 0, 0, 0, time.UTC),
+			300,
 		)
 		require.NoError(t, err)
 		worker.ProcessAccessesForTest(ctx, accesses)
@@ -622,6 +632,7 @@ func TestAkerunWorkerProcessAccesses_ExampleResponse(t *testing.T) {
 		accesses, err := client.GetAccesses(ctx,
 			time.Date(2017, 7, 23, 0, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 0, 0, 0, 0, time.UTC),
+			300,
 		)
 		require.NoError(t, err)
 		worker.ProcessAccessesForTest(ctx, accesses)
@@ -650,6 +661,7 @@ func TestAkerunClient_GetAccesses(t *testing.T) {
 		accesses, err := client.GetAccesses(context.Background(),
 			time.Date(2017, 7, 23, 10, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 19, 0, 0, 0, time.UTC),
+			300,
 		)
 
 		require.NoError(t, err)
@@ -685,6 +697,7 @@ func TestAkerunClient_GetAccesses(t *testing.T) {
 		_, err := client.GetAccesses(context.Background(),
 			time.Date(2017, 7, 23, 10, 0, 0, 0, time.UTC),
 			time.Date(2017, 7, 29, 19, 0, 0, 0, time.UTC),
+			300,
 		)
 
 		assert.Error(t, err)
@@ -736,4 +749,262 @@ func TestNormalizeName(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// ========================================
+// リカバリポーリング テスト
+// ========================================
+
+// createCountingMockServer はAPIリクエスト回数を記録するモックサーバー
+func createCountingMockServer(response akerunAPIResponse) (*httptest.Server, *int) {
+	requestCount := new(int)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*requestCount++
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer test-token" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	return server, requestCount
+}
+
+func TestRecoveryPolling(t *testing.T) {
+	t.Run("通常モード: gapが10分以内の場合はAPI1回呼び出し", func(t *testing.T) {
+		// === Setup ===
+		mockResponse := createAkerunExampleResponse()
+		server, requestCount := createCountingMockServer(mockResponse)
+		defer server.Close()
+
+		nowTime := time.Date(2026, 2, 17, 17, 5, 0, 0, time.UTC)
+
+		dailyBonusRepo := newMockDailyBonusRepo()
+		dailyBonusRepo.lastPolledAt = nowTime.Add(-5 * time.Minute) // 5分前
+
+		userRepo := newMockUserRepo()
+		userID := uuid.New()
+		userRepo.addUser(&entities.User{
+			ID: userID, Username: "photosynth_taro",
+			LastName: "Photosynth", FirstName: "太郎",
+			Balance: 100, IsActive: true, Role: entities.RoleUser,
+		})
+
+		client := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
+			AccessToken: "test-token", OrganizationID: "O-test",
+			BaseURL: server.URL,
+		})
+
+		worker := infraakerun.NewAkerunWorker(
+			client, dailyBonusRepo, userRepo, newMockTransactionRepo(),
+			&mockTxManager{}, newMockSystemSettingsRepo(),
+			newMockTimeProvider(nowTime), newMockLogger(),
+		)
+		worker.SetRecoverySleepForTest(0)
+
+		// === Execute ===
+		worker.PollForTest()
+
+		// === Assert ===
+		assert.Equal(t, 1, *requestCount, "通常モードではAPI1回のみ")
+		assert.Equal(t, nowTime, dailyBonusRepo.lastPolledAt, "lastPolledAtがnowに更新される")
+	})
+
+	t.Run("リカバリモード: 2.5時間のgapは3ウィンドウで取得", func(t *testing.T) {
+		// === Setup ===
+		mockResponse := createAkerunExampleResponse()
+		server, requestCount := createCountingMockServer(mockResponse)
+		defer server.Close()
+
+		nowTime := time.Date(2026, 2, 17, 17, 30, 0, 0, time.UTC)
+
+		dailyBonusRepo := newMockDailyBonusRepo()
+		dailyBonusRepo.lastPolledAt = nowTime.Add(-2*time.Hour - 30*time.Minute) // 2.5時間前
+
+		userRepo := newMockUserRepo()
+		userID := uuid.New()
+		userRepo.addUser(&entities.User{
+			ID: userID, Username: "photosynth_taro",
+			LastName: "Photosynth", FirstName: "太郎",
+			Balance: 100, IsActive: true, Role: entities.RoleUser,
+		})
+
+		client := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
+			AccessToken: "test-token", OrganizationID: "O-test",
+			BaseURL: server.URL,
+		})
+
+		worker := infraakerun.NewAkerunWorker(
+			client, dailyBonusRepo, userRepo, newMockTransactionRepo(),
+			&mockTxManager{}, newMockSystemSettingsRepo(),
+			newMockTimeProvider(nowTime), newMockLogger(),
+		)
+		worker.SetRecoverySleepForTest(0)
+
+		// === Execute ===
+		worker.PollForTest()
+
+		// === Assert ===
+		// 2.5時間 = [0:00~1:00] + [1:00~2:00] + [2:00~2:30] = 3ウィンドウ
+		assert.Equal(t, 3, *requestCount, "リカバリモードで3回API呼び出し")
+		assert.Equal(t, nowTime, dailyBonusRepo.lastPolledAt, "lastPolledAtがnowに更新される")
+	})
+
+	t.Run("リカバリモード: 40分のgapは1ウィンドウで取得（nowで切る）", func(t *testing.T) {
+		// === Setup ===
+		mockResponse := createAkerunExampleResponse()
+		server, requestCount := createCountingMockServer(mockResponse)
+		defer server.Close()
+
+		nowTime := time.Date(2026, 2, 17, 17, 40, 0, 0, time.UTC)
+
+		dailyBonusRepo := newMockDailyBonusRepo()
+		dailyBonusRepo.lastPolledAt = nowTime.Add(-40 * time.Minute) // 40分前
+
+		userRepo := newMockUserRepo()
+		userID := uuid.New()
+		userRepo.addUser(&entities.User{
+			ID: userID, Username: "photosynth_taro",
+			LastName: "Photosynth", FirstName: "太郎",
+			Balance: 100, IsActive: true, Role: entities.RoleUser,
+		})
+
+		client := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
+			AccessToken: "test-token", OrganizationID: "O-test",
+			BaseURL: server.URL,
+		})
+
+		worker := infraakerun.NewAkerunWorker(
+			client, dailyBonusRepo, userRepo, newMockTransactionRepo(),
+			&mockTxManager{}, newMockSystemSettingsRepo(),
+			newMockTimeProvider(nowTime), newMockLogger(),
+		)
+		worker.SetRecoverySleepForTest(0)
+
+		// === Execute ===
+		worker.PollForTest()
+
+		// === Assert ===
+		// 40分 < 1時間 → 1ウィンドウでnowに切られる
+		assert.Equal(t, 1, *requestCount, "40分のgapは1回API呼び出し")
+		assert.Equal(t, nowTime, dailyBonusRepo.lastPolledAt, "lastPolledAtがnowに更新される")
+	})
+
+	t.Run("リカバリモード: APIエラー時は中断し途中までのlastPolledAtが保存される", func(t *testing.T) {
+		// === Setup ===
+		// 2回目のリクエストでエラーを返すサーバー
+		callCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			if callCount == 2 {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(akerunAPIResponse{Accesses: []akerunAccessJSON{}})
+		}))
+		defer server.Close()
+
+		nowTime := time.Date(2026, 2, 17, 17, 30, 0, 0, time.UTC)
+		startTime := nowTime.Add(-2*time.Hour - 30*time.Minute) // 2.5時間前
+
+		dailyBonusRepo := newMockDailyBonusRepo()
+		dailyBonusRepo.lastPolledAt = startTime
+
+		client := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
+			AccessToken: "test-token", OrganizationID: "O-test",
+			BaseURL: server.URL,
+		})
+
+		worker := infraakerun.NewAkerunWorker(
+			client, dailyBonusRepo, newMockUserRepo(), newMockTransactionRepo(),
+			&mockTxManager{}, newMockSystemSettingsRepo(),
+			newMockTimeProvider(nowTime), newMockLogger(),
+		)
+		worker.SetRecoverySleepForTest(0)
+
+		// === Execute ===
+		worker.PollForTest()
+
+		// === Assert ===
+		assert.Equal(t, 2, callCount, "2回目のリクエストでエラーした")
+		// 1ウィンドウ目は成功したので、lastPolledAt = startTime + 1h
+		expectedPolledAt := startTime.Add(1 * time.Hour)
+		assert.Equal(t, expectedPolledAt, dailyBonusRepo.lastPolledAt,
+			"中断時は1ウィンドウ分だけlastPolledAtが更新される")
+	})
+
+	t.Run("リカバリモード: 1時間おきにウィンドウが分割される", func(t *testing.T) {
+		// === Setup ===
+		// 各リクエストのdatetime_after/datetime_beforeを記録
+		type requestWindow struct {
+			after  string
+			before string
+		}
+		var windows []requestWindow
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			windows = append(windows, requestWindow{
+				after:  r.URL.Query().Get("datetime_after"),
+				before: r.URL.Query().Get("datetime_before"),
+			})
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(akerunAPIResponse{Accesses: []akerunAccessJSON{}})
+		}))
+		defer server.Close()
+
+		// 3時間のgap: [15:00~16:00] + [16:00~17:00] + [17:00~18:00] = 3ウィンドウ
+		nowTime := time.Date(2026, 2, 17, 18, 0, 0, 0, time.UTC)
+		startTime := time.Date(2026, 2, 17, 15, 0, 0, 0, time.UTC)
+
+		dailyBonusRepo := newMockDailyBonusRepo()
+		dailyBonusRepo.lastPolledAt = startTime
+
+		client := infraakerun.NewAkerunClient(&infraakerun.AkerunConfig{
+			AccessToken: "test-token", OrganizationID: "O-test",
+			BaseURL: server.URL,
+		})
+
+		worker := infraakerun.NewAkerunWorker(
+			client, dailyBonusRepo, newMockUserRepo(), newMockTransactionRepo(),
+			&mockTxManager{}, newMockSystemSettingsRepo(),
+			newMockTimeProvider(nowTime), newMockLogger(),
+		)
+		worker.SetRecoverySleepForTest(0)
+
+		// === Execute ===
+		worker.PollForTest()
+
+		// === Assert ===
+		require.Len(t, windows, 3, "3ウィンドウのリクエスト")
+
+		// Akerun APIはJST (UTC+9) で送信される
+		// UTC 15:00 = JST 00:00, UTC 16:00 = JST 01:00, etc.
+		jst := time.FixedZone("JST", 9*60*60)
+
+		// ウィンドウ1: [15:00 UTC ~ 16:00 UTC] = [00:00 JST ~ 01:00 JST]
+		expectedAfter1 := startTime.In(jst).Format(time.RFC3339)
+		expectedBefore1 := startTime.Add(1 * time.Hour).In(jst).Format(time.RFC3339)
+		assert.Equal(t, expectedAfter1, windows[0].after, "ウィンドウ1 after")
+		assert.Equal(t, expectedBefore1, windows[0].before, "ウィンドウ1 before")
+
+		// ウィンドウ2: [16:00 UTC ~ 17:00 UTC] = [01:00 JST ~ 02:00 JST]
+		expectedAfter2 := startTime.Add(1 * time.Hour).In(jst).Format(time.RFC3339)
+		expectedBefore2 := startTime.Add(2 * time.Hour).In(jst).Format(time.RFC3339)
+		assert.Equal(t, expectedAfter2, windows[1].after, "ウィンドウ2 after")
+		assert.Equal(t, expectedBefore2, windows[1].before, "ウィンドウ2 before")
+
+		// ウィンドウ3: [17:00 UTC ~ 18:00 UTC] = [02:00 JST ~ 03:00 JST]
+		expectedAfter3 := startTime.Add(2 * time.Hour).In(jst).Format(time.RFC3339)
+		expectedBefore3 := nowTime.In(jst).Format(time.RFC3339)
+		assert.Equal(t, expectedAfter3, windows[2].after, "ウィンドウ3 after")
+		assert.Equal(t, expectedBefore3, windows[2].before, "ウィンドウ3 before")
+
+		// 各ウィンドウの間隔が正確に1時間であることを検証
+		for i := 0; i < len(windows)-1; i++ {
+			assert.Equal(t, windows[i].before, windows[i+1].after,
+				fmt.Sprintf("ウィンドウ%dのbefore == ウィンドウ%dのafter", i+1, i+2))
+		}
+	})
 }
