@@ -170,6 +170,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		transactionRepo,
 		idempotencyRepo,
 		pointBatchRepo,
+		dsmysqlimpl.NewAnalyticsDataSource(db),
 		logger,
 	)
 

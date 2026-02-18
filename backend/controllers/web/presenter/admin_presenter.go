@@ -177,3 +177,49 @@ func (p *AdminPresenter) PresentDeactivateUser(resp *inputport.DeactivateUserRes
 		},
 	}
 }
+
+// PresentAnalytics は分析データレスポンスを生成
+func (p *AdminPresenter) PresentAnalytics(resp *inputport.GetAnalyticsResponse) map[string]interface{} {
+	topHolders := make([]map[string]interface{}, 0, len(resp.TopHolders))
+	for _, h := range resp.TopHolders {
+		topHolders = append(topHolders, map[string]interface{}{
+			"user_id":      h.UserID,
+			"username":     h.Username,
+			"display_name": h.DisplayName,
+			"balance":      h.Balance,
+			"percentage":   h.Percentage,
+		})
+	}
+
+	dailyStats := make([]map[string]interface{}, 0, len(resp.DailyStats))
+	for _, d := range resp.DailyStats {
+		dailyStats = append(dailyStats, map[string]interface{}{
+			"date":        d.Date.Format("2006-01-02"),
+			"issued":      d.Issued,
+			"consumed":    d.Consumed,
+			"transferred": d.Transferred,
+		})
+	}
+
+	typeBreakdown := make([]map[string]interface{}, 0, len(resp.TransactionTypeBreakdown))
+	for _, t := range resp.TransactionTypeBreakdown {
+		typeBreakdown = append(typeBreakdown, map[string]interface{}{
+			"type":         t.Type,
+			"count":        t.Count,
+			"total_amount": t.TotalAmount,
+		})
+	}
+
+	return map[string]interface{}{
+		"summary": map[string]interface{}{
+			"total_points_in_circulation": resp.Summary.TotalPointsInCirculation,
+			"average_balance":             resp.Summary.AverageBalance,
+			"points_issued_this_month":    resp.Summary.PointsIssuedThisMonth,
+			"transactions_this_month":     resp.Summary.TransactionsThisMonth,
+			"active_users":                resp.Summary.ActiveUsers,
+		},
+		"top_holders":                topHolders,
+		"daily_stats":                dailyStats,
+		"transaction_type_breakdown": typeBreakdown,
+	}
+}

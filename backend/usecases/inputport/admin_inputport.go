@@ -2,6 +2,7 @@ package inputport
 
 import (
 	"context"
+	"time"
 
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
@@ -26,6 +27,9 @@ type AdminInputPort interface {
 
 	// DeactivateUser はユーザーを無効化
 	DeactivateUser(ctx context.Context, req *DeactivateUserRequest) (*DeactivateUserResponse, error)
+
+	// GetAnalytics は分析データを取得
+	GetAnalytics(ctx context.Context, req *GetAnalyticsRequest) (*GetAnalyticsResponse, error)
 }
 
 // GrantPointsRequest はポイント付与リクエスト
@@ -110,4 +114,50 @@ type DeactivateUserRequest struct {
 // DeactivateUserResponse はユーザー無効化レスポンス
 type DeactivateUserResponse struct {
 	User *entities.User
+}
+
+// GetAnalyticsRequest は分析データ取得リクエスト
+type GetAnalyticsRequest struct {
+	Days int // 日別統計の日数（7, 30, 90）
+}
+
+// GetAnalyticsResponse は分析データ取得レスポンス
+type GetAnalyticsResponse struct {
+	Summary                  *AnalyticsSummary
+	TopHolders               []*TopHolder
+	DailyStats               []*DailyStat
+	TransactionTypeBreakdown []*TransactionTypeBreakdown
+}
+
+// AnalyticsSummary はKPIサマリー
+type AnalyticsSummary struct {
+	TotalPointsInCirculation int64
+	AverageBalance           float64
+	PointsIssuedThisMonth    int64
+	TransactionsThisMonth    int64
+	ActiveUsers              int64
+}
+
+// TopHolder はポイント保有上位ユーザー
+type TopHolder struct {
+	UserID      uuid.UUID
+	Username    string
+	DisplayName string
+	Balance     int64
+	Percentage  float64
+}
+
+// DailyStat は日別統計
+type DailyStat struct {
+	Date        time.Time
+	Issued      int64
+	Consumed    int64
+	Transferred int64
+}
+
+// TransactionTypeBreakdown はトランザクション種別構成
+type TransactionTypeBreakdown struct {
+	Type        string
+	Count       int64
+	TotalAmount int64
 }

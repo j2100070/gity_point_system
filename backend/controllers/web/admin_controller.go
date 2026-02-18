@@ -244,3 +244,23 @@ func (c *AdminController) DeactivateUser(ctx *gin.Context) {
 	// レスポンス生成
 	ctx.JSON(http.StatusOK, c.presenter.PresentDeactivateUser(resp))
 }
+
+// GetAnalytics は分析データを取得
+// GET /api/admin/analytics
+func (c *AdminController) GetAnalytics(ctx *gin.Context) {
+	var days int
+	fmt.Sscanf(ctx.Query("days"), "%d", &days)
+	if days == 0 {
+		days = 30
+	}
+
+	resp, err := c.adminUC.GetAnalytics(ctx, &inputport.GetAnalyticsRequest{
+		Days: days,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, c.presenter.PresentAnalytics(resp))
+}

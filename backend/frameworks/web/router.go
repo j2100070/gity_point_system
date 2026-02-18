@@ -226,6 +226,9 @@ func (r *Router) RegisterRoutes(
 				// トランザクション管理
 				admin.GET("/transactions", adminController.ListAllTransactions)
 
+				// 分析ダッシュボード
+				admin.GET("/analytics", adminController.GetAnalytics)
+
 				// 商品管理
 				admin.POST("/products", productController.CreateProduct)
 				admin.PUT("/products/:id", productController.UpdateProduct)

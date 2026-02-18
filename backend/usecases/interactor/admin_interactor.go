@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
+	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
+	"github.com/google/uuid"
 )
 
 // AdminInteractor は管理者機能のユースケース実装
@@ -18,6 +20,7 @@ type AdminInteractor struct {
 	transactionRepo repository.TransactionRepository
 	idempotencyRepo repository.IdempotencyKeyRepository
 	pointBatchRepo  repository.PointBatchRepository
+	analyticsDS     dsmysql.AnalyticsDataSource
 	logger          entities.Logger
 }
 
@@ -28,6 +31,7 @@ func NewAdminInteractor(
 	transactionRepo repository.TransactionRepository,
 	idempotencyRepo repository.IdempotencyKeyRepository,
 	pointBatchRepo repository.PointBatchRepository,
+	analyticsDS dsmysql.AnalyticsDataSource,
 	logger entities.Logger,
 ) inputport.AdminInputPort {
 	return &AdminInteractor{
@@ -36,6 +40,7 @@ func NewAdminInteractor(
 		transactionRepo: transactionRepo,
 		idempotencyRepo: idempotencyRepo,
 		pointBatchRepo:  pointBatchRepo,
+		analyticsDS:     analyticsDS,
 		logger:          logger,
 	}
 }
@@ -398,4 +403,97 @@ func (i *AdminInteractor) DeactivateUser(ctx context.Context, req *inputport.Dea
 	}
 
 	return nil, errors.New("update conflict: please retry later")
+}
+
+// GetAnalytics は分析データを取得
+func (i *AdminInteractor) GetAnalytics(ctx context.Context, req *inputport.GetAnalyticsRequest) (*inputport.GetAnalyticsResponse, error) {
+	i.logger.Info("Getting analytics data", entities.NewField("days", req.Days))
+
+	// 日数のバリデーション
+	days := req.Days
+	if days != 7 && days != 30 && days != 90 {
+		days = 30
+	}
+	since := time.Now().AddDate(0, 0, -days)
+
+	summary, err := i.analyticsDS.GetUserBalanceSummary(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance summary: %w", err)
+	}
+
+	monthlyIssued, err := i.analyticsDS.GetMonthlyIssuedPoints(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monthly issued points: %w", err)
+	}
+
+	monthlyTxCount, err := i.analyticsDS.GetMonthlyTransactionCount(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monthly transaction count: %w", err)
+	}
+
+	topHoldersResult, err := i.analyticsDS.GetTopHolders(ctx, 10)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top holders: %w", err)
+	}
+
+	dailyStatsResult, err := i.analyticsDS.GetDailyStats(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get daily stats: %w", err)
+	}
+
+	typeBreakdownResult, err := i.analyticsDS.GetTransactionTypeBreakdown(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction type breakdown: %w", err)
+	}
+
+	// レスポンス組み立て
+	analyticsSummary := &inputport.AnalyticsSummary{
+		TotalPointsInCirculation: summary.TotalBalance,
+		AverageBalance:           summary.AverageBalance,
+		PointsIssuedThisMonth:    monthlyIssued,
+		TransactionsThisMonth:    monthlyTxCount,
+		ActiveUsers:              summary.ActiveUsers,
+	}
+
+	topHolders := make([]*inputport.TopHolder, 0, len(topHoldersResult))
+	for _, h := range topHoldersResult {
+		userID, _ := uuid.Parse(h.ID)
+		pct := float64(0)
+		if summary.TotalBalance > 0 {
+			pct = float64(h.Balance) / float64(summary.TotalBalance) * 100
+		}
+		topHolders = append(topHolders, &inputport.TopHolder{
+			UserID:      userID,
+			Username:    h.Username,
+			DisplayName: h.DisplayName,
+			Balance:     h.Balance,
+			Percentage:  pct,
+		})
+	}
+
+	dailyStats := make([]*inputport.DailyStat, 0, len(dailyStatsResult))
+	for _, d := range dailyStatsResult {
+		dailyStats = append(dailyStats, &inputport.DailyStat{
+			Date:        d.Date,
+			Issued:      d.Issued,
+			Consumed:    d.Consumed,
+			Transferred: d.Transferred,
+		})
+	}
+
+	typeBreakdown := make([]*inputport.TransactionTypeBreakdown, 0, len(typeBreakdownResult))
+	for _, t := range typeBreakdownResult {
+		typeBreakdown = append(typeBreakdown, &inputport.TransactionTypeBreakdown{
+			Type:        t.Type,
+			Count:       t.Count,
+			TotalAmount: t.TotalAmount,
+		})
+	}
+
+	return &inputport.GetAnalyticsResponse{
+		Summary:                  analyticsSummary,
+		TopHolders:               topHolders,
+		DailyStats:               dailyStats,
+		TransactionTypeBreakdown: typeBreakdown,
+	}, nil
 }

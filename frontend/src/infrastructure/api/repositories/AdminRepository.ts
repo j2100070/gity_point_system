@@ -49,4 +49,9 @@ export class AdminRepository implements IAdminRepository {
     const response = await axiosInstance.post(`/api/admin/users/${target_user_id}/deactivate`);
     return response.data;
   }
+
+  async getAnalytics(days: number = 30): Promise<any> {
+    const response = await axiosInstance.get(`/api/admin/analytics?days=${days}`);
+    return response.data;
+  }
 }

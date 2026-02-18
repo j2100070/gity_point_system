@@ -46,6 +46,7 @@ import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
 import { AdminTransactionsPage } from '@/features/admin/pages/AdminTransactionsPage';
 import { AdminCategoriesPage } from '@/features/admin/pages/AdminCategoriesPage';
 import { AdminBonusSettingsPage } from '@/features/admin/pages/AdminBonusSettingsPage';
+import { AdminAnalyticsPage } from '@/features/admin/pages/AdminAnalyticsPage';
 import { AdminProductsPage } from '@/features/products/pages/AdminProductsPage';
 
 function App() {
@@ -262,6 +263,14 @@ function App() {
             element={
               <ProtectedRoute adminOnly>
                 <AdminBonusSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminAnalyticsPage />
               </ProtectedRoute>
             }
           />
