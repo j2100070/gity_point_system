@@ -446,17 +446,17 @@ func (i *UserSettingsInteractor) ArchiveAccount(ctx context.Context, req *inputp
 	}
 
 	// トランザクション開始
-	err = i.txManager.Do(ctx, func(txCtx context.Context) error {
+	err = i.txManager.Do(ctx, func(ctx context.Context) error {
 		// アーカイブユーザーを作成
 		archivedUser := user.ToArchivedUser(&req.UserID, req.DeletionReason)
 
 		// アーカイブユーザーを保存
-		if err := i.archivedUserRepo.Create(txCtx, archivedUser); err != nil {
+		if err := i.archivedUserRepo.Create(ctx, archivedUser); err != nil {
 			return fmt.Errorf("failed to archive user: %w", err)
 		}
 
 		// 元のユーザーを削除（論理削除ではなく物理削除）
-		if err := i.userRepo.Delete(txCtx, user.ID); err != nil {
+		if err := i.userRepo.Delete(ctx, user.ID); err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
 

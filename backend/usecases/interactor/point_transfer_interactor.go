@@ -110,14 +110,14 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 	var fromUser, toUser *entities.User
 	var transaction *entities.Transaction
 
-	err = i.txManager.Do(ctx, func(txCtx context.Context) error {
+	err = i.txManager.Do(ctx, func(ctx context.Context) error {
 		// 1. 送信者と受信者の存在確認
-		fromUser, err = i.userRepo.Read(txCtx, req.FromUserID)
+		fromUser, err = i.userRepo.Read(ctx, req.FromUserID)
 		if err != nil {
 			return fmt.Errorf("sender not found: %w", err)
 		}
 
-		toUser, err = i.userRepo.Read(txCtx, req.ToUserID)
+		toUser, err = i.userRepo.Read(ctx, req.ToUserID)
 		if err != nil {
 			return fmt.Errorf("receiver not found: %w", err)
 		}
@@ -136,7 +136,7 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 			{UserID: req.ToUserID, Amount: req.Amount, IsDeduct: false},  // 受信者に加算
 		}
 
-		if err := i.userRepo.UpdateBalancesWithLock(txCtx, updates); err != nil {
+		if err := i.userRepo.UpdateBalancesWithLock(ctx, updates); err != nil {
 			return fmt.Errorf("failed to update balances: %w", err)
 		}
 
@@ -146,7 +146,7 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 			return err
 		}
 
-		if err := i.transactionRepo.Create(txCtx, transaction); err != nil {
+		if err := i.transactionRepo.Create(ctx, transaction); err != nil {
 			return fmt.Errorf("failed to create transaction: %w", err)
 		}
 
@@ -155,18 +155,18 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 			return err
 		}
 
-		if err := i.transactionRepo.Update(txCtx, transaction); err != nil {
+		if err := i.transactionRepo.Update(ctx, transaction); err != nil {
 			return err
 		}
 
 		// 7. ポイントバッチ: 送信者のバッチからFIFO消費
-		if err := i.pointBatchRepo.ConsumePointsFIFO(txCtx, req.FromUserID, req.Amount); err != nil {
+		if err := i.pointBatchRepo.ConsumePointsFIFO(ctx, req.FromUserID, req.Amount); err != nil {
 			return fmt.Errorf("failed to consume point batches: %w", err)
 		}
 
 		// 8. ポイントバッチ: 受信者のバッチを作成
 		batch := entities.NewPointBatch(req.ToUserID, req.Amount, entities.PointBatchSourceTransfer, &transaction.ID, time.Now())
-		if err := i.pointBatchRepo.Create(txCtx, batch); err != nil {
+		if err := i.pointBatchRepo.Create(ctx, batch); err != nil {
 			return fmt.Errorf("failed to create point batch: %w", err)
 		}
 

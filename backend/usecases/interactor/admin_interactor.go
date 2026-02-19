@@ -82,11 +82,11 @@ func (i *AdminInteractor) GrantPoints(ctx context.Context, req *inputport.GrantP
 	var transaction *entities.Transaction
 
 	// トランザクション実行
-	err = i.txManager.Do(ctx, func(txCtx context.Context) error {
+	err = i.txManager.Do(ctx, func(ctx context.Context) error {
 
 		// ユーザー取得
 		var err error
-		user, err = i.userRepo.Read(txCtx, req.UserID)
+		user, err = i.userRepo.Read(ctx, req.UserID)
 		if err != nil {
 			return errors.New("user not found")
 		}
@@ -96,7 +96,7 @@ func (i *AdminInteractor) GrantPoints(ctx context.Context, req *inputport.GrantP
 		}
 
 		// ポイント付与（残高更新はロック付きで実行）
-		if err := i.userRepo.UpdateBalanceWithLock(txCtx, req.UserID, req.Amount, false); err != nil {
+		if err := i.userRepo.UpdateBalanceWithLock(ctx, req.UserID, req.Amount, false); err != nil {
 			return err
 		}
 
@@ -114,13 +114,13 @@ func (i *AdminInteractor) GrantPoints(ctx context.Context, req *inputport.GrantP
 			return err
 		}
 
-		if err := i.transactionRepo.Create(txCtx, transaction); err != nil {
+		if err := i.transactionRepo.Create(ctx, transaction); err != nil {
 			return err
 		}
 
 		// ポイントバッチ作成
 		batch := entities.NewPointBatch(req.UserID, req.Amount, entities.PointBatchSourceAdminGrant, &transaction.ID, time.Now())
-		if err := i.pointBatchRepo.Create(txCtx, batch); err != nil {
+		if err := i.pointBatchRepo.Create(ctx, batch); err != nil {
 			return fmt.Errorf("failed to create point batch: %w", err)
 		}
 
@@ -186,10 +186,10 @@ func (i *AdminInteractor) DeductPoints(ctx context.Context, req *inputport.Deduc
 	var transaction *entities.Transaction
 
 	// トランザクション実行
-	err = i.txManager.Do(ctx, func(txCtx context.Context) error {
+	err = i.txManager.Do(ctx, func(ctx context.Context) error {
 		// ユーザー取得
 		var err error
-		user, err = i.userRepo.Read(txCtx, req.UserID)
+		user, err = i.userRepo.Read(ctx, req.UserID)
 		if err != nil {
 			return errors.New("user not found")
 		}
@@ -204,7 +204,7 @@ func (i *AdminInteractor) DeductPoints(ctx context.Context, req *inputport.Deduc
 		}
 
 		// ポイント減算（残高更新はロック付きで実行）
-		if err := i.userRepo.UpdateBalanceWithLock(txCtx, req.UserID, req.Amount, true); err != nil {
+		if err := i.userRepo.UpdateBalanceWithLock(ctx, req.UserID, req.Amount, true); err != nil {
 			return err
 		}
 
@@ -222,7 +222,7 @@ func (i *AdminInteractor) DeductPoints(ctx context.Context, req *inputport.Deduc
 			return err
 		}
 
-		if err := i.transactionRepo.Create(txCtx, transaction); err != nil {
+		if err := i.transactionRepo.Create(ctx, transaction); err != nil {
 			return err
 		}
 
