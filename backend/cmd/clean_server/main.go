@@ -20,6 +20,7 @@ import (
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
 	dailybonusrepo "github.com/gity/point-system/gateways/repository/daily_bonus"
 	friendshiprepo "github.com/gity/point-system/gateways/repository/friendship"
+	lotterytierrepo "github.com/gity/point-system/gateways/repository/lottery_tier"
 	pointbatchrepo "github.com/gity/point-system/gateways/repository/point_batch"
 	productrepo "github.com/gity/point-system/gateways/repository/product"
 	qrcoderepo "github.com/gity/point-system/gateways/repository/qrcode"
@@ -94,6 +95,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	passwordChangeHistoryDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
 	systemSettingsDS := dsmysqlimpl.NewSystemSettingsDataSource(db)
 	pointBatchDS := dsmysqlimpl.NewPointBatchDataSource(db)
+	lotteryTierDS := dsmysqlimpl.NewLotteryTierDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -114,6 +116,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	passwordChangeHistoryRepo := usersettingsrepo.NewPasswordChangeHistoryRepository(passwordChangeHistoryDS, logger)
 	systemSettingsRepo := systemsettingsrepo.NewSystemSettingsRepository(systemSettingsDS)
 	pointBatchRepo := pointbatchrepo.NewPointBatchRepository(pointBatchDS)
+	lotteryTierRepo := lotterytierrepo.NewLotteryTierRepository(lotteryTierDS)
 
 	// === Service層 ===
 	passwordService := infrapassword.NewBcryptPasswordService()
@@ -154,7 +157,12 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 
 	dailyBonusUC := interactor.NewDailyBonusInteractor(
 		dailyBonusRepo,
+		userRepo,
+		transactionRepo,
+		txManager,
 		systemSettingsRepo,
+		pointBatchRepo,
+		lotteryTierRepo,
 		logger,
 	)
 
@@ -278,12 +286,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 
 	akerunWorker := infraakerun.NewAkerunWorker(
 		akerunClient,
-		dailyBonusRepo,
-		userRepo,
-		transactionRepo,
-		txManager,
-		systemSettingsRepo,
-		pointBatchRepo,
+		dailyBonusUC,
 		frameworkTimeProvider,
 		logger,
 	)

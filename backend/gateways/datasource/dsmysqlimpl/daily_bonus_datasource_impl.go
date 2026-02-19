@@ -12,14 +12,17 @@ import (
 
 // DailyBonusModel はAkerun入退室ベースのデイリーボーナスGORMモデル
 type DailyBonusModel struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID         uuid.UUID  `gorm:"type:uuid;not null"`
-	BonusDate      time.Time  `gorm:"type:date;not null"`
-	BonusPoints    int64      `gorm:"default:5;not null"`
-	AkerunAccessID *string    `gorm:"type:text"`
-	AkerunUserName *string    `gorm:"type:text"`
-	AccessedAt     *time.Time `gorm:"type:timestamptz"`
-	CreatedAt      time.Time  `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID          uuid.UUID  `gorm:"type:uuid;not null"`
+	BonusDate       time.Time  `gorm:"type:date;not null"`
+	BonusPoints     int64      `gorm:"default:5;not null"`
+	AkerunAccessID  *string    `gorm:"type:text"`
+	AkerunUserName  *string    `gorm:"type:text"`
+	AccessedAt      *time.Time `gorm:"type:timestamptz"`
+	LotteryTierID   *uuid.UUID `gorm:"type:uuid"`
+	LotteryTierName *string    `gorm:"type:varchar(50)"`
+	IsViewed        bool       `gorm:"not null;default:false"`
+	CreatedAt       time.Time  `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
 }
 
 // TableName はテーブル名を指定
@@ -52,12 +55,14 @@ func NewDailyBonusDataSource(db inframysql.DB) *DailyBonusDataSource {
 // toEntity はGORMモデルをエンティティに変換
 func (ds *DailyBonusDataSource) toEntity(model *DailyBonusModel) *entities.DailyBonus {
 	bonus := &entities.DailyBonus{
-		ID:          model.ID,
-		UserID:      model.UserID,
-		BonusDate:   model.BonusDate,
-		BonusPoints: model.BonusPoints,
-		AccessedAt:  model.AccessedAt,
-		CreatedAt:   model.CreatedAt,
+		ID:            model.ID,
+		UserID:        model.UserID,
+		BonusDate:     model.BonusDate,
+		BonusPoints:   model.BonusPoints,
+		AccessedAt:    model.AccessedAt,
+		LotteryTierID: model.LotteryTierID,
+		IsViewed:      model.IsViewed,
+		CreatedAt:     model.CreatedAt,
 	}
 	if model.AkerunAccessID != nil {
 		bonus.AkerunAccessID = *model.AkerunAccessID
@@ -65,24 +70,32 @@ func (ds *DailyBonusDataSource) toEntity(model *DailyBonusModel) *entities.Daily
 	if model.AkerunUserName != nil {
 		bonus.AkerunUserName = *model.AkerunUserName
 	}
+	if model.LotteryTierName != nil {
+		bonus.LotteryTierName = *model.LotteryTierName
+	}
 	return bonus
 }
 
 // toModel はエンティティをGORMモデルに変換
 func (ds *DailyBonusDataSource) toModel(bonus *entities.DailyBonus) *DailyBonusModel {
 	model := &DailyBonusModel{
-		ID:          bonus.ID,
-		UserID:      bonus.UserID,
-		BonusDate:   bonus.BonusDate,
-		BonusPoints: bonus.BonusPoints,
-		AccessedAt:  bonus.AccessedAt,
-		CreatedAt:   bonus.CreatedAt,
+		ID:            bonus.ID,
+		UserID:        bonus.UserID,
+		BonusDate:     bonus.BonusDate,
+		BonusPoints:   bonus.BonusPoints,
+		AccessedAt:    bonus.AccessedAt,
+		LotteryTierID: bonus.LotteryTierID,
+		IsViewed:      bonus.IsViewed,
+		CreatedAt:     bonus.CreatedAt,
 	}
 	if bonus.AkerunAccessID != "" {
 		model.AkerunAccessID = &bonus.AkerunAccessID
 	}
 	if bonus.AkerunUserName != "" {
 		model.AkerunUserName = &bonus.AkerunUserName
+	}
+	if bonus.LotteryTierName != "" {
+		model.LotteryTierName = &bonus.LotteryTierName
 	}
 	return model
 }
@@ -162,4 +175,12 @@ func (ds *DailyBonusDataSource) UpdateLastPolledAt(ctx context.Context, t time.T
 			"last_polled_at": t,
 			"updated_at":     time.Now(),
 		}).Error
+}
+
+// UpdateIsViewed はデイリーボーナスの閲覧状態を更新
+func (ds *DailyBonusDataSource) UpdateIsViewed(ctx context.Context, id uuid.UUID) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	return db.Model(&DailyBonusModel{}).
+		Where("id = ?", id).
+		Update("is_viewed", true).Error
 }

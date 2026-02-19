@@ -6,7 +6,7 @@ interface DailyBonusCardProps {
 }
 
 export const DailyBonusCard: React.FC<DailyBonusCardProps> = ({ todayBonus }) => {
-  const { claimed, bonus_points, total_days, daily_bonus } = todayBonus;
+  const { claimed, total_days, daily_bonus } = todayBonus;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -16,18 +16,15 @@ export const DailyBonusCard: React.FC<DailyBonusCardProps> = ({ todayBonus }) =>
           <h2 className="text-xl font-bold text-gray-800">入退室ボーナス</h2>
         </div>
         <div className="text-right">
-          <div className="text-sm text-gray-600">1日あたり</div>
-          <div className="text-2xl font-bold text-purple-600">
-            +{bonus_points}P
-          </div>
+          <div className="text-sm text-gray-600">🎰 抽選制</div>
         </div>
       </div>
 
       {/* 今日の状態 */}
       <div
         className={`flex items-center justify-between p-4 rounded-lg mb-4 ${claimed
-            ? "bg-green-50 border border-green-200"
-            : "bg-gray-50 border border-gray-200"
+          ? "bg-green-50 border border-green-200"
+          : "bg-gray-50 border border-gray-200"
           }`}
       >
         <div className="flex items-center gap-3">
@@ -46,6 +43,11 @@ export const DailyBonusCard: React.FC<DailyBonusCardProps> = ({ todayBonus }) =>
             {claimed && daily_bonus && (
               <div className="text-sm text-green-600 mt-1">
                 +{daily_bonus.bonus_points}P 獲得
+                {daily_bonus.lottery_tier_name && (
+                  <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                    {daily_bonus.lottery_tier_name}
+                  </span>
+                )}
                 {daily_bonus.accessed_at && (
                   <span className="ml-2 text-gray-500">
                     ({new Date(daily_bonus.accessed_at).toLocaleTimeString("ja-JP", {
@@ -63,7 +65,7 @@ export const DailyBonusCard: React.FC<DailyBonusCardProps> = ({ todayBonus }) =>
       {!claimed && (
         <div className="bg-purple-50 border border-purple-200 p-3 rounded-lg text-center">
           <div className="text-sm text-purple-700">
-            Akerunで入退室すると自動的に <span className="font-bold">+{bonus_points}P</span> 獲得！
+            Akerunで入退室すると <span className="font-bold">🎰 抽選</span> でポイント獲得！
           </div>
           <div className="text-xs text-purple-500 mt-1">
             ※ 1日1回まで（AM6:00リセット）

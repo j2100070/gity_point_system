@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/gity/point-system/entities"
+	"github.com/google/uuid"
 )
 
 // AkerunConfig はAkerun APIの設定
@@ -109,4 +112,36 @@ func (c *AkerunClient) GetAccesses(ctx context.Context, after, before time.Time,
 // IsConfigured はAkerun APIが設定されているかを返す
 func (c *AkerunClient) IsConfigured() bool {
 	return c.config.AccessToken != "" && c.config.OrganizationID != ""
+}
+
+// FetchAccesses はAkerunAccessGatewayインターフェースの実装
+// インフラ固有のAccessRecordをentities.AccessRecordに変換して返す
+func (c *AkerunClient) FetchAccesses(ctx context.Context, after, before time.Time, limit int) ([]entities.AccessRecord, error) {
+	rawAccesses, err := c.GetAccesses(ctx, after, before, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]entities.AccessRecord, 0, len(rawAccesses))
+	for _, raw := range rawAccesses {
+		if raw.User == nil || raw.User.Name == "" {
+			continue
+		}
+
+		accessedAt, err := time.Parse(time.RFC3339, raw.AccessedAt)
+		if err != nil {
+			continue // パース失敗はスキップ
+		}
+
+		// IDをUUIDに変換（Akerun APIはjson.Numberなので文字列ベースで生成）
+		accessID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(raw.ID.String()))
+
+		result = append(result, entities.AccessRecord{
+			ID:         accessID,
+			UserName:   raw.User.Name,
+			AccessedAt: accessedAt,
+		})
+	}
+
+	return result, nil
 }

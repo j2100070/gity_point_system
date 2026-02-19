@@ -15,11 +15,14 @@ type DailyBonusInputPort interface {
 	// GetRecentBonuses は最近のボーナス履歴を取得
 	GetRecentBonuses(ctx context.Context, req *GetRecentBonusesRequest) (*GetRecentBonusesResponse, error)
 
-	// GetBonusSettings はボーナス設定を取得
+	// GetBonusSettings はボーナス設定を取得（管理者用）
 	GetBonusSettings(ctx context.Context) (*BonusSettingsResponse, error)
 
-	// UpdateBonusSettings はボーナス設定を更新（管理者用）
-	UpdateBonusSettings(ctx context.Context, req *UpdateBonusSettingsRequest) error
+	// UpdateLotteryTiers は抽選ティアを一括更新（管理者用）
+	UpdateLotteryTiers(ctx context.Context, req *UpdateLotteryTiersRequest) error
+
+	// MarkBonusViewed はボーナスを閲覧済みにする
+	MarkBonusViewed(ctx context.Context, req *MarkBonusViewedRequest) error
 }
 
 // GetTodayBonusRequest は本日のボーナス状況取得リクエスト
@@ -29,9 +32,10 @@ type GetTodayBonusRequest struct {
 
 // GetTodayBonusResponse は本日のボーナス状況取得レスポンス
 type GetTodayBonusResponse struct {
-	DailyBonus  *entities.DailyBonus // nil = 未獲得
-	BonusPoints int64                // 設定されているボーナスポイント数
-	TotalDays   int64                // これまでの獲得日数
+	DailyBonus       *entities.DailyBonus // nil = 未獲得
+	BonusPoints      int64                // 設定されているボーナスポイント数（フォールバック用）
+	TotalDays        int64                // これまでの獲得日数
+	IsLotteryPending bool                 // くじ引きアニメーション未再生
 }
 
 // GetRecentBonusesRequest は最近のボーナス履歴取得リクエスト
@@ -48,10 +52,25 @@ type GetRecentBonusesResponse struct {
 
 // BonusSettingsResponse はボーナス設定レスポンス
 type BonusSettingsResponse struct {
-	BonusPoints int64
+	BonusPoints  int64                   // フォールバック固定ポイント
+	LotteryTiers []*entities.LotteryTier // 抽選ティア一覧
 }
 
-// UpdateBonusSettingsRequest はボーナス設定更新リクエスト
-type UpdateBonusSettingsRequest struct {
-	BonusPoints int64
+// LotteryTierInput は抽選ティアの入力
+type LotteryTierInput struct {
+	Name         string
+	Points       int64
+	Probability  float64
+	DisplayOrder int
+}
+
+// UpdateLotteryTiersRequest は抽選ティア一括更新リクエスト
+type UpdateLotteryTiersRequest struct {
+	Tiers []LotteryTierInput
+}
+
+// MarkBonusViewedRequest はボーナス閲覧済みリクエスト
+type MarkBonusViewedRequest struct {
+	BonusID uuid.UUID
+	UserID  uuid.UUID
 }

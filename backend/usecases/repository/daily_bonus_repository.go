@@ -27,4 +27,7 @@ type DailyBonusRepository interface {
 
 	// UpdateLastPolledAt はポーリング時刻を更新
 	UpdateLastPolledAt(ctx context.Context, t time.Time) error
+
+	// MarkAsViewed はデイリーボーナスを閲覧済みにする
+	MarkAsViewed(ctx context.Context, id uuid.UUID) error
 }

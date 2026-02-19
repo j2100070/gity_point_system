@@ -176,6 +176,12 @@ func (r *Router) RegisterRoutes(
 				qrcodes.GET("/history", qrcodeController.GetQRCodeHistory)
 			}
 
+			// デイリーボーナス（状態変更あり）
+			dailyBonusWithCSRF := protectedWithCSRF.Group("/daily-bonus")
+			{
+				dailyBonusWithCSRF.POST("/mark-viewed", dailyBonusController.MarkBonusViewed)
+			}
+
 			// 送金リクエスト（PayPay風）
 			transferRequests := protectedWithCSRF.Group("/transfer-requests")
 			{
@@ -243,9 +249,9 @@ func (r *Router) RegisterRoutes(
 				admin.PUT("/categories/:id", categoryController.UpdateCategory)
 				admin.DELETE("/categories/:id", categoryController.DeleteCategory)
 
-				// ボーナス設定（Akerun入退室ボーナスのポイント数）
+				// ボーナス設定（Akerun入退室ボーナス抽選ティア）
 				admin.GET("/bonus-settings", dailyBonusController.GetBonusSettings)
-				admin.PUT("/bonus-settings", dailyBonusController.UpdateBonusSettings)
+				admin.PUT("/lottery-tiers", dailyBonusController.UpdateLotteryTiers)
 			}
 		}
 	}

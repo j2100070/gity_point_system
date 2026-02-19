@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, TrendingUp } from "lucide-react";
 import { dailyBonusApi, TodayBonusResponse, RecentBonusesResponse } from "../api/dailyBonusApi";
 import { DailyBonusCard } from "../components/DailyBonusCard";
+import { LotteryAnimation } from "../components/LotteryAnimation";
 
 export const DailyBonusPage = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export const DailyBonusPage = () => {
   const [recentBonuses, setRecentBonuses] = useState<RecentBonusesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showLottery, setShowLottery] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -21,6 +23,11 @@ export const DailyBonusPage = () => {
       ]);
       setTodayBonus(todayData);
       setRecentBonuses(recentData);
+
+      // 未閲覧の抽選結果がある場合、アニメーション起動
+      if (todayData.is_lottery_pending && todayData.daily_bonus) {
+        setShowLottery(true);
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || "データの取得に失敗しました");
     } finally {
@@ -31,6 +38,29 @@ export const DailyBonusPage = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleLotteryComplete = async () => {
+    setShowLottery(false);
+    if (todayBonus?.daily_bonus) {
+      try {
+        await dailyBonusApi.markBonusViewed(todayBonus.daily_bonus.id);
+        // 状態を更新
+        setTodayBonus((prev) =>
+          prev
+            ? {
+              ...prev,
+              is_lottery_pending: false,
+              daily_bonus: prev.daily_bonus
+                ? { ...prev.daily_bonus, is_viewed: true }
+                : undefined,
+            }
+            : null
+        );
+      } catch {
+        // mark-viewed失敗は無視（次回表示される）
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -63,6 +93,14 @@ export const DailyBonusPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
+      {/* 抽選アニメーション */}
+      {showLottery && todayBonus.daily_bonus && (
+        <LotteryAnimation
+          bonus={todayBonus.daily_bonus}
+          onComplete={handleLotteryComplete}
+        />
+      )}
+
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -106,6 +144,11 @@ export const DailyBonusPage = () => {
                       })}
                     </div>
                     <div className="text-sm text-gray-500">
+                      {bonus.lottery_tier_name && (
+                        <span className="mr-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                          {bonus.lottery_tier_name}
+                        </span>
+                      )}
                       {bonus.accessed_at
                         ? new Date(bonus.accessed_at).toLocaleTimeString("ja-JP", {
                           hour: "2-digit",

@@ -48,3 +48,8 @@ func (r *DailyBonusRepositoryImpl) GetLastPolledAt(ctx context.Context) (time.Ti
 func (r *DailyBonusRepositoryImpl) UpdateLastPolledAt(ctx context.Context, t time.Time) error {
 	return r.ds.UpdateLastPolledAt(ctx, t)
 }
+
+// MarkAsViewed はデイリーボーナスを閲覧済みにする
+func (r *DailyBonusRepositoryImpl) MarkAsViewed(ctx context.Context, id uuid.UUID) error {
+	return r.ds.UpdateIsViewed(ctx, id)
+}

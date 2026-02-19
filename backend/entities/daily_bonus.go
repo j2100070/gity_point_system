@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,27 +12,33 @@ const DefaultAkerunBonusPoints int64 = 5
 
 // DailyBonus はAkerun入退室ベースのデイリーボーナスエンティティ
 type DailyBonus struct {
-	ID             uuid.UUID
-	UserID         uuid.UUID
-	BonusDate      time.Time // JST AM6:00区切りの日付
-	BonusPoints    int64
-	AkerunAccessID string
-	AkerunUserName string
-	AccessedAt     *time.Time
-	CreatedAt      time.Time
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	BonusDate       time.Time // JST AM6:00区切りの日付
+	BonusPoints     int64
+	AkerunAccessID  string
+	AkerunUserName  string
+	AccessedAt      *time.Time
+	LotteryTierID   *uuid.UUID
+	LotteryTierName string
+	IsViewed        bool
+	CreatedAt       time.Time
 }
 
 // NewDailyBonus は新しいDailyBonusを作成
-func NewDailyBonus(userID uuid.UUID, bonusDate time.Time, bonusPoints int64, akerunAccessID, akerunUserName string, accessedAt *time.Time) *DailyBonus {
+func NewDailyBonus(userID uuid.UUID, bonusDate time.Time, bonusPoints int64, akerunAccessID, akerunUserName string, accessedAt *time.Time, lotteryTierID *uuid.UUID, lotteryTierName string) *DailyBonus {
 	return &DailyBonus{
-		ID:             uuid.New(),
-		UserID:         userID,
-		BonusDate:      bonusDate,
-		BonusPoints:    bonusPoints,
-		AkerunAccessID: akerunAccessID,
-		AkerunUserName: akerunUserName,
-		AccessedAt:     accessedAt,
-		CreatedAt:      time.Now(),
+		ID:              uuid.New(),
+		UserID:          userID,
+		BonusDate:       bonusDate,
+		BonusPoints:     bonusPoints,
+		AkerunAccessID:  akerunAccessID,
+		AkerunUserName:  akerunUserName,
+		AccessedAt:      accessedAt,
+		LotteryTierID:   lotteryTierID,
+		LotteryTierName: lotteryTierName,
+		IsViewed:        false,
+		CreatedAt:       time.Now(),
 	}
 }
 
@@ -47,4 +54,18 @@ func GetBonusDateJST(t time.Time) time.Time {
 	}
 
 	return time.Date(tJST.Year(), tJST.Month(), tJST.Day(), 0, 0, 0, 0, jst)
+}
+
+// NormalizeName はAkerunユーザー名を正規化する（全角/半角スペース除去、小文字化）
+// ユーザー名マッチングのドメインロジック
+func NormalizeName(name string) string {
+	// 全角スペースを半角に統一
+	name = strings.ReplaceAll(name, "\u3000", " ")
+	// スペースを除去
+	name = strings.ReplaceAll(name, " ", "")
+	// 小文字化（英語名の場合のため）
+	name = strings.ToLower(name)
+	// 前後の空白を除去
+	name = strings.TrimSpace(name)
+	return name
 }
