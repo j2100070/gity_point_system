@@ -1,9 +1,11 @@
 //go:build integration
 // +build integration
 
-package integration
+package datasource
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,36 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ========================================
-// Test Setup
-// ========================================
-
-func setupTransferRequestTestDB(t *testing.T) inframysql.DB {
-	db, err := inframysql.NewPostgresDB(&inframysql.Config{
-		Host:     "localhost",
-		Port:     "5432",
-		User:     "postgres",
-		Password: "postgres",
-		DBName:   "point_system_test",
-		SSLMode:  "disable",
-		Env:      "test",
-	})
-	require.NoError(t, err)
-
-	// テスト用のテーブルをクリーンアップ
-	db.GetDB().Exec("TRUNCATE TABLE transfer_requests CASCADE")
-	db.GetDB().Exec("TRUNCATE TABLE users CASCADE")
-
-	return db
-}
-
+// createTestUserForTransferRequest はTransferRequestテスト用のユーザーを作成（初期残高10000）
 func createTestUserForTransferRequest(t *testing.T, db inframysql.DB, username string) *entities.User {
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	user, err := entities.NewUser(username, username+"@example.com", "hash", "User "+username, "", "")
-	require.NoError(t, err)
-	user.Balance = 10000 // 初期残高設定
-	require.NoError(t, userDS.Insert(user))
-	return user
+	return createTestUserWithBalanceDB(t, db, username, 10000)
 }
 
 // ========================================
@@ -53,7 +28,7 @@ func createTestUserForTransferRequest(t *testing.T, db inframysql.DB, username s
 
 func TestTransferRequestDataSource_InsertAndSelect(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
@@ -61,10 +36,10 @@ func TestTransferRequestDataSource_InsertAndSelect(t *testing.T) {
 
 	t.Run("送金リクエストを作成して取得", func(t *testing.T) {
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test transfer", "key-123")
-		err := ds.Insert(tr)
+		err := ds.Insert(ctx, tr)
 		require.NoError(t, err)
 
-		retrieved, err := ds.Select(tr.ID)
+		retrieved, err := ds.Select(ctx, tr.ID)
 		require.NoError(t, err)
 		assert.Equal(t, tr.ID, retrieved.ID)
 		assert.Equal(t, sender.ID, retrieved.FromUserID)
@@ -76,7 +51,7 @@ func TestTransferRequestDataSource_InsertAndSelect(t *testing.T) {
 	})
 
 	t.Run("存在しないIDはnil", func(t *testing.T) {
-		result, err := ds.Select(uuid.New())
+		result, err := ds.Select(ctx, uuid.New())
 		require.NoError(t, err)
 		assert.Nil(t, result)
 	})
@@ -84,7 +59,7 @@ func TestTransferRequestDataSource_InsertAndSelect(t *testing.T) {
 
 func TestTransferRequestDataSource_SelectByIdempotencyKey(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
@@ -93,16 +68,16 @@ func TestTransferRequestDataSource_SelectByIdempotencyKey(t *testing.T) {
 	t.Run("冪等性キーで検索", func(t *testing.T) {
 		idempotencyKey := "unique-key-456"
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 2000, "Test", idempotencyKey)
-		require.NoError(t, ds.Insert(tr))
+		require.NoError(t, ds.Insert(ctx, tr))
 
-		found, err := ds.SelectByIdempotencyKey(idempotencyKey)
+		found, err := ds.SelectByIdempotencyKey(ctx, idempotencyKey)
 		require.NoError(t, err)
 		assert.Equal(t, tr.ID, found.ID)
 		assert.Equal(t, idempotencyKey, found.IdempotencyKey)
 	})
 
 	t.Run("存在しないキーはnil", func(t *testing.T) {
-		found, err := ds.SelectByIdempotencyKey("non-existent-key")
+		found, err := ds.SelectByIdempotencyKey(ctx, "non-existent-key")
 		require.NoError(t, err)
 		assert.Nil(t, found)
 	})
@@ -110,7 +85,7 @@ func TestTransferRequestDataSource_SelectByIdempotencyKey(t *testing.T) {
 
 func TestTransferRequestDataSource_Update(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
@@ -118,15 +93,15 @@ func TestTransferRequestDataSource_Update(t *testing.T) {
 
 	t.Run("ステータスを更新", func(t *testing.T) {
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-update")
-		require.NoError(t, ds.Insert(tr))
+		require.NoError(t, ds.Insert(ctx, tr))
 
 		// Approve
 		transactionID := uuid.New()
 		tr.Approve(transactionID)
-		err := ds.Update(tr)
+		err := ds.Update(ctx, tr)
 		require.NoError(t, err)
 
-		retrieved, _ := ds.Select(tr.ID)
+		retrieved, _ := ds.Select(ctx, tr.ID)
 		assert.Equal(t, entities.TransferRequestStatusApproved, retrieved.Status)
 		assert.NotNil(t, retrieved.ApprovedAt)
 		assert.NotNil(t, retrieved.TransactionID)
@@ -136,7 +111,7 @@ func TestTransferRequestDataSource_Update(t *testing.T) {
 
 func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender1 := createTestUserForTransferRequest(t, db, "sender1")
@@ -149,16 +124,16 @@ func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 		tr2, _ := entities.NewTransferRequest(sender2.ID, receiver.ID, 2000, "Request 2", "key-2")
 		tr3, _ := entities.NewTransferRequest(sender1.ID, receiver.ID, 3000, "Request 3", "key-3")
 
-		require.NoError(t, ds.Insert(tr1))
-		require.NoError(t, ds.Insert(tr2))
-		require.NoError(t, ds.Insert(tr3))
+		require.NoError(t, ds.Insert(ctx, tr1))
+		require.NoError(t, ds.Insert(ctx, tr2))
+		require.NoError(t, ds.Insert(ctx, tr3))
 
 		// tr1を承認済みにする
 		tr1.Approve(uuid.New())
-		ds.Update(tr1)
+		ds.Update(ctx, tr1)
 
 		// 承認待ちリクエストを取得
-		pending, err := ds.SelectPendingByToUser(receiver.ID, 0, 10)
+		pending, err := ds.SelectPendingByToUser(ctx, receiver.ID, 0, 10)
 		require.NoError(t, err)
 		assert.Len(t, pending, 2) // tr2とtr3のみ
 
@@ -171,7 +146,7 @@ func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 
 	t.Run("ページネーション", func(t *testing.T) {
 		db := setupTransferRequestTestDB(t)
-		defer db.Close()
+		ctx := context.Background()
 
 		ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 		sender := createTestUserForTransferRequest(t, db, "sender_page")
@@ -179,23 +154,23 @@ func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 
 		// 5つのリクエストを作成
 		for i := 0; i < 5; i++ {
-			tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, int64(1000+i*100), "Request", "key-page-"+string(rune(i)))
-			require.NoError(t, ds.Insert(tr))
+			tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, int64(1000+i*100), "Request", fmt.Sprintf("key-page-%d", i))
+			require.NoError(t, ds.Insert(ctx, tr))
 			time.Sleep(10 * time.Millisecond) // 作成時刻を少しずらす
 		}
 
 		// 最初の2件
-		page1, err := ds.SelectPendingByToUser(receiver.ID, 0, 2)
+		page1, err := ds.SelectPendingByToUser(ctx, receiver.ID, 0, 2)
 		require.NoError(t, err)
 		assert.Len(t, page1, 2)
 
 		// 次の2件
-		page2, err := ds.SelectPendingByToUser(receiver.ID, 2, 2)
+		page2, err := ds.SelectPendingByToUser(ctx, receiver.ID, 2, 2)
 		require.NoError(t, err)
 		assert.Len(t, page2, 2)
 
 		// 最後の1件
-		page3, err := ds.SelectPendingByToUser(receiver.ID, 4, 2)
+		page3, err := ds.SelectPendingByToUser(ctx, receiver.ID, 4, 2)
 		require.NoError(t, err)
 		assert.Len(t, page3, 1)
 	})
@@ -203,7 +178,7 @@ func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 
 func TestTransferRequestDataSource_SelectSentByFromUser(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
@@ -214,10 +189,10 @@ func TestTransferRequestDataSource_SelectSentByFromUser(t *testing.T) {
 		tr1, _ := entities.NewTransferRequest(sender.ID, receiver1.ID, 1000, "To R1", "key-sent-1")
 		tr2, _ := entities.NewTransferRequest(sender.ID, receiver2.ID, 2000, "To R2", "key-sent-2")
 
-		require.NoError(t, ds.Insert(tr1))
-		require.NoError(t, ds.Insert(tr2))
+		require.NoError(t, ds.Insert(ctx, tr1))
+		require.NoError(t, ds.Insert(ctx, tr2))
 
-		sent, err := ds.SelectSentByFromUser(sender.ID, 0, 10)
+		sent, err := ds.SelectSentByFromUser(ctx, sender.ID, 0, 10)
 		require.NoError(t, err)
 		assert.Len(t, sent, 2)
 	})
@@ -225,7 +200,7 @@ func TestTransferRequestDataSource_SelectSentByFromUser(t *testing.T) {
 
 func TestTransferRequestDataSource_CountPendingByToUser(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender_count")
@@ -234,18 +209,18 @@ func TestTransferRequestDataSource_CountPendingByToUser(t *testing.T) {
 	t.Run("承認待ちリクエスト数をカウント", func(t *testing.T) {
 		// 3つのpendingリクエストを作成
 		for i := 0; i < 3; i++ {
-			tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-count-"+string(rune(i)))
-			require.NoError(t, ds.Insert(tr))
+			tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", fmt.Sprintf("key-count-%d", i))
+			require.NoError(t, ds.Insert(ctx, tr))
 		}
 
 		// 1つを承認済みにする
 		tr4, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-count-4")
-		require.NoError(t, ds.Insert(tr4))
+		require.NoError(t, ds.Insert(ctx, tr4))
 		tr4.Approve(uuid.New())
-		ds.Update(tr4)
+		ds.Update(ctx, tr4)
 
 		// カウント
-		count, err := ds.CountPendingByToUser(receiver.ID)
+		count, err := ds.CountPendingByToUser(ctx, receiver.ID)
 		require.NoError(t, err)
 		assert.Equal(t, int64(3), count)
 	})
@@ -253,7 +228,7 @@ func TestTransferRequestDataSource_CountPendingByToUser(t *testing.T) {
 	t.Run("pendingがない場合は0", func(t *testing.T) {
 		newReceiver := createTestUserForTransferRequest(t, db, "receiver_empty")
 
-		count, err := ds.CountPendingByToUser(newReceiver.ID)
+		count, err := ds.CountPendingByToUser(ctx, newReceiver.ID)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), count)
 	})
@@ -261,7 +236,7 @@ func TestTransferRequestDataSource_CountPendingByToUser(t *testing.T) {
 
 func TestTransferRequestDataSource_UpdateExpiredRequests(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender_expire")
@@ -271,49 +246,49 @@ func TestTransferRequestDataSource_UpdateExpiredRequests(t *testing.T) {
 		// 期限切れのリクエスト
 		tr1, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Expired", "key-expired-1")
 		tr1.ExpiresAt = time.Now().Add(-1 * time.Hour)
-		require.NoError(t, ds.Insert(tr1))
+		require.NoError(t, ds.Insert(ctx, tr1))
 
 		tr2, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 2000, "Expired", "key-expired-2")
 		tr2.ExpiresAt = time.Now().Add(-2 * time.Hour)
-		require.NoError(t, ds.Insert(tr2))
+		require.NoError(t, ds.Insert(ctx, tr2))
 
 		// 期限内のリクエスト
 		tr3, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 3000, "Valid", "key-valid")
-		require.NoError(t, ds.Insert(tr3))
+		require.NoError(t, ds.Insert(ctx, tr3))
 
 		// 期限切れを更新
-		updatedCount, err := ds.UpdateExpiredRequests()
+		updatedCount, err := ds.UpdateExpiredRequests(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), updatedCount)
 
 		// 確認
-		retrieved1, _ := ds.Select(tr1.ID)
+		retrieved1, _ := ds.Select(ctx, tr1.ID)
 		assert.Equal(t, entities.TransferRequestStatusExpired, retrieved1.Status)
 
-		retrieved2, _ := ds.Select(tr2.ID)
+		retrieved2, _ := ds.Select(ctx, tr2.ID)
 		assert.Equal(t, entities.TransferRequestStatusExpired, retrieved2.Status)
 
-		retrieved3, _ := ds.Select(tr3.ID)
+		retrieved3, _ := ds.Select(ctx, tr3.ID)
 		assert.Equal(t, entities.TransferRequestStatusPending, retrieved3.Status)
 	})
 
 	t.Run("承認済みリクエストは期限切れにしない", func(t *testing.T) {
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Approved", "key-approved-expired")
-		require.NoError(t, ds.Insert(tr))
+		require.NoError(t, ds.Insert(ctx, tr))
 
 		// 承認
 		tr.Approve(uuid.New())
-		ds.Update(tr)
+		ds.Update(ctx, tr)
 
 		// ExpiresAtを過去に設定
 		tr.ExpiresAt = time.Now().Add(-1 * time.Hour)
-		ds.Update(tr)
+		ds.Update(ctx, tr)
 
 		// 期限切れ更新を試みる
-		ds.UpdateExpiredRequests()
+		ds.UpdateExpiredRequests(ctx)
 
 		// まだ承認済みのまま
-		retrieved, _ := ds.Select(tr.ID)
+		retrieved, _ := ds.Select(ctx, tr.ID)
 		assert.Equal(t, entities.TransferRequestStatusApproved, retrieved.Status)
 	})
 }
@@ -324,7 +299,7 @@ func TestTransferRequestDataSource_UpdateExpiredRequests(t *testing.T) {
 
 func TestTransferRequestIntegration_WithUsers(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
-	defer db.Close()
+	ctx := context.Background()
 
 	trDS := dsmysqlimpl.NewTransferRequestDataSource(db)
 	userDS := dsmysqlimpl.NewUserDataSource(db)
@@ -334,18 +309,18 @@ func TestTransferRequestIntegration_WithUsers(t *testing.T) {
 
 	t.Run("リクエスト作成からユーザー情報取得まで", func(t *testing.T) {
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 5000, "Integration test", "key-integration")
-		require.NoError(t, trDS.Insert(tr))
+		require.NoError(t, trDS.Insert(ctx, tr))
 
 		// リクエスト取得
-		retrieved, err := trDS.Select(tr.ID)
+		retrieved, err := trDS.Select(ctx, tr.ID)
 		require.NoError(t, err)
 
 		// ユーザー情報取得
-		senderUser, err := userDS.Select(retrieved.FromUserID)
+		senderUser, err := userDS.Select(ctx, retrieved.FromUserID)
 		require.NoError(t, err)
 		assert.Equal(t, sender.Username, senderUser.Username)
 
-		receiverUser, err := userDS.Select(retrieved.ToUserID)
+		receiverUser, err := userDS.Select(ctx, retrieved.ToUserID)
 		require.NoError(t, err)
 		assert.Equal(t, receiver.Username, receiverUser.Username)
 	})

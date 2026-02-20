@@ -47,21 +47,26 @@ func isTxContext(ctx context.Context) bool {
 // --- Context-Tracking UserRepository ---
 
 type ctxTrackingUserRepo struct {
-	ctxRecords map[string]context.Context
-	users      map[uuid.UUID]*entities.User
-	readErr    error
-	updateOK   bool
+	ctxRecords  map[string]context.Context
+	users       map[uuid.UUID]*entities.User
+	usernameMap map[string]*entities.User
+	readErr     error
+	updateOK    bool
 }
 
 func newCtxTrackingUserRepo() *ctxTrackingUserRepo {
 	return &ctxTrackingUserRepo{
-		ctxRecords: make(map[string]context.Context),
-		users:      make(map[uuid.UUID]*entities.User),
-		updateOK:   true,
+		ctxRecords:  make(map[string]context.Context),
+		users:       make(map[uuid.UUID]*entities.User),
+		usernameMap: make(map[string]*entities.User),
+		updateOK:    true,
 	}
 }
 
-func (m *ctxTrackingUserRepo) setUser(u *entities.User) { m.users[u.ID] = u }
+func (m *ctxTrackingUserRepo) setUser(u *entities.User) {
+	m.users[u.ID] = u
+	m.usernameMap[u.Username] = u
+}
 
 func (m *ctxTrackingUserRepo) Create(ctx context.Context, user *entities.User) error { return nil }
 func (m *ctxTrackingUserRepo) Read(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -78,7 +83,12 @@ func (m *ctxTrackingUserRepo) Read(ctx context.Context, id uuid.UUID) (*entities
 	return &copy, nil
 }
 func (m *ctxTrackingUserRepo) ReadByUsername(ctx context.Context, username string) (*entities.User, error) {
-	return nil, nil
+	u, ok := m.usernameMap[username]
+	if !ok {
+		return nil, errors.New("user not found")
+	}
+	copy := *u
+	return &copy, nil
 }
 func (m *ctxTrackingUserRepo) ReadByEmail(ctx context.Context, email string) (*entities.User, error) {
 	return nil, nil

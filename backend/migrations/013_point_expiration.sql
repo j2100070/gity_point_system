@@ -32,7 +32,7 @@ ALTER TABLE transactions ADD CONSTRAINT transactions_transaction_type_check
 INSERT INTO point_batches (user_id, original_amount, remaining_amount, source_type, expires_at)
 SELECT id, balance, balance, 'migration', NOW() + INTERVAL '3 months'
 FROM users
-WHERE balance > 0 AND deleted_at IS NULL
+WHERE balance > 0
 ON CONFLICT DO NOTHING;
 
 COMMENT ON TABLE point_batches IS 'ポイントバッチ: 獲得ポイントの有効期限追跡。FIFO消費と3ヶ月期限切れ処理に使用';

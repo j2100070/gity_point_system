@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS daily_bonuses (
     UNIQUE(user_id, bonus_date)
 );
 
-CREATE INDEX idx_daily_bonuses_user_date ON daily_bonuses(user_id, bonus_date DESC);
-CREATE INDEX idx_daily_bonuses_date ON daily_bonuses(bonus_date DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_bonuses_user_date ON daily_bonuses(user_id, bonus_date DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_bonuses_date ON daily_bonuses(bonus_date DESC);
 
 COMMENT ON TABLE daily_bonuses IS 'Akerun入退室ベースのデイリーボーナス記録';
 COMMENT ON COLUMN daily_bonuses.bonus_date IS 'ボーナス対象日（JST AM6:00区切り）';
