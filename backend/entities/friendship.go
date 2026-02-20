@@ -20,8 +20,8 @@ const (
 // Friendship は友達関係エンティティ
 type Friendship struct {
 	ID          uuid.UUID
-	RequesterID uuid.UUID        // 申請者
-	AddresseeID uuid.UUID        // 受信者
+	RequesterID uuid.UUID // 申請者
+	AddresseeID uuid.UUID // 受信者
 	Status      FriendshipStatus
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -72,4 +72,10 @@ func (f *Friendship) Block() {
 // IsAccepted は友達関係が承認済みかどうかを確認
 func (f *Friendship) IsAccepted() bool {
 	return f.Status == FriendshipStatusAccepted
+}
+
+// FriendshipWithUser は友達関係とユーザー情報のペア（JOIN結果）
+type FriendshipWithUser struct {
+	Friendship *Friendship
+	User       *User
 }

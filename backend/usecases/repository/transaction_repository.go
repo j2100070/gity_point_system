@@ -38,6 +38,12 @@ type TransactionRepository interface {
 
 	// CountByUserID はユーザーのトランザクション総数を取得
 	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+
+	// ReadListByUserIDWithUsers はユーザーに関連するトランザクション一覧をユーザー情報付きで取得（JOIN）
+	ReadListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error)
+
+	// ReadListAllWithFilterAndUsers はフィルタ・ソート付きで全トランザクション一覧をユーザー情報付きで取得（JOIN）
+	ReadListAllWithFilterAndUsers(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.TransactionWithUsers, error)
 }
 
 // IdempotencyKeyRepository は冪等性キーのリポジトリインターフェース

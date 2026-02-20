@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/repository"
 	"github.com/google/uuid"
@@ -20,7 +19,7 @@ type AdminInteractor struct {
 	transactionRepo repository.TransactionRepository
 	idempotencyRepo repository.IdempotencyKeyRepository
 	pointBatchRepo  repository.PointBatchRepository
-	analyticsDS     dsmysql.AnalyticsDataSource
+	analyticsDS     repository.AnalyticsRepository
 	logger          entities.Logger
 }
 
@@ -31,7 +30,7 @@ func NewAdminInteractor(
 	transactionRepo repository.TransactionRepository,
 	idempotencyRepo repository.IdempotencyKeyRepository,
 	pointBatchRepo repository.PointBatchRepository,
-	analyticsDS dsmysql.AnalyticsDataSource,
+	analyticsDS repository.AnalyticsRepository,
 	logger entities.Logger,
 ) inputport.AdminInputPort {
 	return &AdminInteractor{
@@ -285,56 +284,36 @@ func (i *AdminInteractor) ListAllUsers(ctx context.Context, req *inputport.ListA
 
 // ListAllTransactions はすべての取引履歴を取得
 func (i *AdminInteractor) ListAllTransactions(ctx context.Context, req *inputport.ListAllTransactionsRequest) (*inputport.ListAllTransactionsResponse, error) {
-	var transactions []*entities.Transaction
 	var total int64
 	var err error
 
-	hasFilter := req.TransactionType != "" || req.DateFrom != "" || req.DateTo != "" || req.SortBy != ""
+	// JOINでユーザー情報付きトランザクション一覧を取得
+	results, err := i.transactionRepo.ReadListAllWithFilterAndUsers(ctx, req.TransactionType, req.DateFrom, req.DateTo, req.SortBy, req.SortOrder, req.Offset, req.Limit)
+	if err != nil {
+		return nil, err
+	}
 
+	hasFilter := req.TransactionType != "" || req.DateFrom != "" || req.DateTo != ""
 	if hasFilter {
-		transactions, err = i.transactionRepo.ReadListAllWithFilter(ctx, req.TransactionType, req.DateFrom, req.DateTo, req.SortBy, req.SortOrder, req.Offset, req.Limit)
-		if err != nil {
-			return nil, err
-		}
 		total, err = i.transactionRepo.CountAllWithFilter(ctx, req.TransactionType, req.DateFrom, req.DateTo)
 		if err != nil {
-			total = int64(len(transactions))
+			total = int64(len(results))
 		}
 	} else {
-		transactions, err = i.transactionRepo.ReadListAll(ctx, req.Offset, req.Limit)
-		if err != nil {
-			return nil, err
-		}
 		total, err = i.transactionRepo.CountAll(ctx)
 		if err != nil {
-			total = int64(len(transactions))
+			total = int64(len(results))
 		}
 	}
 
-	// 各トランザクションにユーザー情報を付与
-	transactionsWithUsers := make([]*inputport.TransactionWithUsers, 0, len(transactions))
-	for _, tx := range transactions {
-		txWithUsers := &inputport.TransactionWithUsers{
-			Transaction: tx,
-		}
-
-		// 送信者情報を取得
-		if tx.FromUserID != nil {
-			fromUser, err := i.userRepo.Read(ctx, *tx.FromUserID)
-			if err == nil {
-				txWithUsers.FromUser = fromUser
-			}
-		}
-
-		// 受信者情報を取得
-		if tx.ToUserID != nil {
-			toUser, err := i.userRepo.Read(ctx, *tx.ToUserID)
-			if err == nil {
-				txWithUsers.ToUser = toUser
-			}
-		}
-
-		transactionsWithUsers = append(transactionsWithUsers, txWithUsers)
+	// JOINで取得済みのユーザー情報を変換
+	transactionsWithUsers := make([]*inputport.TransactionWithUsers, 0, len(results))
+	for _, r := range results {
+		transactionsWithUsers = append(transactionsWithUsers, &inputport.TransactionWithUsers{
+			Transaction: r.Transaction,
+			FromUser:    r.FromUser,
+			ToUser:      r.ToUser,
+		})
 	}
 
 	return &inputport.ListAllTransactionsResponse{

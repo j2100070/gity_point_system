@@ -26,9 +26,12 @@ ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS lottery_tier_id UUID REFERENC
 ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS lottery_tier_name VARCHAR(50);
 ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS is_viewed BOOLEAN NOT NULL DEFAULT false;
 
--- デフォルトティア挿入
-INSERT INTO bonus_lottery_tiers (name, points, probability, display_order) VALUES
-    ('大当たり', 100, 1.00, 1),
-    ('当たり', 10, 10.00, 2),
-    ('通常', 5, 89.00, 3)
-ON CONFLICT DO NOTHING;
+-- デフォルトティア挿入（テーブルが空の場合のみ）
+INSERT INTO bonus_lottery_tiers (name, points, probability, display_order)
+SELECT name, points, probability, display_order FROM (
+    VALUES
+        ('大当たり', 100::BIGINT, 1.00::DECIMAL(5,2), 1),
+        ('当たり', 10::BIGINT, 10.00::DECIMAL(5,2), 2),
+        ('通常', 5::BIGINT, 89.00::DECIMAL(5,2), 3)
+) AS defaults(name, points, probability, display_order)
+WHERE NOT EXISTS (SELECT 1 FROM bonus_lottery_tiers);

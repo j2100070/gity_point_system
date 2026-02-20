@@ -32,4 +32,10 @@ type TransferRequestDataSource interface {
 
 	// UpdateExpiredRequests は期限切れのリクエストを一括更新
 	UpdateExpiredRequests(ctx context.Context) (int64, error)
+
+	// SelectPendingByToUserWithUsers は受取人宛の承認待ちリクエストをユーザー情報付きで取得（JOIN）
+	SelectPendingByToUserWithUsers(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error)
+
+	// SelectSentByFromUserWithUsers は送信者が送ったリクエストをユーザー情報付きで取得（JOIN）
+	SelectSentByFromUserWithUsers(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error)
 }

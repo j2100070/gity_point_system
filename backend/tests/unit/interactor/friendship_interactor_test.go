@@ -19,21 +19,25 @@ import (
 // ========================================
 
 type mockFriendshipRepo struct {
-	friendships map[uuid.UUID]*entities.Friendship
-	byUsers     map[string]*entities.Friendship // key: "userID1-userID2"
-	friends     []*entities.Friendship
-	pending     []*entities.Friendship
-	createErr   error
-	readErr     error
-	updateErr   error
-	deleteErr   error
-	archiveErr  error
+	friendships  map[uuid.UUID]*entities.Friendship
+	byUsers      map[string]*entities.Friendship // key: "userID1-userID2"
+	friends      []*entities.Friendship
+	pending      []*entities.Friendship
+	friendsUsers map[uuid.UUID]*entities.User // friendID -> User (for WithUsers)
+	pendingUsers map[uuid.UUID]*entities.User // requesterID -> User (for WithUsers)
+	createErr    error
+	readErr      error
+	updateErr    error
+	deleteErr    error
+	archiveErr   error
 }
 
 func newMockFriendshipRepo() *mockFriendshipRepo {
 	return &mockFriendshipRepo{
-		friendships: make(map[uuid.UUID]*entities.Friendship),
-		byUsers:     make(map[string]*entities.Friendship),
+		friendships:  make(map[uuid.UUID]*entities.Friendship),
+		byUsers:      make(map[string]*entities.Friendship),
+		friendsUsers: make(map[uuid.UUID]*entities.User),
+		pendingUsers: make(map[uuid.UUID]*entities.User),
 	}
 }
 
@@ -116,6 +120,34 @@ func (m *mockFriendshipRepo) CheckAreFriends(ctx context.Context, userID1, userI
 		return true, nil
 	}
 	return false, nil
+}
+
+func (m *mockFriendshipRepo) ReadListFriendsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	results := make([]*entities.FriendshipWithUser, 0, len(m.friends))
+	for _, f := range m.friends {
+		friendID := f.AddresseeID
+		if f.AddresseeID == userID {
+			friendID = f.RequesterID
+		}
+		user := m.friendsUsers[friendID]
+		results = append(results, &entities.FriendshipWithUser{
+			Friendship: f,
+			User:       user,
+		})
+	}
+	return results, nil
+}
+
+func (m *mockFriendshipRepo) ReadListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	results := make([]*entities.FriendshipWithUser, 0, len(m.pending))
+	for _, f := range m.pending {
+		user := m.pendingUsers[f.RequesterID]
+		results = append(results, &entities.FriendshipWithUser{
+			Friendship: f,
+			User:       user,
+		})
+	}
+	return results, nil
 }
 
 func (m *mockFriendshipRepo) setExistingFriendship(f *entities.Friendship) {
@@ -624,6 +656,7 @@ func TestGetFriends(t *testing.T) {
 		f, _ := entities.NewFriendship(userID, friendID)
 		f.Accept()
 		friendshipRepo.friends = []*entities.Friendship{f}
+		friendshipRepo.friendsUsers[friendID] = userRepo.users[friendID]
 
 		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 
@@ -673,6 +706,7 @@ func TestGetPendingRequests(t *testing.T) {
 
 		f, _ := entities.NewFriendship(requesterID, addresseeID)
 		friendshipRepo.pending = []*entities.Friendship{f}
+		friendshipRepo.pendingUsers[requesterID] = userRepo.users[requesterID]
 
 		interactorInstance := interactor.NewFriendshipInteractor(friendshipRepo, userRepo, &mockFriendshipLogger{})
 

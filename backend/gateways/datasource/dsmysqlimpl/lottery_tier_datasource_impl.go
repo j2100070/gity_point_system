@@ -116,6 +116,11 @@ func (ds *LotteryTierDataSource) Delete(ctx context.Context, id uuid.UUID) error
 func (ds *LotteryTierDataSource) ReplaceAll(ctx context.Context, tiers []*entities.LotteryTier) error {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
+	// daily_bonuses の FK 参照を解除（lottery_tier_name に名前は残る）
+	if err := db.Exec("UPDATE daily_bonuses SET lottery_tier_id = NULL WHERE lottery_tier_id IS NOT NULL").Error; err != nil {
+		return err
+	}
+
 	// 既存のティアを全削除
 	if err := db.Where("1 = 1").Delete(&LotteryTierModel{}).Error; err != nil {
 		return err

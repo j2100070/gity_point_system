@@ -256,34 +256,24 @@ func (i *TransferRequestInteractor) CancelTransferRequest(ctx context.Context, r
 
 // GetPendingRequests は受取人宛の承認待ちリクエスト一覧を取得
 func (i *TransferRequestInteractor) GetPendingRequests(ctx context.Context, req *inputport.GetPendingTransferRequestsRequest) (*inputport.GetPendingTransferRequestsResponse, error) {
-	requests, err := i.transferRequestRepo.ReadPendingByToUser(ctx, req.ToUserID, req.Offset, req.Limit)
+	results, err := i.transferRequestRepo.ReadPendingByToUserWithUsers(ctx, req.ToUserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pending requests: %w", err)
 	}
 
-	infos := make([]*inputport.TransferRequestInfo, 0, len(requests))
-	for _, tr := range requests {
+	infos := make([]*inputport.TransferRequestInfo, 0, len(results))
+	for _, r := range results {
 		// 期限切れチェック
-		if tr.IsExpired() {
-			tr.MarkAsExpired()
-			i.transferRequestRepo.Update(ctx, tr)
+		if r.TransferRequest.IsExpired() {
+			r.TransferRequest.MarkAsExpired()
+			i.transferRequestRepo.Update(ctx, r.TransferRequest)
 			continue // 期限切れは除外
 		}
 
-		fromUser, err := i.userRepo.Read(ctx, tr.FromUserID)
-		if err != nil {
-			continue
-		}
-
-		toUser, err := i.userRepo.Read(ctx, tr.ToUserID)
-		if err != nil {
-			continue
-		}
-
 		infos = append(infos, &inputport.TransferRequestInfo{
-			TransferRequest: tr,
-			FromUser:        fromUser,
-			ToUser:          toUser,
+			TransferRequest: r.TransferRequest,
+			FromUser:        r.FromUser,
+			ToUser:          r.ToUser,
 		})
 	}
 
@@ -294,33 +284,23 @@ func (i *TransferRequestInteractor) GetPendingRequests(ctx context.Context, req 
 
 // GetSentRequests は送信者が送った送金リクエスト一覧を取得
 func (i *TransferRequestInteractor) GetSentRequests(ctx context.Context, req *inputport.GetSentTransferRequestsRequest) (*inputport.GetSentTransferRequestsResponse, error) {
-	requests, err := i.transferRequestRepo.ReadSentByFromUser(ctx, req.FromUserID, req.Offset, req.Limit)
+	results, err := i.transferRequestRepo.ReadSentByFromUserWithUsers(ctx, req.FromUserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sent requests: %w", err)
 	}
 
-	infos := make([]*inputport.TransferRequestInfo, 0, len(requests))
-	for _, tr := range requests {
+	infos := make([]*inputport.TransferRequestInfo, 0, len(results))
+	for _, r := range results {
 		// 期限切れチェック
-		if tr.IsPending() && tr.IsExpired() {
-			tr.MarkAsExpired()
-			i.transferRequestRepo.Update(ctx, tr)
-		}
-
-		fromUser, err := i.userRepo.Read(ctx, tr.FromUserID)
-		if err != nil {
-			continue
-		}
-
-		toUser, err := i.userRepo.Read(ctx, tr.ToUserID)
-		if err != nil {
-			continue
+		if r.TransferRequest.IsPending() && r.TransferRequest.IsExpired() {
+			r.TransferRequest.MarkAsExpired()
+			i.transferRequestRepo.Update(ctx, r.TransferRequest)
 		}
 
 		infos = append(infos, &inputport.TransferRequestInfo{
-			TransferRequest: tr,
-			FromUser:        fromUser,
-			ToUser:          toUser,
+			TransferRequest: r.TransferRequest,
+			FromUser:        r.FromUser,
+			ToUser:          r.ToUser,
 		})
 	}
 

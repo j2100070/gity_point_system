@@ -35,4 +35,10 @@ type FriendshipDataSource interface {
 
 	// CheckAreFriends は2人のユーザーが友達かどうかを確認
 	CheckAreFriends(ctx context.Context, userID1, userID2 uuid.UUID) (bool, error)
+
+	// SelectListFriendsWithUsers は承認済みの友達一覧をユーザー情報付きで取得（JOIN）
+	SelectListFriendsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error)
+
+	// SelectListPendingRequestsWithUsers は保留中の友達申請一覧をユーザー情報付きで取得（JOIN）
+	SelectListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/gateways/infra/inframysql"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 )
@@ -19,7 +20,7 @@ func NewAnalyticsDataSource(db inframysql.DB) dsmysql.AnalyticsDataSource {
 }
 
 // GetUserBalanceSummary はアクティブユーザーの残高サマリーを取得
-func (ds *AnalyticsDataSourceImpl) GetUserBalanceSummary(ctx context.Context) (*dsmysql.AnalyticsSummaryResult, error) {
+func (ds *AnalyticsDataSourceImpl) GetUserBalanceSummary(ctx context.Context) (*entities.AnalyticsSummaryResult, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	var result struct {
@@ -36,7 +37,7 @@ func (ds *AnalyticsDataSourceImpl) GetUserBalanceSummary(ctx context.Context) (*
 		return nil, err
 	}
 
-	return &dsmysql.AnalyticsSummaryResult{
+	return &entities.AnalyticsSummaryResult{
 		TotalBalance:   result.TotalBalance,
 		AverageBalance: result.AverageBalance,
 		ActiveUsers:    result.ActiveUsers,
@@ -44,7 +45,7 @@ func (ds *AnalyticsDataSourceImpl) GetUserBalanceSummary(ctx context.Context) (*
 }
 
 // GetTopHolders はポイント保有上位ユーザーを取得
-func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int) ([]*dsmysql.TopHolderResult, error) {
+func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int) ([]*entities.TopHolderResult, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	var results []struct {
@@ -64,9 +65,9 @@ func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int)
 		return nil, err
 	}
 
-	holders := make([]*dsmysql.TopHolderResult, 0, len(results))
+	holders := make([]*entities.TopHolderResult, 0, len(results))
 	for _, r := range results {
-		holders = append(holders, &dsmysql.TopHolderResult{
+		holders = append(holders, &entities.TopHolderResult{
 			ID:          r.ID,
 			Username:    r.Username,
 			DisplayName: r.DisplayName,
@@ -77,7 +78,7 @@ func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int)
 }
 
 // GetDailyStats は日別統計を取得（期間内の全日をゼロ埋めで返す）
-func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time.Time) ([]*dsmysql.DailyStatResult, error) {
+func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time.Time) ([]*entities.DailyStatResult, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	var results []struct {
@@ -103,10 +104,10 @@ func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time
 	}
 
 	// DBの結果をマップに変換
-	dataMap := make(map[string]*dsmysql.DailyStatResult, len(results))
+	dataMap := make(map[string]*entities.DailyStatResult, len(results))
 	for _, r := range results {
 		key := r.Date.Format("2006-01-02")
-		dataMap[key] = &dsmysql.DailyStatResult{
+		dataMap[key] = &entities.DailyStatResult{
 			Date:        r.Date,
 			Issued:      r.Issued,
 			Consumed:    r.Consumed,
@@ -119,13 +120,13 @@ func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	start := time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, since.Location())
 
-	stats := make([]*dsmysql.DailyStatResult, 0)
+	stats := make([]*entities.DailyStatResult, 0)
 	for d := start; !d.After(today); d = d.AddDate(0, 0, 1) {
 		key := d.Format("2006-01-02")
 		if entry, ok := dataMap[key]; ok {
 			stats = append(stats, entry)
 		} else {
-			stats = append(stats, &dsmysql.DailyStatResult{
+			stats = append(stats, &entities.DailyStatResult{
 				Date:        d,
 				Issued:      0,
 				Consumed:    0,
@@ -137,7 +138,7 @@ func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time
 }
 
 // GetTransactionTypeBreakdown はトランザクション種別構成を取得
-func (ds *AnalyticsDataSourceImpl) GetTransactionTypeBreakdown(ctx context.Context) ([]*dsmysql.TypeBreakdownResult, error) {
+func (ds *AnalyticsDataSourceImpl) GetTransactionTypeBreakdown(ctx context.Context) ([]*entities.TypeBreakdownResult, error) {
 	db := inframysql.GetDB(ctx, ds.db.GetDB())
 
 	var results []struct {
@@ -155,9 +156,9 @@ func (ds *AnalyticsDataSourceImpl) GetTransactionTypeBreakdown(ctx context.Conte
 		return nil, err
 	}
 
-	breakdowns := make([]*dsmysql.TypeBreakdownResult, 0, len(results))
+	breakdowns := make([]*entities.TypeBreakdownResult, 0, len(results))
 	for _, r := range results {
-		breakdowns = append(breakdowns, &dsmysql.TypeBreakdownResult{
+		breakdowns = append(breakdowns, &entities.TypeBreakdownResult{
 			Type:        r.Type,
 			Count:       r.Count,
 			TotalAmount: r.TotalAmount,

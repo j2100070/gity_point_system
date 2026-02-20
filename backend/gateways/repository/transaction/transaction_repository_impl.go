@@ -78,6 +78,16 @@ func (r *RepositoryImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (i
 	return r.transactionDS.CountByUserID(ctx, userID)
 }
 
+// ReadListByUserIDWithUsers はユーザーに関連するトランザクション一覧をユーザー情報付きで取得（JOIN）
+func (r *RepositoryImpl) ReadListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error) {
+	return r.transactionDS.SelectListByUserIDWithUsers(ctx, userID, offset, limit)
+}
+
+// ReadListAllWithFilterAndUsers はフィルタ・ソート付きで全トランザクション一覧をユーザー情報付きで取得（JOIN）
+func (r *RepositoryImpl) ReadListAllWithFilterAndUsers(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.TransactionWithUsers, error) {
+	return r.transactionDS.SelectListAllWithFilterAndUsers(ctx, transactionType, dateFrom, dateTo, sortBy, sortOrder, offset, limit)
+}
+
 // IdempotencyRepositoryImpl はIdempotencyKeyRepositoryの実装
 type IdempotencyRepositoryImpl struct {
 	idempotencyDS dsmysql.IdempotencyKeyDataSource

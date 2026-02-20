@@ -128,26 +128,16 @@ func (i *FriendshipInteractor) RejectFriendRequest(ctx context.Context, req *inp
 
 // GetFriends は友達一覧を取得
 func (i *FriendshipInteractor) GetFriends(ctx context.Context, req *inputport.GetFriendsRequest) (*inputport.GetFriendsResponse, error) {
-	friendships, err := i.friendshipRepo.ReadListFriends(ctx, req.UserID, req.Offset, req.Limit)
+	results, err := i.friendshipRepo.ReadListFriendsWithUsers(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
 
-	friends := make([]*inputport.FriendInfo, 0, len(friendships))
-	for _, friendship := range friendships {
-		friendID := friendship.AddresseeID
-		if friendship.AddresseeID == req.UserID {
-			friendID = friendship.RequesterID
-		}
-
-		user, err := i.userRepo.Read(ctx, friendID)
-		if err != nil {
-			continue
-		}
-
+	friends := make([]*inputport.FriendInfo, 0, len(results))
+	for _, r := range results {
 		friends = append(friends, &inputport.FriendInfo{
-			Friendship: friendship,
-			Friend:     user,
+			Friendship: r.Friendship,
+			Friend:     r.User,
 		})
 	}
 
@@ -156,21 +146,16 @@ func (i *FriendshipInteractor) GetFriends(ctx context.Context, req *inputport.Ge
 
 // GetPendingRequests は保留中の友達申請を取得
 func (i *FriendshipInteractor) GetPendingRequests(ctx context.Context, req *inputport.GetPendingRequestsRequest) (*inputport.GetPendingRequestsResponse, error) {
-	friendships, err := i.friendshipRepo.ReadListPendingRequests(ctx, req.UserID, req.Offset, req.Limit)
+	results, err := i.friendshipRepo.ReadListPendingRequestsWithUsers(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
 
-	requests := make([]*inputport.PendingRequestInfo, 0, len(friendships))
-	for _, friendship := range friendships {
-		user, err := i.userRepo.Read(ctx, friendship.RequesterID)
-		if err != nil {
-			continue
-		}
-
+	requests := make([]*inputport.PendingRequestInfo, 0, len(results))
+	for _, r := range results {
 		requests = append(requests, &inputport.PendingRequestInfo{
-			Friendship: friendship,
-			Requester:  user,
+			Friendship: r.Friendship,
+			Requester:  r.User,
 		})
 	}
 

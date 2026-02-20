@@ -38,6 +38,12 @@ type TransactionDataSource interface {
 
 	// CountByUserID はユーザーのトランザクション総数を取得
 	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+
+	// SelectListByUserIDWithUsers はユーザーに関連するトランザクション一覧をユーザー情報付きで取得（JOIN）
+	SelectListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error)
+
+	// SelectListAllWithFilterAndUsers はフィルタ・ソート付きで全トランザクション一覧をユーザー情報付きで取得（JOIN）
+	SelectListAllWithFilterAndUsers(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.TransactionWithUsers, error)
 }
 
 // IdempotencyKeyDataSource はMySQLの冪等性キーデータソースインターフェース

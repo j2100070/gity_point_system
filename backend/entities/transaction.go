@@ -165,3 +165,10 @@ func NewIdempotencyKey(key string, userID uuid.UUID) *IdempotencyKey {
 func ptrTime(t time.Time) *time.Time {
 	return &t
 }
+
+// TransactionWithUsers はトランザクションとユーザー情報のセット（JOIN結果）
+type TransactionWithUsers struct {
+	Transaction *Transaction
+	FromUser    *User // nilの場合がある（システム付与等）
+	ToUser      *User // nilの場合がある
+}

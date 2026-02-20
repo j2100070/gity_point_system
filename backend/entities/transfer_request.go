@@ -21,10 +21,10 @@ const (
 // TransferRequest は送金リクエストエンティティ
 type TransferRequest struct {
 	ID             uuid.UUID
-	FromUserID     uuid.UUID  // 送信者
-	ToUserID       uuid.UUID  // 受取人
-	Amount         int64      // 送金額
-	Message        string     // オプショナルメモ
+	FromUserID     uuid.UUID // 送信者
+	ToUserID       uuid.UUID // 受取人
+	Amount         int64     // 送金額
+	Message        string    // オプショナルメモ
 	Status         TransferRequestStatus
 	IdempotencyKey string     // 重複防止キー
 	ExpiresAt      time.Time  // 有効期限（24時間）
@@ -152,4 +152,11 @@ func (tr *TransferRequest) MarkAsExpired() {
 		tr.Status = TransferRequestStatusExpired
 		tr.UpdatedAt = time.Now()
 	}
+}
+
+// TransferRequestWithUsers は送金リクエストとユーザー情報のセット（JOIN結果）
+type TransferRequestWithUsers struct {
+	TransferRequest *TransferRequest
+	FromUser        *User
+	ToUser          *User
 }

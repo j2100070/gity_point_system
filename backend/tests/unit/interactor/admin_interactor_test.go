@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/gity/point-system/usecases/repository"
@@ -174,6 +173,12 @@ func (m *ctxTrackingTransactionRepo) CountAll(ctx context.Context) (int64, error
 func (m *ctxTrackingTransactionRepo) CountAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo string) (int64, error) {
 	return int64(len(m.transactions)), nil
 }
+func (m *ctxTrackingTransactionRepo) ReadListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error) {
+	return nil, nil
+}
+func (m *ctxTrackingTransactionRepo) ReadListAllWithFilterAndUsers(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.TransactionWithUsers, error) {
+	return nil, nil
+}
 
 // --- Context-Tracking IdempotencyKeyRepository ---
 
@@ -271,26 +276,32 @@ func (m *ctxTrackingFriendshipRepo) ArchiveAndDelete(ctx context.Context, id uui
 func (m *ctxTrackingFriendshipRepo) CheckAreFriends(ctx context.Context, u1, u2 uuid.UUID) (bool, error) {
 	return m.areFriends, nil
 }
+func (m *ctxTrackingFriendshipRepo) ReadListFriendsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	return nil, nil
+}
+func (m *ctxTrackingFriendshipRepo) ReadListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	return nil, nil
+}
 
 // --- Mock AnalyticsDataSource ---
 
 type mockAnalyticsDS struct{}
 
-func (m *mockAnalyticsDS) GetUserBalanceSummary(ctx context.Context) (*dsmysql.AnalyticsSummaryResult, error) {
-	return &dsmysql.AnalyticsSummaryResult{TotalBalance: 100000, AverageBalance: 5000, ActiveUsers: 20}, nil
+func (m *mockAnalyticsDS) GetUserBalanceSummary(ctx context.Context) (*entities.AnalyticsSummaryResult, error) {
+	return &entities.AnalyticsSummaryResult{TotalBalance: 100000, AverageBalance: 5000, ActiveUsers: 20}, nil
 }
-func (m *mockAnalyticsDS) GetTopHolders(ctx context.Context, limit int) ([]*dsmysql.TopHolderResult, error) {
-	return []*dsmysql.TopHolderResult{
+func (m *mockAnalyticsDS) GetTopHolders(ctx context.Context, limit int) ([]*entities.TopHolderResult, error) {
+	return []*entities.TopHolderResult{
 		{ID: uuid.New().String(), Username: "top1", DisplayName: "Top 1", Balance: 50000},
 	}, nil
 }
-func (m *mockAnalyticsDS) GetDailyStats(ctx context.Context, since time.Time) ([]*dsmysql.DailyStatResult, error) {
-	return []*dsmysql.DailyStatResult{
+func (m *mockAnalyticsDS) GetDailyStats(ctx context.Context, since time.Time) ([]*entities.DailyStatResult, error) {
+	return []*entities.DailyStatResult{
 		{Date: time.Now(), Issued: 1000, Consumed: 500, Transferred: 300},
 	}, nil
 }
-func (m *mockAnalyticsDS) GetTransactionTypeBreakdown(ctx context.Context) ([]*dsmysql.TypeBreakdownResult, error) {
-	return []*dsmysql.TypeBreakdownResult{
+func (m *mockAnalyticsDS) GetTransactionTypeBreakdown(ctx context.Context) ([]*entities.TypeBreakdownResult, error) {
+	return []*entities.TypeBreakdownResult{
 		{Type: "transfer", Count: 10, TotalAmount: 5000},
 	}, nil
 }

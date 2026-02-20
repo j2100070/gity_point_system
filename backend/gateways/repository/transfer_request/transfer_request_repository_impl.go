@@ -73,3 +73,13 @@ func (r *RepositoryImpl) UpdateExpiredRequests(ctx context.Context) (int64, erro
 	r.logger.Debug("Updating expired transfer requests")
 	return r.transferRequestDS.UpdateExpiredRequests(ctx)
 }
+
+// ReadPendingByToUserWithUsers は受取人宛の承認待ちリクエストをユーザー情報付きで取得（JOIN）
+func (r *RepositoryImpl) ReadPendingByToUserWithUsers(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error) {
+	return r.transferRequestDS.SelectPendingByToUserWithUsers(ctx, toUserID, offset, limit)
+}
+
+// ReadSentByFromUserWithUsers は送信者が送ったリクエストをユーザー情報付きで取得（JOIN）
+func (r *RepositoryImpl) ReadSentByFromUserWithUsers(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error) {
+	return r.transferRequestDS.SelectSentByFromUserWithUsers(ctx, fromUserID, offset, limit)
+}

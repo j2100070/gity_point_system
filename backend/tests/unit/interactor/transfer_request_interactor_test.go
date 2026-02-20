@@ -25,6 +25,7 @@ type mockTransferRequestRepo struct {
 	pendingByTo   []*entities.TransferRequest
 	sentByFrom    []*entities.TransferRequest
 	pendingCount  int64
+	userRef       *mockUserRepoForTR // reference for WithUsers lookups
 	createErr     error
 	readErr       error
 	updateErr     error
@@ -91,6 +92,40 @@ func (m *mockTransferRequestRepo) CountPendingByToUser(ctx context.Context, toUs
 
 func (m *mockTransferRequestRepo) UpdateExpiredRequests(ctx context.Context) (int64, error) {
 	return 0, nil
+}
+
+func (m *mockTransferRequestRepo) ReadPendingByToUserWithUsers(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error) {
+	results := make([]*entities.TransferRequestWithUsers, 0, len(m.pendingByTo))
+	for _, tr := range m.pendingByTo {
+		result := &entities.TransferRequestWithUsers{TransferRequest: tr}
+		if m.userRef != nil {
+			if u, ok := m.userRef.users[tr.FromUserID]; ok {
+				result.FromUser = u
+			}
+			if u, ok := m.userRef.users[tr.ToUserID]; ok {
+				result.ToUser = u
+			}
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+func (m *mockTransferRequestRepo) ReadSentByFromUserWithUsers(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error) {
+	results := make([]*entities.TransferRequestWithUsers, 0, len(m.sentByFrom))
+	for _, tr := range m.sentByFrom {
+		result := &entities.TransferRequestWithUsers{TransferRequest: tr}
+		if m.userRef != nil {
+			if u, ok := m.userRef.users[tr.FromUserID]; ok {
+				result.FromUser = u
+			}
+			if u, ok := m.userRef.users[tr.ToUserID]; ok {
+				result.ToUser = u
+			}
+		}
+		results = append(results, result)
+	}
+	return results, nil
 }
 
 type mockUserRepoForTR struct {
@@ -563,6 +598,7 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-pending")
 		trRepo.pendingByTo = []*entities.TransferRequest{tr}
+		trRepo.userRef = userRepo
 
 		interactor := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 
@@ -594,6 +630,7 @@ func TestTransferRequestInteractor_GetPendingRequests(t *testing.T) {
 		tr, _ := entities.NewTransferRequest(sender.ID, receiver.ID, 1000, "Test", "key-expired-list")
 		tr.ExpiresAt = time.Now().Add(-1 * time.Hour) // 期限切れ
 		trRepo.pendingByTo = []*entities.TransferRequest{tr}
+		trRepo.userRef = userRepo
 
 		itr := interactor.NewTransferRequestInteractor(trRepo, userRepo, ptPort, logger)
 

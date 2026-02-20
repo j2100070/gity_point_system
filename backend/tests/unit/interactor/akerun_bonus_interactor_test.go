@@ -239,6 +239,14 @@ func (m *abMockTransactionRepo) CountAllWithFilter(ctx context.Context, transact
 	return 0, nil
 }
 
+func (m *abMockTransactionRepo) ReadListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error) {
+	return nil, nil
+}
+
+func (m *abMockTransactionRepo) ReadListAllWithFilterAndUsers(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.TransactionWithUsers, error) {
+	return nil, nil
+}
+
 // abMockTxManager は TransactionManager のモック（そのまま実行）
 type abMockTxManager struct{}
 

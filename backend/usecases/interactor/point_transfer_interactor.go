@@ -204,7 +204,7 @@ func (i *PointTransferInteractor) Transfer(ctx context.Context, req *inputport.T
 
 // GetTransactionHistory はトランザクション履歴を取得
 func (i *PointTransferInteractor) GetTransactionHistory(ctx context.Context, req *inputport.GetTransactionHistoryRequest) (*inputport.GetTransactionHistoryResponse, error) {
-	transactions, err := i.transactionRepo.ReadListByUserID(ctx, req.UserID, req.Offset, req.Limit)
+	results, err := i.transactionRepo.ReadListByUserIDWithUsers(ctx, req.UserID, req.Offset, req.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -214,30 +214,14 @@ func (i *PointTransferInteractor) GetTransactionHistory(ctx context.Context, req
 		return nil, err
 	}
 
-	// 各トランザクションにユーザー情報を付与
-	transactionsWithUsers := make([]*inputport.TransactionWithUsersForHistory, 0, len(transactions))
-	for _, tx := range transactions {
-		txWithUsers := &inputport.TransactionWithUsersForHistory{
-			Transaction: tx,
-		}
-
-		// 送信者情報を取得
-		if tx.FromUserID != nil {
-			fromUser, err := i.userRepo.Read(ctx, *tx.FromUserID)
-			if err == nil {
-				txWithUsers.FromUser = fromUser
-			}
-		}
-
-		// 受信者情報を取得
-		if tx.ToUserID != nil {
-			toUser, err := i.userRepo.Read(ctx, *tx.ToUserID)
-			if err == nil {
-				txWithUsers.ToUser = toUser
-			}
-		}
-
-		transactionsWithUsers = append(transactionsWithUsers, txWithUsers)
+	// JOINで取得済みのユーザー情報を変換
+	transactionsWithUsers := make([]*inputport.TransactionWithUsersForHistory, 0, len(results))
+	for _, r := range results {
+		transactionsWithUsers = append(transactionsWithUsers, &inputport.TransactionWithUsersForHistory{
+			Transaction: r.Transaction,
+			FromUser:    r.FromUser,
+			ToUser:      r.ToUser,
+		})
 	}
 
 	return &inputport.GetTransactionHistoryResponse{

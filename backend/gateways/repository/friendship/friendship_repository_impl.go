@@ -78,3 +78,13 @@ func (r *RepositoryImpl) ArchiveAndDelete(ctx context.Context, id uuid.UUID, arc
 func (r *RepositoryImpl) CheckAreFriends(ctx context.Context, userID1, userID2 uuid.UUID) (bool, error) {
 	return r.friendshipDS.CheckAreFriends(ctx, userID1, userID2)
 }
+
+// ReadListFriendsWithUsers は承認済みの友達一覧をユーザー情報付きで取得（JOIN）
+func (r *RepositoryImpl) ReadListFriendsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	return r.friendshipDS.SelectListFriendsWithUsers(ctx, userID, offset, limit)
+}
+
+// ReadListPendingRequestsWithUsers は保留中の友達申請一覧をユーザー情報付きで取得（JOIN）
+func (r *RepositoryImpl) ReadListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	return r.friendshipDS.SelectListPendingRequestsWithUsers(ctx, userID, offset, limit)
+}

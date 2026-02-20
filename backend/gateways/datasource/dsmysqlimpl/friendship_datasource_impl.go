@@ -231,3 +231,120 @@ func (ds *FriendshipDataSourceImpl) CheckAreFriends(ctx context.Context, userID1
 
 	return count > 0, nil
 }
+
+// friendshipWithUserRow はJOINクエリの結果を受け取る構造体
+type friendshipWithUserRow struct {
+	// Friendship fields
+	ID          uuid.UUID `gorm:"column:id"`
+	RequesterID uuid.UUID `gorm:"column:requester_id"`
+	AddresseeID uuid.UUID `gorm:"column:addressee_id"`
+	Status      string    `gorm:"column:status"`
+	CreatedAt   time.Time `gorm:"column:created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
+	// User fields (friend)
+	FriendID          string    `gorm:"column:friend_id"`
+	FriendUsername    string    `gorm:"column:friend_username"`
+	FriendEmail       string    `gorm:"column:friend_email"`
+	FriendDisplayName string    `gorm:"column:friend_display_name"`
+	FriendFirstName   string    `gorm:"column:friend_first_name"`
+	FriendLastName    string    `gorm:"column:friend_last_name"`
+	FriendBalance     int64     `gorm:"column:friend_balance"`
+	FriendRole        string    `gorm:"column:friend_role"`
+	FriendIsActive    bool      `gorm:"column:friend_is_active"`
+	FriendAvatarURL   *string   `gorm:"column:friend_avatar_url"`
+	FriendAvatarType  string    `gorm:"column:friend_avatar_type"`
+	FriendCreatedAt   time.Time `gorm:"column:friend_created_at"`
+}
+
+func (r *friendshipWithUserRow) toDomain() *entities.FriendshipWithUser {
+	friendID, _ := uuid.Parse(r.FriendID)
+	return &entities.FriendshipWithUser{
+		Friendship: &entities.Friendship{
+			ID:          r.ID,
+			RequesterID: r.RequesterID,
+			AddresseeID: r.AddresseeID,
+			Status:      entities.FriendshipStatus(r.Status),
+			CreatedAt:   r.CreatedAt,
+			UpdatedAt:   r.UpdatedAt,
+		},
+		User: &entities.User{
+			ID:          friendID,
+			Username:    r.FriendUsername,
+			Email:       r.FriendEmail,
+			DisplayName: r.FriendDisplayName,
+			FirstName:   r.FriendFirstName,
+			LastName:    r.FriendLastName,
+			Balance:     r.FriendBalance,
+			Role:        entities.UserRole(r.FriendRole),
+			IsActive:    r.FriendIsActive,
+			AvatarURL:   r.FriendAvatarURL,
+			AvatarType:  entities.AvatarType(r.FriendAvatarType),
+			CreatedAt:   r.FriendCreatedAt,
+		},
+	}
+}
+
+// SelectListFriendsWithUsers は承認済みの友達一覧をユーザー情報付きで取得（JOIN）
+func (ds *FriendshipDataSourceImpl) SelectListFriendsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	var rows []friendshipWithUserRow
+
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+		Raw(`SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at, f.updated_at,
+			u.id AS friend_id, u.username AS friend_username, u.email AS friend_email,
+			u.display_name AS friend_display_name, u.first_name AS friend_first_name,
+			u.last_name AS friend_last_name, u.balance AS friend_balance,
+			u.role AS friend_role, u.is_active AS friend_is_active,
+			u.avatar_url AS friend_avatar_url, u.avatar_type AS friend_avatar_type,
+			u.created_at AS friend_created_at
+		FROM friendships f
+		LEFT JOIN users u ON u.id = CASE
+			WHEN f.requester_id = ? THEN f.addressee_id
+			ELSE f.requester_id
+		END
+		WHERE (f.requester_id = ? OR f.addressee_id = ?) AND f.status = ?
+		ORDER BY f.created_at DESC
+		LIMIT ? OFFSET ?`,
+			userID, userID, userID, "accepted", limit, offset).
+		Scan(&rows).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]*entities.FriendshipWithUser, len(rows))
+	for i, row := range rows {
+		results[i] = row.toDomain()
+	}
+	return results, nil
+}
+
+// SelectListPendingRequestsWithUsers は保留中の友達申請一覧をユーザー情報付きで取得（JOIN）
+func (ds *FriendshipDataSourceImpl) SelectListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
+	var rows []friendshipWithUserRow
+
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+		Raw(`SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at, f.updated_at,
+			u.id AS friend_id, u.username AS friend_username, u.email AS friend_email,
+			u.display_name AS friend_display_name, u.first_name AS friend_first_name,
+			u.last_name AS friend_last_name, u.balance AS friend_balance,
+			u.role AS friend_role, u.is_active AS friend_is_active,
+			u.avatar_url AS friend_avatar_url, u.avatar_type AS friend_avatar_type,
+			u.created_at AS friend_created_at
+		FROM friendships f
+		LEFT JOIN users u ON u.id = f.requester_id
+		WHERE f.addressee_id = ? AND f.status = ?
+		ORDER BY f.created_at DESC
+		LIMIT ? OFFSET ?`,
+			userID, "pending", limit, offset).
+		Scan(&rows).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]*entities.FriendshipWithUser, len(rows))
+	for i, row := range rows {
+		results[i] = row.toDomain()
+	}
+	return results, nil
+}

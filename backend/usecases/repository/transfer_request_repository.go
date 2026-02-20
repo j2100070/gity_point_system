@@ -32,4 +32,10 @@ type TransferRequestRepository interface {
 
 	// UpdateExpiredRequests は期限切れのリクエストを一括更新
 	UpdateExpiredRequests(ctx context.Context) (int64, error)
+
+	// ReadPendingByToUserWithUsers は受取人宛の承認待ちリクエストをユーザー情報付きで取得（JOIN）
+	ReadPendingByToUserWithUsers(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error)
+
+	// ReadSentByFromUserWithUsers は送信者が送ったリクエストをユーザー情報付きで取得（JOIN）
+	ReadSentByFromUserWithUsers(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error)
 }
