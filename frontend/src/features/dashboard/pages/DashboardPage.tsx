@@ -3,14 +3,17 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { PointRepository } from '@/infrastructure/api/repositories/PointRepository';
 import { TransferRequestRepository } from '@/infrastructure/api/repositories/TransferRequestRepository';
+import { FriendshipRepository } from '@/infrastructure/api/repositories/FriendshipRepository';
 
 const pointRepository = new PointRepository();
 const transferRequestRepository = new TransferRequestRepository();
+const friendshipRepository = new FriendshipRepository();
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const [balance, setBalance] = useState<number>(0);
   const [pendingRequestCount, setPendingRequestCount] = useState<number>(0);
+  const [friendRequestCount, setFriendRequestCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [pointVisible, setPointVisible] = useState(() => {
     return localStorage.getItem('pointVisible') !== 'false';
@@ -22,12 +25,14 @@ export const DashboardPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [balanceData, countData] = await Promise.all([
+      const [balanceData, countData, friendCountData] = await Promise.all([
         pointRepository.getBalance(),
         transferRequestRepository.getPendingRequestCount(),
+        friendshipRepository.getPendingRequestCount(),
       ]);
       setBalance(balanceData.balance);
       setPendingRequestCount(countData.count);
+      setFriendRequestCount(friendCountData.count);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -98,6 +103,33 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
           <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      )}
+
+      {/* 友達申請通知 */}
+      {friendRequestCount > 0 && (
+        <Link
+          to="/friends"
+          className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between hover:bg-blue-100 transition-colors"
+        >
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-blue-900">
+                新しい友達申請
+              </div>
+              <div className="text-xs text-blue-700">
+                {friendRequestCount}件の友達申請が届いています
+              </div>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </Link>
@@ -202,6 +234,11 @@ export const DashboardPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
               <span className="text-sm text-gray-700">友達管理</span>
+              {friendRequestCount > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs font-bold text-white bg-blue-500 rounded-full">
+                  {friendRequestCount > 9 ? '9+' : friendRequestCount}
+                </span>
+              )}
             </div>
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -47,6 +47,9 @@ Entities → UseCases → Gateways → Controllers → Frameworks
 | DataSource interface | `gateways/repository/datasource/dsmysql/` | — |
 | DataSource固有の変換用struct | `dsmysqlimpl/`内にprivate | — |
 
+#時間の実装について
+`time_provider.go`を参照するように修正する。
+
 ---
 
 ## 2. データベース（PostgreSQL）

@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { DailyBonus } from "../api/dailyBonusApi";
+import { DrawLotteryResponse } from "../api/dailyBonusApi";
 
 interface LotteryAnimationProps {
-    bonus: DailyBonus;
+    result: DrawLotteryResponse;
     onComplete: () => void;
 }
 
 const EMOJIS = ["🎰", "💎", "⭐", "🎯", "🔥", "✨", "🎊", "🎁"];
 
 export const LotteryAnimation: React.FC<LotteryAnimationProps> = ({
-    bonus,
+    result,
     onComplete,
 }) => {
     const [phase, setPhase] = useState<"spinning" | "reveal" | "done">("spinning");
@@ -38,20 +38,20 @@ export const LotteryAnimation: React.FC<LotteryAnimationProps> = ({
     // 結果の表示
     useEffect(() => {
         if (phase !== "reveal") return;
-        setDisplayPoints(bonus.bonus_points);
+        setDisplayPoints(result.bonus_points);
 
         const timer = setTimeout(() => {
             setPhase("done");
         }, 1500);
         return () => clearTimeout(timer);
-    }, [phase, bonus.bonus_points]);
+    }, [phase, result.bonus_points]);
 
     const handleClose = useCallback(() => {
         onComplete();
     }, [onComplete]);
 
-    const isWin = bonus.bonus_points > 0;
-    const tierName = bonus.lottery_tier_name || "通常";
+    const isWin = result.bonus_points > 0;
+    const tierName = result.lottery_tier_name || "通常";
 
     return (
         <div
@@ -133,7 +133,7 @@ export const LotteryAnimation: React.FC<LotteryAnimationProps> = ({
                                         textShadow: "0 0 20px rgba(255,255,255,0.5)",
                                     }}
                                 >
-                                    {isWin ? `+${bonus.bonus_points}P` : "0P"}
+                                    {isWin ? `+${result.bonus_points}P` : "0P"}
                                 </div>
                                 <div
                                     className="text-lg font-medium mt-2"

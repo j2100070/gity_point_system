@@ -282,6 +282,9 @@ func (m *ctxTrackingFriendshipRepo) ReadListFriendsWithUsers(ctx context.Context
 func (m *ctxTrackingFriendshipRepo) ReadListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
 	return nil, nil
 }
+func (m *ctxTrackingFriendshipRepo) CountPendingRequests(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return 0, nil
+}
 
 // --- Mock AnalyticsDataSource ---
 

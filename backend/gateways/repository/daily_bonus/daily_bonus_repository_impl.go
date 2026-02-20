@@ -53,3 +53,8 @@ func (r *DailyBonusRepositoryImpl) UpdateLastPolledAt(ctx context.Context, t tim
 func (r *DailyBonusRepositoryImpl) MarkAsViewed(ctx context.Context, id uuid.UUID) error {
 	return r.ds.UpdateIsViewed(ctx, id)
 }
+
+// UpdateDrawnResult は抽選結果を更新する（ルーレット実行時）
+func (r *DailyBonusRepositoryImpl) UpdateDrawnResult(ctx context.Context, id uuid.UUID, bonusPoints int64, lotteryTierID *uuid.UUID, lotteryTierName string) error {
+	return r.ds.UpdateDrawnResult(ctx, id, bonusPoints, lotteryTierID, lotteryTierName)
+}

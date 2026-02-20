@@ -22,6 +22,7 @@ type DailyBonus struct {
 	LotteryTierID   *uuid.UUID
 	LotteryTierName string
 	IsViewed        bool
+	IsDrawn         bool
 	CreatedAt       time.Time
 }
 
@@ -38,6 +39,25 @@ func NewDailyBonus(userID uuid.UUID, bonusDate time.Time, bonusPoints int64, ake
 		LotteryTierID:   lotteryTierID,
 		LotteryTierName: lotteryTierName,
 		IsViewed:        false,
+		IsDrawn:         true,
+		CreatedAt:       time.Now(),
+	}
+}
+
+// NewPendingDailyBonus は未抽選のDailyBonusを作成（Akerun Worker用）
+func NewPendingDailyBonus(userID uuid.UUID, bonusDate time.Time, akerunAccessID, akerunUserName string, accessedAt *time.Time) *DailyBonus {
+	return &DailyBonus{
+		ID:              uuid.New(),
+		UserID:          userID,
+		BonusDate:       bonusDate,
+		BonusPoints:     0,
+		AkerunAccessID:  akerunAccessID,
+		AkerunUserName:  akerunUserName,
+		AccessedAt:      accessedAt,
+		LotteryTierID:   nil,
+		LotteryTierName: "",
+		IsViewed:        false,
+		IsDrawn:         false,
 		CreatedAt:       time.Now(),
 	}
 }

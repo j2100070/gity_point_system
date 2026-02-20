@@ -26,6 +26,9 @@ type FriendshipInputPort interface {
 
 	// RemoveFriend は友達を削除
 	RemoveFriend(ctx context.Context, req *RemoveFriendRequest) (*RemoveFriendResponse, error)
+
+	// GetFriendPendingRequestCount は保留中の友達申請件数を取得
+	GetFriendPendingRequestCount(ctx context.Context, req *GetFriendPendingRequestCountRequest) (*GetFriendPendingRequestCountResponse, error)
 }
 
 // SendFriendRequestRequest は友達申請リクエスト
@@ -106,4 +109,14 @@ type RemoveFriendRequest struct {
 // RemoveFriendResponse は友達削除レスポンス
 type RemoveFriendResponse struct {
 	Success bool
+}
+
+// GetFriendPendingRequestCountRequest は保留中の友達申請件数取得リクエスト
+type GetFriendPendingRequestCountRequest struct {
+	UserID uuid.UUID
+}
+
+// GetFriendPendingRequestCountResponse は保留中の友達申請件数取得レスポンス
+type GetFriendPendingRequestCountResponse struct {
+	Count int64
 }

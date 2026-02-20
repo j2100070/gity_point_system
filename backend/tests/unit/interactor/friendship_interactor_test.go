@@ -150,6 +150,16 @@ func (m *mockFriendshipRepo) ReadListPendingRequestsWithUsers(ctx context.Contex
 	return results, nil
 }
 
+func (m *mockFriendshipRepo) CountPendingRequests(ctx context.Context, userID uuid.UUID) (int64, error) {
+	var count int64
+	for _, f := range m.pending {
+		if f.AddresseeID == userID {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func (m *mockFriendshipRepo) setExistingFriendship(f *entities.Friendship) {
 	m.friendships[f.ID] = f
 	key := f.RequesterID.String() + "-" + f.AddresseeID.String()

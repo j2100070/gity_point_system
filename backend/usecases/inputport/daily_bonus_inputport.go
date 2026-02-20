@@ -23,6 +23,9 @@ type DailyBonusInputPort interface {
 
 	// MarkBonusViewed はボーナスを閲覧済みにする
 	MarkBonusViewed(ctx context.Context, req *MarkBonusViewedRequest) error
+
+	// DrawLotteryAndGrant はルーレットを実行しポイントを付与する
+	DrawLotteryAndGrant(ctx context.Context, req *DrawLotteryRequest) (*DrawLotteryResponse, error)
 }
 
 // GetTodayBonusRequest は本日のボーナス状況取得リクエスト
@@ -73,4 +76,16 @@ type UpdateLotteryTiersRequest struct {
 type MarkBonusViewedRequest struct {
 	BonusID uuid.UUID
 	UserID  uuid.UUID
+}
+
+// DrawLotteryRequest はルーレット実行リクエスト
+type DrawLotteryRequest struct {
+	UserID uuid.UUID
+}
+
+// DrawLotteryResponse はルーレット実行レスポンス
+type DrawLotteryResponse struct {
+	BonusPoints     int64
+	LotteryTierName string
+	BonusID         uuid.UUID
 }

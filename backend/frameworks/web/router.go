@@ -160,6 +160,7 @@ func (r *Router) RegisterRoutes(
 			friends := protectedWithCSRF.Group("/friends")
 			{
 				friends.POST("/requests", friendController.SendFriendRequest)
+				friends.GET("/requests/count", friendController.GetPendingRequestCount)
 				friends.POST("/requests/:id/accept", friendController.AcceptFriendRequest)
 				friends.POST("/requests/:id/reject", friendController.RejectFriendRequest)
 				friends.GET("", friendController.GetFriends)
@@ -180,6 +181,7 @@ func (r *Router) RegisterRoutes(
 			dailyBonusWithCSRF := protectedWithCSRF.Group("/daily-bonus")
 			{
 				dailyBonusWithCSRF.POST("/mark-viewed", dailyBonusController.MarkBonusViewed)
+				dailyBonusWithCSRF.POST("/draw", dailyBonusController.DrawLottery)
 			}
 
 			// 送金リクエスト（PayPay風）

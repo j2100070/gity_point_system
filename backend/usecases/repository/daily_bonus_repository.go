@@ -30,4 +30,7 @@ type DailyBonusRepository interface {
 
 	// MarkAsViewed はデイリーボーナスを閲覧済みにする
 	MarkAsViewed(ctx context.Context, id uuid.UUID) error
+
+	// UpdateDrawnResult は抽選結果を更新する（ルーレット実行時）
+	UpdateDrawnResult(ctx context.Context, id uuid.UUID, bonusPoints int64, lotteryTierID *uuid.UUID, lotteryTierName string) error
 }

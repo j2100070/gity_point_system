@@ -22,6 +22,7 @@ type DailyBonusModel struct {
 	LotteryTierID   *uuid.UUID `gorm:"type:uuid"`
 	LotteryTierName *string    `gorm:"type:varchar(50)"`
 	IsViewed        bool       `gorm:"not null;default:false"`
+	IsDrawn         bool       `gorm:"not null;default:false"`
 	CreatedAt       time.Time  `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
 }
 
@@ -62,6 +63,7 @@ func (ds *DailyBonusDataSource) toEntity(model *DailyBonusModel) *entities.Daily
 		AccessedAt:    model.AccessedAt,
 		LotteryTierID: model.LotteryTierID,
 		IsViewed:      model.IsViewed,
+		IsDrawn:       model.IsDrawn,
 		CreatedAt:     model.CreatedAt,
 	}
 	if model.AkerunAccessID != nil {
@@ -86,6 +88,7 @@ func (ds *DailyBonusDataSource) toModel(bonus *entities.DailyBonus) *DailyBonusM
 		AccessedAt:    bonus.AccessedAt,
 		LotteryTierID: bonus.LotteryTierID,
 		IsViewed:      bonus.IsViewed,
+		IsDrawn:       bonus.IsDrawn,
 		CreatedAt:     bonus.CreatedAt,
 	}
 	if bonus.AkerunAccessID != "" {
@@ -183,4 +186,18 @@ func (ds *DailyBonusDataSource) UpdateIsViewed(ctx context.Context, id uuid.UUID
 	return db.Model(&DailyBonusModel{}).
 		Where("id = ?", id).
 		Update("is_viewed", true).Error
+}
+
+// UpdateDrawnResult は抽選結果を更新する（ルーレット実行時）
+func (ds *DailyBonusDataSource) UpdateDrawnResult(ctx context.Context, id uuid.UUID, bonusPoints int64, lotteryTierID *uuid.UUID, lotteryTierName string) error {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	updates := map[string]interface{}{
+		"bonus_points":      bonusPoints,
+		"lottery_tier_id":   lotteryTierID,
+		"lottery_tier_name": lotteryTierName,
+		"is_drawn":          true,
+	}
+	return db.Model(&DailyBonusModel{}).
+		Where("id = ? AND is_drawn = false", id).
+		Updates(updates).Error
 }

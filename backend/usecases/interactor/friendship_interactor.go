@@ -179,3 +179,13 @@ func (i *FriendshipInteractor) RemoveFriend(ctx context.Context, req *inputport.
 
 	return &inputport.RemoveFriendResponse{Success: true}, nil
 }
+
+// GetFriendPendingRequestCount は保留中の友達申請件数を取得
+func (i *FriendshipInteractor) GetFriendPendingRequestCount(ctx context.Context, req *inputport.GetFriendPendingRequestCountRequest) (*inputport.GetFriendPendingRequestCountResponse, error) {
+	count, err := i.friendshipRepo.CountPendingRequests(ctx, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &inputport.GetFriendPendingRequestCountResponse{Count: count}, nil
+}

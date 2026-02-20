@@ -285,3 +285,25 @@ func (c *FriendController) RemoveFriend(ctx *gin.Context) {
 	// レスポンス生成
 	ctx.JSON(http.StatusOK, c.presenter.PresentRemoveFriend(resp))
 }
+
+// GetPendingRequestCount は保留中の友達申請件数を取得
+// GET /api/friends/requests/count
+func (c *FriendController) GetPendingRequestCount(ctx *gin.Context) {
+	// ログインユーザー取得
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// ユースケース実行
+	resp, err := c.friendshipUC.GetFriendPendingRequestCount(ctx, &inputport.GetFriendPendingRequestCountRequest{
+		UserID: userID.(uuid.UUID),
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"count": resp.Count})
+}

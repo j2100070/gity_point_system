@@ -88,3 +88,8 @@ func (r *RepositoryImpl) ReadListFriendsWithUsers(ctx context.Context, userID uu
 func (r *RepositoryImpl) ReadListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
 	return r.friendshipDS.SelectListPendingRequestsWithUsers(ctx, userID, offset, limit)
 }
+
+// CountPendingRequests は保留中の友達申請件数を取得
+func (r *RepositoryImpl) CountPendingRequests(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return r.friendshipDS.CountPendingRequests(ctx, userID)
+}

@@ -9,7 +9,14 @@ export interface DailyBonus {
   accessed_at?: string;
   lottery_tier_name?: string;
   is_viewed: boolean;
+  is_drawn: boolean;
   created_at: string;
+}
+
+export interface DrawLotteryResponse {
+  bonus_points: number;
+  lottery_tier_name: string;
+  bonus_id: string;
 }
 
 export interface TodayBonusResponse {
@@ -62,6 +69,12 @@ export const dailyBonusApi = {
   // ボーナスを閲覧済みにする
   markBonusViewed: async (bonusId: string): Promise<void> => {
     await axiosInstance.post("/api/daily-bonus/mark-viewed", { bonus_id: bonusId });
+  },
+
+  // ルーレットを実行しポイントを付与する
+  drawLottery: async (): Promise<DrawLotteryResponse> => {
+    const response = await axiosInstance.post("/api/daily-bonus/draw");
+    return response.data;
   },
 
   // ボーナス設定を取得（管理者用）

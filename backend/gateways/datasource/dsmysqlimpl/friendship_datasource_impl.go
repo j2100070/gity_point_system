@@ -153,6 +153,16 @@ func (ds *FriendshipDataSourceImpl) SelectListPendingRequests(ctx context.Contex
 	return friendships, nil
 }
 
+// CountPendingRequests は保留中の友達申請件数を取得
+func (ds *FriendshipDataSourceImpl) CountPendingRequests(ctx context.Context, userID uuid.UUID) (int64, error) {
+	var count int64
+	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+		Model(&FriendshipModel{}).
+		Where("addressee_id = ? AND status = ?", userID, "pending").
+		Count(&count).Error
+	return count, err
+}
+
 // Update は友達関係を更新
 func (ds *FriendshipDataSourceImpl) Update(ctx context.Context, friendship *entities.Friendship) error {
 	model := &FriendshipModel{}

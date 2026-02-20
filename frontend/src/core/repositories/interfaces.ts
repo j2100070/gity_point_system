@@ -30,6 +30,7 @@ export interface IFriendshipRepository {
   getFriends(offset?: number, limit?: number): Promise<{ friends: FriendInfo[] }>;
   getPendingRequests(offset?: number, limit?: number): Promise<{ requests: PendingRequestInfo[] }>;
   removeFriend(request: FriendActionRequest): Promise<{ message: string }>;
+  getPendingRequestCount(): Promise<{ count: number }>;
 }
 
 export interface IAdminRepository {

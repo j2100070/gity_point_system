@@ -60,4 +60,11 @@ export class FriendshipRepository implements IFriendshipRepository {
     );
     return response.data;
   }
+
+  async getPendingRequestCount(): Promise<{ count: number }> {
+    const response = await axiosInstance.get<{ count: number }>(
+      '/api/friends/requests/count'
+    );
+    return response.data;
+  }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, TrendingUp } from "lucide-react";
-import { dailyBonusApi, TodayBonusResponse, RecentBonusesResponse } from "../api/dailyBonusApi";
+import { dailyBonusApi, TodayBonusResponse, RecentBonusesResponse, DrawLotteryResponse } from "../api/dailyBonusApi";
 import { DailyBonusCard } from "../components/DailyBonusCard";
 import { LotteryAnimation } from "../components/LotteryAnimation";
 
@@ -12,6 +12,7 @@ export const DailyBonusPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showLottery, setShowLottery] = useState(false);
+  const [lotteryResult, setLotteryResult] = useState<DrawLotteryResponse | null>(null);
 
   const fetchData = async () => {
     try {
@@ -24,9 +25,17 @@ export const DailyBonusPage = () => {
       setTodayBonus(todayData);
       setRecentBonuses(recentData);
 
-      // 未閲覧の抽選結果がある場合、アニメーション起動
+      // 未抽選のボーナスがある場合、ルーレットAPIを呼び出してアニメーション起動
       if (todayData.is_lottery_pending && todayData.daily_bonus) {
-        setShowLottery(true);
+        try {
+          const drawResult = await dailyBonusApi.drawLottery();
+          setLotteryResult(drawResult);
+          setShowLottery(true);
+        } catch {
+          // 抽選失敗時はデータ再取得
+          const refreshedData = await dailyBonusApi.getTodayBonus();
+          setTodayBonus(refreshedData);
+        }
       }
     } catch (err: any) {
       setError(err.response?.data?.error || "データの取得に失敗しました");
@@ -41,23 +50,14 @@ export const DailyBonusPage = () => {
 
   const handleLotteryComplete = async () => {
     setShowLottery(false);
+    setLotteryResult(null);
     if (todayBonus?.daily_bonus) {
       try {
         await dailyBonusApi.markBonusViewed(todayBonus.daily_bonus.id);
-        // 状態を更新
-        setTodayBonus((prev) =>
-          prev
-            ? {
-              ...prev,
-              is_lottery_pending: false,
-              daily_bonus: prev.daily_bonus
-                ? { ...prev.daily_bonus, is_viewed: true }
-                : undefined,
-            }
-            : null
-        );
+        // データを再取得して最新状態を反映
+        await fetchData();
       } catch {
-        // mark-viewed失敗は無視（次回表示される）
+        // mark-viewed失敗は無視
       }
     }
   };
@@ -94,9 +94,9 @@ export const DailyBonusPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* 抽選アニメーション */}
-      {showLottery && todayBonus.daily_bonus && (
+      {showLottery && lotteryResult && (
         <LotteryAnimation
-          bonus={todayBonus.daily_bonus}
+          result={lotteryResult}
           onComplete={handleLotteryComplete}
         />
       )}

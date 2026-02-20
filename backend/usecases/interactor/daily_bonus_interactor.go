@@ -72,9 +72,9 @@ func (i *DailyBonusInteractor) GetTodayBonus(ctx context.Context, req *inputport
 	// 設定ポイントを取得（フォールバック用）
 	bonusPoints := i.getBonusPoints(ctx)
 
-	// 未閲覧のボーナスがあればくじ引きアニメーションペンディング
+	// 未抽選のボーナスがあればルーレットペンディング
 	isLotteryPending := false
-	if bonus != nil && !bonus.IsViewed {
+	if bonus != nil && !bonus.IsDrawn {
 		isLotteryPending = true
 	}
 
@@ -151,19 +151,98 @@ func (i *DailyBonusInteractor) MarkBonusViewed(ctx context.Context, req *inputpo
 // AkerunWorker 向けメソッド（AkerunBonusInputPort）
 // ========================================
 
-// ProcessAccesses はアクセス記録を処理してボーナスを付与する（くじ引き方式）
-func (i *DailyBonusInteractor) ProcessAccesses(ctx context.Context, accesses []entities.AccessRecord) error {
+// DrawLotteryAndGrant はルーレットを実行しポイントを付与する（Phase 2: ユーザーがルーレットを回した時）
+func (i *DailyBonusInteractor) DrawLotteryAndGrant(ctx context.Context, req *inputport.DrawLotteryRequest) (*inputport.DrawLotteryResponse, error) {
+	// 今日のボーナス日付を計算
+	bonusDate := entities.GetBonusDateJST(time.Now())
+
+	// 未抽選のボーナスを取得
+	bonus, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, bonusDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read bonus: %w", err)
+	}
+	if bonus == nil {
+		return nil, fmt.Errorf("no pending bonus found")
+	}
+	if bonus.IsDrawn {
+		// 既に抽選済みの場合は結果を返す
+		return &inputport.DrawLotteryResponse{
+			BonusPoints:     bonus.BonusPoints,
+			LotteryTierName: bonus.LotteryTierName,
+			BonusID:         bonus.ID,
+		}, nil
+	}
+
 	// アクティブな抽選ティアを取得
 	lotteryTiers, err := i.lotteryTierRepo.ReadActive(ctx)
 	if err != nil {
-		i.logger.Error("DailyBonusInteractor: failed to get lottery tiers", entities.NewField("error", err))
-		// ティア取得失敗時はフォールバック: 固定ポイントを使用
+		i.logger.Error("DrawLotteryAndGrant: failed to get lottery tiers", entities.NewField("error", err))
 		lotteryTiers = nil
 	}
 
-	// フォールバック用固定ポイント（ティアがない場合）
+	// くじ引き実行
 	fallbackPoints := i.getFallbackPoints(lotteryTiers, ctx)
+	bonusPoints, lotteryTierID, lotteryTierName := i.drawLottery(lotteryTiers, fallbackPoints, req.UserID, bonus.AkerunUserName)
 
+	// トランザクション内でポイント付与 + ボーナスレコード更新
+	err = i.txManager.Do(ctx, func(ctx context.Context) error {
+		// 抽選結果を更新
+		if err := i.dailyBonusRepo.UpdateDrawnResult(ctx, bonus.ID, bonusPoints, lotteryTierID, lotteryTierName); err != nil {
+			return fmt.Errorf("failed to update drawn result: %w", err)
+		}
+
+		// 0ptの場合はポイント付与スキップ
+		if bonusPoints > 0 {
+			// ポイント付与トランザクション
+			desc := fmt.Sprintf("Akerun入退室ボーナス（%s）", lotteryTierName)
+			tx, err := entities.NewAdminGrant(
+				req.UserID,
+				bonusPoints,
+				desc,
+				uuid.Nil, // システム処理
+			)
+			if err != nil {
+				return fmt.Errorf("failed to create transaction: %w", err)
+			}
+			if err := i.transactionRepo.Create(ctx, tx); err != nil {
+				return fmt.Errorf("failed to save transaction: %w", err)
+			}
+
+			// ユーザー残高更新
+			updates := []repository.BalanceUpdate{
+				{UserID: req.UserID, Amount: bonusPoints, IsDeduct: false},
+			}
+			if err := i.userRepo.UpdateBalancesWithLock(ctx, updates); err != nil {
+				return fmt.Errorf("failed to update balance: %w", err)
+			}
+
+			// ポイントバッチ作成
+			batch := entities.NewPointBatch(req.UserID, bonusPoints, entities.PointBatchSourceDailyBonus, &tx.ID, time.Now())
+			if err := i.pointBatchRepo.Create(ctx, batch); err != nil {
+				return fmt.Errorf("failed to create point batch: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	i.logger.Info("DrawLotteryAndGrant: lottery completed",
+		entities.NewField("user_id", req.UserID),
+		entities.NewField("points", bonusPoints),
+		entities.NewField("tier", lotteryTierName))
+
+	return &inputport.DrawLotteryResponse{
+		BonusPoints:     bonusPoints,
+		LotteryTierName: lotteryTierName,
+		BonusID:         bonus.ID,
+	}, nil
+}
+
+// ProcessAccesses はアクセス記録を処理して未抽選ボーナスを作成する（Phase 1: アクセス記録のみ）
+func (i *DailyBonusInteractor) ProcessAccesses(ctx context.Context, accesses []entities.AccessRecord) error {
 	// 全ユーザーを取得してマッチング用マップを構築
 	nameToUser := i.buildUserNameMap(ctx)
 	if nameToUser == nil {
@@ -200,23 +279,19 @@ func (i *DailyBonusInteractor) ProcessAccesses(ctx context.Context, accesses []e
 			continue
 		}
 
-		// くじ引き実行
-		bonusPoints, lotteryTierID, lotteryTierName := i.drawLottery(lotteryTiers, fallbackPoints, userID, access.UserName)
-
-		// ボーナスを付与（トランザクション内で実行）
-		err = i.grantBonus(ctx, userID, bonusDate, bonusPoints, access, lotteryTierID, lotteryTierName)
-
-		if err != nil {
-			i.logger.Error("DailyBonusInteractor: failed to grant bonus",
+		// 未抽選のボーナスレコードを作成（ポイント未確定）
+		accessedAt := access.AccessedAt
+		accessIDStr := access.ID.String()
+		bonus := entities.NewPendingDailyBonus(userID, bonusDate, accessIDStr, access.UserName, &accessedAt)
+		if err := i.dailyBonusRepo.Create(ctx, bonus); err != nil {
+			i.logger.Error("DailyBonusInteractor: failed to create pending bonus",
 				entities.NewField("user_id", userID),
 				entities.NewField("akerun_user", access.UserName),
 				entities.NewField("error", err))
 		} else {
-			i.logger.Info("DailyBonusInteractor: lottery bonus granted",
+			i.logger.Info("DailyBonusInteractor: pending bonus created",
 				entities.NewField("user_id", userID),
 				entities.NewField("akerun_user", access.UserName),
-				entities.NewField("points", bonusPoints),
-				entities.NewField("tier", lotteryTierName),
 				entities.NewField("date", bonusDate.Format("2006-01-02")))
 		}
 	}

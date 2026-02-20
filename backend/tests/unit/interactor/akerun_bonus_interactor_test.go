@@ -84,6 +84,10 @@ func (m *abMockDailyBonusRepo) MarkAsViewed(ctx context.Context, id uuid.UUID) e
 	return nil
 }
 
+func (m *abMockDailyBonusRepo) UpdateDrawnResult(ctx context.Context, id uuid.UUID, bonusPoints int64, lotteryTierID *uuid.UUID, lotteryTierName string) error {
+	return nil
+}
+
 // abMockLotteryTierRepo は LotteryTierRepository のモック
 type abMockLotteryTierRepo struct {
 	tiers []*entities.LotteryTier
@@ -373,21 +377,18 @@ func TestDailyBonusInteractor_ProcessAccesses(t *testing.T) {
 		err := i.ProcessAccesses(context.Background(), accesses)
 		require.NoError(t, err)
 
-		// ボーナスレコードが1件作成される
+		// 未抽選のボーナスレコードが1件作成される
 		require.Len(t, deps.dailyBonusRepo.created, 1)
 		bonus := deps.dailyBonusRepo.created[0]
 		assert.Equal(t, userID, bonus.UserID)
-		assert.Equal(t, int64(5), bonus.BonusPoints, "デフォルト5ポイント")
+		assert.Equal(t, int64(0), bonus.BonusPoints, "未抽選のため0ポイント")
 		assert.Equal(t, "Photosynth太郎", bonus.AkerunUserName)
-		assert.Equal(t, "通常", bonus.LotteryTierName)
+		assert.Equal(t, "", bonus.LotteryTierName, "未抽選のためティア名なし")
+		assert.False(t, bonus.IsDrawn, "未抽選")
 
-		// トランザクションが1件作成される
-		require.Len(t, deps.transactionRepo.transactions, 1)
-		assert.Equal(t, int64(5), deps.transactionRepo.transactions[0].Amount)
-
-		// ユーザー残高が更新される
-		require.Len(t, deps.userRepo.balanceUpdates, 1)
-		assert.Equal(t, int64(105), deps.userRepo.users[userID].Balance)
+		// Phase 1ではトランザクション・残高更新なし
+		assert.Len(t, deps.transactionRepo.transactions, 0, "Phase 1ではトランザクションなし")
+		assert.Equal(t, int64(100), deps.userRepo.users[userID].Balance, "残高変わらず")
 	})
 
 	t.Run("管理者設定でボーナスポイントを変更した場合", func(t *testing.T) {
@@ -413,9 +414,10 @@ func TestDailyBonusInteractor_ProcessAccesses(t *testing.T) {
 		err := i.ProcessAccesses(context.Background(), accesses)
 		require.NoError(t, err)
 
+		// Phase 1では未抽選ボーナスが作成される（ポイントは0）
 		require.Len(t, deps.dailyBonusRepo.created, 1)
-		assert.Equal(t, int64(10), deps.dailyBonusRepo.created[0].BonusPoints, "管理者設定の10ポイント")
-		assert.Equal(t, int64(210), deps.userRepo.users[userID].Balance)
+		assert.Equal(t, int64(0), deps.dailyBonusRepo.created[0].BonusPoints, "未抽選のため0ポイント")
+		assert.Equal(t, int64(200), deps.userRepo.users[userID].Balance, "残高変わらず")
 	})
 
 	t.Run("マッチしないユーザーのアクセスはスキップされる", func(t *testing.T) {
@@ -522,7 +524,7 @@ func TestDailyBonusInteractor_ProcessAccesses(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, deps.dailyBonusRepo.created, 1, "同一ユーザー・同一日は1件のみ")
-		assert.Equal(t, int64(105), deps.userRepo.users[userID].Balance)
+		assert.Equal(t, int64(100), deps.userRepo.users[userID].Balance, "Phase 1では残高変わらず")
 	})
 }
 
@@ -531,7 +533,7 @@ func TestDailyBonusInteractor_ProcessAccesses(t *testing.T) {
 // ========================================
 
 func TestDailyBonusInteractor_LotteryMode(t *testing.T) {
-	t.Run("抽選ティアがある場合は抽選結果でポイントが決定される", func(t *testing.T) {
+	t.Run("抽選ティアがあってもPhase 1では抽選されない", func(t *testing.T) {
 		i, deps := createDailyBonusInteractorForProcess()
 
 		// 確率100%のティア1つだけ（必ず当たる）
@@ -564,20 +566,24 @@ func TestDailyBonusInteractor_LotteryMode(t *testing.T) {
 		err := i.ProcessAccesses(context.Background(), accesses)
 		require.NoError(t, err)
 
+		// Phase 1: 未抽選ボーナスが作成される
 		require.Len(t, deps.dailyBonusRepo.created, 1)
 		bonus := deps.dailyBonusRepo.created[0]
-		assert.Equal(t, int64(100), bonus.BonusPoints, "抽選ティアの100ポイント")
-		assert.Equal(t, "大当たり", bonus.LotteryTierName)
-		assert.NotNil(t, bonus.LotteryTierID, "ティアIDが設定される")
+		assert.Equal(t, int64(0), bonus.BonusPoints, "未抽選のため0ポイント")
+		assert.Equal(t, "", bonus.LotteryTierName, "未抽選のためティア名なし")
+		assert.Nil(t, bonus.LotteryTierID, "未抽選のためティアIDなし")
+		assert.False(t, bonus.IsDrawn)
 
-		// 残高も更新される
-		assert.Equal(t, int64(100), deps.userRepo.users[userID].Balance)
+		// Phase 1ではトランザクション・残高更新なし
+		assert.Len(t, deps.transactionRepo.transactions, 0)
+		assert.Len(t, deps.userRepo.balanceUpdates, 0)
+		assert.Equal(t, int64(0), deps.userRepo.users[userID].Balance)
 	})
 
-	t.Run("確率0%のティアのみ（ハズレ）は0ptで記録される", func(t *testing.T) {
+	t.Run("確率0%のティアのみでもPhase 1では抽選されない", func(t *testing.T) {
 		i, deps := createDailyBonusInteractorForProcess()
 
-		// 確率0%のティアだけ → 全てハズレ
+		// 確率0%のティアだけ
 		deps.lotteryTierRepo.tiers = []*entities.LotteryTier{
 			{
 				ID:           uuid.New(),
@@ -607,15 +613,17 @@ func TestDailyBonusInteractor_LotteryMode(t *testing.T) {
 		err := i.ProcessAccesses(context.Background(), accesses)
 		require.NoError(t, err)
 
+		// Phase 1: 未抽選ボーナスが作成される
 		require.Len(t, deps.dailyBonusRepo.created, 1)
 		bonus := deps.dailyBonusRepo.created[0]
-		assert.Equal(t, int64(0), bonus.BonusPoints, "ハズレは0pt")
-		assert.Equal(t, "ハズレ", bonus.LotteryTierName)
-		assert.Nil(t, bonus.LotteryTierID, "ハズレはティアIDなし")
+		assert.Equal(t, int64(0), bonus.BonusPoints, "未抽選のため0ポイント")
+		assert.Equal(t, "", bonus.LotteryTierName)
+		assert.Nil(t, bonus.LotteryTierID)
+		assert.False(t, bonus.IsDrawn)
 
-		// 0ptなのでトランザクション・残高更新なし
-		assert.Len(t, deps.transactionRepo.transactions, 0, "0ptならトランザクションなし")
-		assert.Len(t, deps.userRepo.balanceUpdates, 0, "0ptなら残高更新なし")
+		// Phase 1ではトランザクション・残高更新なし
+		assert.Len(t, deps.transactionRepo.transactions, 0)
+		assert.Len(t, deps.userRepo.balanceUpdates, 0)
 		assert.Equal(t, int64(50), deps.userRepo.users[userID].Balance, "残高変わらず")
 	})
 }

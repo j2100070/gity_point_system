@@ -25,6 +25,7 @@ COMMENT ON COLUMN bonus_lottery_tiers.display_order IS '表示順';
 ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS lottery_tier_id UUID REFERENCES bonus_lottery_tiers(id);
 ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS lottery_tier_name VARCHAR(50);
 ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS is_viewed BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE daily_bonuses ADD COLUMN IF NOT EXISTS is_drawn BOOLEAN NOT NULL DEFAULT false;
 
 -- デフォルトティア挿入（テーブルが空の場合のみ）
 INSERT INTO bonus_lottery_tiers (name, points, probability, display_order)

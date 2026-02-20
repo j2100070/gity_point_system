@@ -172,3 +172,26 @@ func (c *DailyBonusController) MarkBonusViewed(ctx *gin.Context) {
 		"message": "閲覧済みにしました",
 	})
 }
+
+// DrawLottery はルーレットを実行しポイントを付与する
+func (c *DailyBonusController) DrawLottery(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	resp, err := c.dailyBonusPort.DrawLotteryAndGrant(ctx, &inputport.DrawLotteryRequest{
+		UserID: userID.(uuid.UUID),
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"bonus_points":      resp.BonusPoints,
+		"lottery_tier_name": resp.LotteryTierName,
+		"bonus_id":          resp.BonusID,
+	})
+}

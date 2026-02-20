@@ -31,6 +31,7 @@ func (p *DailyBonusPresenter) PresentGetTodayBonus(resp *inputport.GetTodayBonus
 			"accessed_at":       resp.DailyBonus.AccessedAt,
 			"lottery_tier_name": resp.DailyBonus.LotteryTierName,
 			"is_viewed":         resp.DailyBonus.IsViewed,
+			"is_drawn":          resp.DailyBonus.IsDrawn,
 			"created_at":        resp.DailyBonus.CreatedAt,
 		}
 	}
@@ -49,6 +50,7 @@ func (p *DailyBonusPresenter) PresentGetRecentBonuses(resp *inputport.GetRecentB
 			"akerun_user_name":  bonus.AkerunUserName,
 			"accessed_at":       bonus.AccessedAt,
 			"lottery_tier_name": bonus.LotteryTierName,
+			"is_drawn":          bonus.IsDrawn,
 		}
 	}
 

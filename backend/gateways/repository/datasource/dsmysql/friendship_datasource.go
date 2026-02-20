@@ -41,4 +41,7 @@ type FriendshipDataSource interface {
 
 	// SelectListPendingRequestsWithUsers は保留中の友達申請一覧をユーザー情報付きで取得（JOIN）
 	SelectListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error)
+
+	// CountPendingRequests は保留中の友達申請件数を取得
+	CountPendingRequests(ctx context.Context, userID uuid.UUID) (int64, error)
 }
