@@ -21,4 +21,7 @@ type PointBatchRepository interface {
 
 	// MarkExpired はバッチを失効済みに更新（remaining_amount = 0）
 	MarkExpired(ctx context.Context, batchID uuid.UUID) error
+
+	// FindUpcomingExpirations はユーザーの有効なバッチを期限が近い順に取得
+	FindUpcomingExpirations(ctx context.Context, userID uuid.UUID) ([]*entities.PointBatch, error)
 }

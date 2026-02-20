@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, TrendingUp } from "lucide-react";
 import { dailyBonusApi, TodayBonusResponse, RecentBonusesResponse, DrawLotteryResponse } from "../api/dailyBonusApi";
@@ -13,8 +13,11 @@ export const DailyBonusPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [showLottery, setShowLottery] = useState(false);
   const [lotteryResult, setLotteryResult] = useState<DrawLotteryResponse | null>(null);
+  const fetchingRef = useRef(false);
 
   const fetchData = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -41,6 +44,7 @@ export const DailyBonusPage = () => {
       setError(err.response?.data?.error || "データの取得に失敗しました");
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

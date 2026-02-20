@@ -155,6 +155,9 @@ func (r *Router) RegisterRoutes(
 				points.GET("/history", func(c *gin.Context) {
 					pointController.GetTransactionHistory(c, r.timeProvider.Now())
 				})
+				points.GET("/expiring", func(c *gin.Context) {
+					pointController.GetExpiringPoints(c, r.timeProvider.Now())
+				})
 			}
 
 			// ユーザー検索・取得

@@ -87,14 +87,6 @@ export const PersonalQRPage: React.FC = () => {
             </div>
           </div>
 
-          {/* QRコードテキスト（デバッグ用・コピー可能） */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="text-xs text-gray-500 mb-2">QRコードデータ</div>
-            <div className="text-xs font-mono bg-white p-2 rounded border border-gray-200 break-all">
-              {qrCode}
-            </div>
-          </div>
-
           {/* アクションボタン */}
           <div className="space-y-3">
             <button

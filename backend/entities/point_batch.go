@@ -18,7 +18,7 @@ const (
 )
 
 // PointExpirationDuration はポイントの有効期限（3ヶ月）
-const PointExpirationMonths = 3
+const POINT_EXPIRATION_MONTHS = 3
 
 // PointBatch はポイントバッチエンティティ
 // 獲得ポイントをバッチ単位で追跡し、FIFO消費と期限切れ処理を行う
@@ -42,7 +42,7 @@ func NewPointBatch(userID uuid.UUID, amount int64, sourceType PointBatchSourceTy
 		RemainingAmount:     amount,
 		SourceType:          sourceType,
 		SourceTransactionID: txID,
-		ExpiresAt:           now.AddDate(0, PointExpirationMonths, 0),
+		ExpiresAt:           now.AddDate(0, POINT_EXPIRATION_MONTHS, 0),
 		CreatedAt:           now,
 	}
 }

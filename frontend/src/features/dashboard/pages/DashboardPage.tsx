@@ -14,6 +14,8 @@ export const DashboardPage: React.FC = () => {
   const [balance, setBalance] = useState<number>(0);
   const [pendingRequestCount, setPendingRequestCount] = useState<number>(0);
   const [friendRequestCount, setFriendRequestCount] = useState<number>(0);
+  const [expiringPoints, setExpiringPoints] = useState<{ amount: number; expires_at: string }[]>([]);
+  const [totalExpiring, setTotalExpiring] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [pointVisible, setPointVisible] = useState(() => {
     return localStorage.getItem('pointVisible') !== 'false';
@@ -25,19 +27,34 @@ export const DashboardPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [balanceData, countData, friendCountData] = await Promise.all([
+      const [balanceData, countData, friendCountData, expiringData] = await Promise.all([
         pointRepository.getBalance(),
         transferRequestRepository.getPendingRequestCount(),
         friendshipRepository.getPendingRequestCount(),
+        pointRepository.getExpiringPoints(),
       ]);
       setBalance(balanceData.balance);
       setPendingRequestCount(countData.count);
       setFriendRequestCount(friendCountData.count);
+      setExpiringPoints(expiringData.expiring_points || []);
+      setTotalExpiring(expiringData.total_expiring || 0);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatExpiryDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  };
+
+  const getDaysUntil = (dateStr: string) => {
+    const now = new Date();
+    const expiry = new Date(dateStr);
+    const diffMs = expiry.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   };
 
   return (
@@ -80,6 +97,52 @@ export const DashboardPage: React.FC = () => {
           {user?.display_name} さん
         </div>
       </div>
+
+      {/* ポイント失効予定 */}
+      {!loading && totalExpiring > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center mb-3">
+            <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center mr-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-red-900">
+                ポイント失効予定
+              </div>
+              <div className="text-xs text-red-700">
+                合計 {totalExpiring.toLocaleString()} P が失効予定です
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2 ml-13">
+            {expiringPoints.slice(0, 5).map((ep, idx) => {
+              const daysLeft = getDaysUntil(ep.expires_at);
+              return (
+                <div key={idx} className="flex justify-between items-center text-sm">
+                  <span className="text-red-800">
+                    {formatExpiryDate(ep.expires_at)} まで
+                    {daysLeft <= 30 && (
+                      <span className="ml-1 text-xs font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                        あと{daysLeft}日
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-medium text-red-900">
+                    {ep.amount.toLocaleString()} P
+                  </span>
+                </div>
+              );
+            })}
+            {expiringPoints.length > 5 && (
+              <div className="text-xs text-red-600 text-center">
+                他 {expiringPoints.length - 5} 件の失効予定があります
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 送金リクエスト通知 */}
       {pendingRequestCount > 0 && (

@@ -207,6 +207,11 @@ func (i *AdminInteractor) DeductPoints(ctx context.Context, req *inputport.Deduc
 			return err
 		}
 
+		// ポイントバッチからも消費（FIFO順で remaining_amount を減算）
+		if err := i.pointBatchRepo.ConsumePointsFIFO(ctx, req.UserID, req.Amount); err != nil {
+			return fmt.Errorf("failed to consume point batches: %w", err)
+		}
+
 		// ユーザーの Balance を更新
 		user.Balance -= req.Amount
 

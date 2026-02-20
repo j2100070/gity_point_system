@@ -240,6 +240,9 @@ func (m *ctxTrackingPointBatchRepo) FindExpiredBatches(ctx context.Context, befo
 func (m *ctxTrackingPointBatchRepo) MarkExpired(ctx context.Context, batchID uuid.UUID) error {
 	return nil
 }
+func (m *ctxTrackingPointBatchRepo) FindUpcomingExpirations(ctx context.Context, userID uuid.UUID) ([]*entities.PointBatch, error) {
+	return nil, nil
+}
 
 // --- Context-Tracking FriendshipRepository ---
 

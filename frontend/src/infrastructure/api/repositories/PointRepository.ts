@@ -20,4 +20,11 @@ export class PointRepository implements IPointRepository {
     );
     return response.data;
   }
+
+  async getExpiringPoints(): Promise<{ expiring_points: { amount: number; expires_at: string }[]; total_expiring: number }> {
+    const response = await axiosInstance.get<{ expiring_points: { amount: number; expires_at: string }[]; total_expiring: number }>(
+      '/api/points/expiring'
+    );
+    return response.data;
+  }
 }

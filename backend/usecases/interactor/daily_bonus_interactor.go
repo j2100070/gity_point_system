@@ -156,36 +156,42 @@ func (i *DailyBonusInteractor) DrawLotteryAndGrant(ctx context.Context, req *inp
 	// 今日のボーナス日付を計算
 	bonusDate := entities.GetBonusDateJST(time.Now())
 
-	// 未抽選のボーナスを取得
-	bonus, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, bonusDate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read bonus: %w", err)
-	}
-	if bonus == nil {
-		return nil, fmt.Errorf("no pending bonus found")
-	}
-	if bonus.IsDrawn {
-		// 既に抽選済みの場合は結果を返す
-		return &inputport.DrawLotteryResponse{
-			BonusPoints:     bonus.BonusPoints,
-			LotteryTierName: bonus.LotteryTierName,
-			BonusID:         bonus.ID,
-		}, nil
-	}
-
-	// アクティブな抽選ティアを取得
+	// アクティブな抽選ティアを取得（トランザクション外で取得OK）
 	lotteryTiers, err := i.lotteryTierRepo.ReadActive(ctx)
 	if err != nil {
 		i.logger.Error("DrawLotteryAndGrant: failed to get lottery tiers", entities.NewField("error", err))
 		lotteryTiers = nil
 	}
 
-	// くじ引き実行
-	fallbackPoints := i.getFallbackPoints(lotteryTiers, ctx)
-	bonusPoints, lotteryTierID, lotteryTierName := i.drawLottery(lotteryTiers, fallbackPoints, req.UserID, bonus.AkerunUserName)
+	var bonusPoints int64
+	var lotteryTierID *uuid.UUID
+	var lotteryTierName string
+	var bonusID uuid.UUID
 
-	// トランザクション内でポイント付与 + ボーナスレコード更新
+	// トランザクション内でボーナス取得 + 抽選 + ポイント付与（二重抽選防止）
 	err = i.txManager.Do(ctx, func(ctx context.Context) error {
+		// トランザクション内でボーナスを取得（競合防止）
+		bonus, err := i.dailyBonusRepo.ReadByUserAndDate(ctx, req.UserID, bonusDate)
+		if err != nil {
+			return fmt.Errorf("failed to read bonus: %w", err)
+		}
+		if bonus == nil {
+			return fmt.Errorf("no pending bonus found")
+		}
+		bonusID = bonus.ID
+
+		if bonus.IsDrawn {
+			// 既に抽選済みの場合は結果をセット（二重抽選防止）
+			bonusPoints = bonus.BonusPoints
+			lotteryTierID = bonus.LotteryTierID
+			lotteryTierName = bonus.LotteryTierName
+			return nil
+		}
+
+		// くじ引き実行
+		fallbackPoints := i.getFallbackPoints(lotteryTiers, ctx)
+		bonusPoints, lotteryTierID, lotteryTierName = i.drawLottery(lotteryTiers, fallbackPoints, req.UserID, bonus.AkerunUserName)
+
 		// 抽選結果を更新
 		if err := i.dailyBonusRepo.UpdateDrawnResult(ctx, bonus.ID, bonusPoints, lotteryTierID, lotteryTierName); err != nil {
 			return fmt.Errorf("failed to update drawn result: %w", err)
@@ -237,7 +243,7 @@ func (i *DailyBonusInteractor) DrawLotteryAndGrant(ctx context.Context, req *inp
 	return &inputport.DrawLotteryResponse{
 		BonusPoints:     bonusPoints,
 		LotteryTierName: lotteryTierName,
-		BonusID:         bonus.ID,
+		BonusID:         bonusID,
 	}, nil
 }
 

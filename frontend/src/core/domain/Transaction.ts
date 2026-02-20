@@ -1,9 +1,9 @@
 export interface Transaction {
   id: string;
   from_user_id?: string;
-  to_user_id: string;
+  to_user_id?: string;
   amount: number;
-  transaction_type: 'transfer' | 'admin_grant' | 'admin_deduct' | 'system_grant' | 'daily_bonus';
+  transaction_type: 'transfer' | 'admin_grant' | 'admin_deduct' | 'system_grant' | 'system_expire' | 'daily_bonus';
   status: 'pending' | 'completed' | 'failed' | 'reversed';
   description?: string;
   created_at: string;

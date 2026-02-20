@@ -14,6 +14,7 @@ export interface IPointRepository {
   getBalance(): Promise<{ balance: number; user: User }>;
   transfer(request: TransferRequest): Promise<TransferResponse>;
   getHistory(offset?: number, limit?: number): Promise<{ transactions: Transaction[]; total: number }>;
+  getExpiringPoints(): Promise<{ expiring_points: { amount: number; expires_at: string }[]; total_expiring: number }>;
 }
 
 export interface IQRCodeRepository {

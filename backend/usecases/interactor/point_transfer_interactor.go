@@ -242,3 +242,26 @@ func (i *PointTransferInteractor) GetBalance(ctx context.Context, req *inputport
 		User:    user,
 	}, nil
 }
+
+// GetExpiringPoints は失効予定ポイントを取得
+func (i *PointTransferInteractor) GetExpiringPoints(ctx context.Context, req *inputport.GetExpiringPointsRequest) (*inputport.GetExpiringPointsResponse, error) {
+	batches, err := i.pointBatchRepo.FindUpcomingExpirations(ctx, req.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expiring points: %w", err)
+	}
+
+	var totalExpiring int64
+	expiringPoints := make([]*inputport.ExpiringPointBatch, 0, len(batches))
+	for _, batch := range batches {
+		expiringPoints = append(expiringPoints, &inputport.ExpiringPointBatch{
+			Amount:    batch.RemainingAmount,
+			ExpiresAt: batch.ExpiresAt,
+		})
+		totalExpiring += batch.RemainingAmount
+	}
+
+	return &inputport.GetExpiringPointsResponse{
+		ExpiringPoints: expiringPoints,
+		TotalExpiring:  totalExpiring,
+	}, nil
+}

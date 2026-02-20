@@ -38,3 +38,8 @@ func (r *PointBatchRepositoryImpl) FindExpiredBatches(ctx context.Context, befor
 func (r *PointBatchRepositoryImpl) MarkExpired(ctx context.Context, batchID uuid.UUID) error {
 	return r.ds.MarkExpired(ctx, batchID)
 }
+
+// FindUpcomingExpirations はユーザーの有効なバッチを期限が近い順に取得
+func (r *PointBatchRepositoryImpl) FindUpcomingExpirations(ctx context.Context, userID uuid.UUID) ([]*entities.PointBatch, error) {
+	return r.ds.SelectUpcomingExpirations(ctx, userID)
+}

@@ -209,6 +209,10 @@ func (m *mockPointTransferPort) GetTransactionHistory(ctx context.Context, req *
 	return nil, nil
 }
 
+func (m *mockPointTransferPort) GetExpiringPoints(ctx context.Context, req *inputport.GetExpiringPointsRequest) (*inputport.GetExpiringPointsResponse, error) {
+	return &inputport.GetExpiringPointsResponse{}, nil
+}
+
 type mockTransferRequestLogger struct{}
 
 func (m *mockTransferRequestLogger) Debug(msg string, fields ...entities.Field) {}

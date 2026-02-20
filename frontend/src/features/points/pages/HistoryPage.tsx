@@ -54,9 +54,33 @@ export const HistoryPage: React.FC = () => {
       };
     }
 
+    // 管理者減算・システム失効（to_user_idがnull = システムへの返却）
+    if (isSent && !tx.to_user_id && (tx.transaction_type === 'admin_deduct' || tx.transaction_type === 'system_expire')) {
+      return {
+        label: tx.transaction_type === 'admin_deduct' ? '管理者減算' : 'ポイント失効',
+        description: tx.description || (tx.transaction_type === 'admin_deduct' ? '管理者によるポイント減算' : 'ポイント期限切れ'),
+        fromUser: user?.display_name || user?.username || 'あなた',
+        toUser: 'システム',
+        color: 'text-red-600',
+        sign: '-',
+      };
+    }
+
+    // 管理者付与・システム付与（from_user_idがnull）
+    if (!tx.from_user_id && isReceived && (tx.transaction_type === 'admin_grant' || tx.transaction_type === 'system_grant')) {
+      return {
+        label: tx.transaction_type === 'admin_grant' ? '管理者付与' : 'システム付与',
+        description: tx.description || '管理者によるポイント付与',
+        fromUser: 'システム',
+        toUser: user?.display_name || user?.username || 'あなた',
+        color: 'text-green-600',
+        sign: '+',
+      };
+    }
+
     // 送信の場合
     if (isSent) {
-      const toUserName = tx.to_user?.display_name || tx.to_user?.username || '不明なユーザー';
+      const toUserName = tx.to_user?.display_name || tx.to_user?.username || 'システム';
       return {
         label: '送信',
         description: `${toUserName} へ送信`,
@@ -85,7 +109,7 @@ export const HistoryPage: React.FC = () => {
       label: '取引',
       description: '取引',
       fromUser: tx.from_user?.display_name || 'システム',
-      toUser: tx.to_user?.display_name || '不明',
+      toUser: tx.to_user?.display_name || 'システム',
       color: 'text-gray-600',
       sign: '',
     };
@@ -126,13 +150,12 @@ export const HistoryPage: React.FC = () => {
                   <div className="flex-1">
                     {/* ラベルとステータス */}
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className={`text-xs px-2 py-1 rounded font-medium ${
-                        info.label === '送信'
+                      <span className={`text-xs px-2 py-1 rounded font-medium ${info.label === '送信'
                           ? 'bg-red-50 text-red-700'
                           : info.label === 'ボーナス'
-                          ? 'bg-purple-50 text-purple-700'
-                          : 'bg-green-50 text-green-700'
-                      }`}>
+                            ? 'bg-purple-50 text-purple-700'
+                            : 'bg-green-50 text-green-700'
+                        }`}>
                         {info.label}
                       </span>
                       {tx.status === 'completed' ? (

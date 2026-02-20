@@ -133,3 +133,36 @@ func (c *PointController) GetTransactionHistory(ctx *gin.Context, currentTime ti
 	output := c.presenter.PresentTransactionHistoryResponse(resp)
 	ctx.JSON(http.StatusOK, output)
 }
+
+// GetExpiringPoints は失効予定ポイントを取得
+// GET /api/points/expiring
+func (c *PointController) GetExpiringPoints(ctx *gin.Context, currentTime time.Time) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	resp, err := c.pointTransferUC.GetExpiringPoints(ctx, &inputport.GetExpiringPointsRequest{
+		UserID: userID.(uuid.UUID),
+	})
+
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// レスポンスを構築
+	expiringPoints := make([]gin.H, 0, len(resp.ExpiringPoints))
+	for _, ep := range resp.ExpiringPoints {
+		expiringPoints = append(expiringPoints, gin.H{
+			"amount":     ep.Amount,
+			"expires_at": ep.ExpiresAt,
+		})
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"expiring_points": expiringPoints,
+		"total_expiring":  resp.TotalExpiring,
+	})
+}

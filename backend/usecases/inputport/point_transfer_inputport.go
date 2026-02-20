@@ -2,6 +2,7 @@ package inputport
 
 import (
 	"context"
+	"time"
 
 	"github.com/gity/point-system/entities"
 	"github.com/google/uuid"
@@ -17,6 +18,9 @@ type PointTransferInputPort interface {
 
 	// GetBalance は残高を取得
 	GetBalance(ctx context.Context, req *GetBalanceRequest) (*GetBalanceResponse, error)
+
+	// GetExpiringPoints は失効予定ポイントを取得
+	GetExpiringPoints(ctx context.Context, req *GetExpiringPointsRequest) (*GetExpiringPointsResponse, error)
 }
 
 // TransferRequest はポイント転送リクエスト
@@ -64,4 +68,21 @@ type GetBalanceRequest struct {
 type GetBalanceResponse struct {
 	Balance int64
 	User    *entities.User
+}
+
+// GetExpiringPointsRequest は失効予定ポイント取得リクエスト
+type GetExpiringPointsRequest struct {
+	UserID uuid.UUID
+}
+
+// ExpiringPointBatch は失効予定のポイントバッチ情報
+type ExpiringPointBatch struct {
+	Amount    int64
+	ExpiresAt time.Time
+}
+
+// GetExpiringPointsResponse は失効予定ポイント取得レスポンス
+type GetExpiringPointsResponse struct {
+	ExpiringPoints []*ExpiringPointBatch
+	TotalExpiring  int64
 }

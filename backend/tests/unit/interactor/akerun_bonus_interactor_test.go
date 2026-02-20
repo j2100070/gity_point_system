@@ -297,6 +297,9 @@ func (m *abMockPointBatchRepo) FindExpiredBatches(ctx context.Context, before ti
 func (m *abMockPointBatchRepo) MarkExpired(ctx context.Context, batchID uuid.UUID) error {
 	return nil
 }
+func (m *abMockPointBatchRepo) FindUpcomingExpirations(ctx context.Context, userID uuid.UUID) ([]*entities.PointBatch, error) {
+	return nil, nil
+}
 
 // abMockLogger はテスト用ログ
 type abMockLogger struct {

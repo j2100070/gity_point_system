@@ -139,3 +139,22 @@ func (ds *PointBatchDataSource) MarkExpired(ctx context.Context, batchID uuid.UU
 		Where("id = ?", batchID).
 		Update("remaining_amount", 0).Error
 }
+
+// SelectUpcomingExpirations はユーザーの1ヶ月以内に失効するバッチを期限が近い順に取得
+func (ds *PointBatchDataSource) SelectUpcomingExpirations(ctx context.Context, userID uuid.UUID) ([]*entities.PointBatch, error) {
+	db := inframysql.GetDB(ctx, ds.db.GetDB())
+
+	var models []PointBatchModel
+	err := db.Where("user_id = ? AND remaining_amount > 0 AND expires_at > NOW() AND expires_at <= NOW() + INTERVAL '1 month'", userID).
+		Order("expires_at ASC").
+		Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+
+	batches := make([]*entities.PointBatch, len(models))
+	for i, model := range models {
+		batches[i] = ds.toEntity(&model)
+	}
+	return batches, nil
+}
