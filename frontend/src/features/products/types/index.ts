@@ -5,7 +5,7 @@ export interface Product {
   ID: string;
   Name: string;
   Description: string;
-  Category: string; // カテゴリコード（例: drink, snack）
+  CategoryCode: string; // カテゴリコード（例: drink, snack）
   Price: number;
   Stock: number;
   ImageURL: string;

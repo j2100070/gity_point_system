@@ -70,11 +70,10 @@ export const ProductsPage: React.FC = () => {
             <button
               key={cat.value}
               onClick={() => setSelectedCategory(cat.value as ProductCategory | '')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedCategory === cat.value
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedCategory === cat.value
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+                }`}
             >
               {cat.label}
             </button>
@@ -117,7 +116,7 @@ export const ProductsPage: React.FC = () => {
               <div className="p-4">
                 <div className="mb-2">
                   <span className="inline-block px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-100 rounded">
-                    {getCategoryLabel(product.Category)}
+                    {getCategoryLabel(product.CategoryCode)}
                   </span>
                 </div>
 
@@ -144,11 +143,10 @@ export const ProductsPage: React.FC = () => {
                 <button
                   onClick={() => handleExchange(product.ID)}
                   disabled={!product.IsAvailable || (product.Stock !== -1 && product.Stock === 0)}
-                  className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
-                    product.IsAvailable && (product.Stock === -1 || product.Stock > 0)
+                  className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${product.IsAvailable && (product.Stock === -1 || product.Stock > 0)
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   {product.IsAvailable
                     ? product.Stock === 0

@@ -188,7 +188,7 @@ export const AdminProductsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {categories.find((c) => c.Code === product.Category)?.Name || product.Category}
+                        {categories.find((c) => c.Code === product.CategoryCode)?.Name || product.CategoryCode}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -319,7 +319,7 @@ const ProductFormModal: React.FC<{
   const [formData, setFormData] = useState<CreateProductRequest & { is_available?: boolean }>({
     name: product?.Name || '',
     description: product?.Description || '',
-    category: product?.Category || 'snack',
+    category: product?.CategoryCode || 'snack',
     price: product?.Price || 0,
     stock: product?.Stock || 0,
     image_url: product?.ImageURL || '',
