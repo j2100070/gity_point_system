@@ -55,8 +55,9 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	}
 
 	routerConfig := &frameworksweb.RouterConfig{
-		Env:            cfg.Server.Env,
-		AllowedOrigins: cfg.Security.AllowedOrigins,
+		Env:             cfg.Server.Env,
+		AllowedOrigins:  cfg.Security.AllowedOrigins,
+		MaxUploadSizeMB: cfg.Server.MaxUploadSizeMB,
 	}
 
 	db, err := inframysql.NewPostgresDB(dbConfig)

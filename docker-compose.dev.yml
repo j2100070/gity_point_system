@@ -45,6 +45,8 @@ services:
       SERVER_ENV: development
       # セキュリティ設定
       ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000
+      # アップロード設定
+      MAX_UPLOAD_SIZE_MB: 10
     depends_on:
       db:
         condition: service_healthy

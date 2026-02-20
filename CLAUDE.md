@@ -109,6 +109,8 @@ Entities → UseCases → Gateways → Controllers → Frameworks
 - モックの型は `entities` または `usecases/repository` パッケージの型を参照する（`dsmysql` を参照しない）
 - テスト実行: `go test ./tests/unit/... -v -count=1`
 
+-実際のアカウントを使うときは name: admin, password: admin123でログインする
+
 ---
 
 ## 5. フロントエンド（React + Vite）

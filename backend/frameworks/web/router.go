@@ -11,8 +11,9 @@ import (
 
 // RouterConfig はルーター設定
 type RouterConfig struct {
-	Env            string
-	AllowedOrigins []string
+	Env             string
+	AllowedOrigins  []string
+	MaxUploadSizeMB int // アップロードファイルの最大サイズ（MB）
 }
 
 // Router はHTTPルーター
@@ -48,7 +49,11 @@ func NewRouter(cfg *RouterConfig, timeProvider TimeProvider) *Router {
 	engine.Use(middleware.SecurityHeadersMiddleware())
 
 	// 入力サニタイゼーション
-	engine.Use(middleware.InputSanitizationMiddleware())
+	maxUploadSize := cfg.MaxUploadSizeMB
+	if maxUploadSize <= 0 {
+		maxUploadSize = 10 // デフォルト10MB
+	}
+	engine.Use(middleware.InputSanitizationMiddleware(int64(maxUploadSize) * 1024 * 1024))
 
 	// アバター画像の静的ファイル配信
 	engine.Static("/uploads/avatars", "./uploads/avatars")

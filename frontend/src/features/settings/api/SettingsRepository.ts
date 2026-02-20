@@ -53,16 +53,24 @@ export class SettingsRepository {
     const formData = new FormData();
     formData.append('avatar', file);
 
-    const response = await axiosInstance.post<UploadAvatarResponse>(
-      '/api/settings/avatar',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-    return response.data;
+    // axiosのデフォルトContent-Type: application/jsonがFormDataのboundary生成を妨げるため、
+    // native fetch APIを使用してmultipart/form-dataを正しく送信する
+    const csrfToken = localStorage.getItem('csrf_token') || '';
+    const response = await fetch('/api/settings/avatar', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'upload failed' }));
+      throw { response: { data: errorData, status: response.status } };
+    }
+
+    return response.json();
   }
 
   /**

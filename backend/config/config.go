@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -16,9 +17,10 @@ type Config struct {
 
 // ServerConfig はサーバー設定
 type ServerConfig struct {
-	Port string
-	Host string
-	Env  string // development, production
+	Port            string
+	Host            string
+	Env             string // development, production
+	MaxUploadSizeMB int    // アップロードファイルの最大サイズ（MB）
 }
 
 // DatabaseConfig はデータベース設定
@@ -47,9 +49,10 @@ type AkerunConfig struct {
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port: getEnv("SERVER_PORT", "8080"),
-			Host: getEnv("SERVER_HOST", "0.0.0.0"),
-			Env:  getEnv("ENV", "development"),
+			Port:            getEnv("SERVER_PORT", "8080"),
+			Host:            getEnv("SERVER_HOST", "0.0.0.0"),
+			Env:             getEnv("ENV", "development"),
+			MaxUploadSizeMB: getEnvInt("MAX_UPLOAD_SIZE_MB", 10),
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
@@ -85,6 +88,19 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+// getEnvInt は環境変数を整数として取得（デフォルト値付き）
+func getEnvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return intValue
 }
 
 // getAllowedOrigins はALLOWED_ORIGINS環境変数からオリジンリストを取得

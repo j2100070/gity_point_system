@@ -32,11 +32,18 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 // InputSanitizationMiddleware は入力サニタイゼーションを行うミドルウェア
 // クエリパラメータ、リクエストボディのサニタイゼーション、
 // リクエストサイズ制限、Content-Typeバリデーションを実施する
-func InputSanitizationMiddleware() gin.HandlerFunc {
+// maxUploadBodySize: ファイルアップロード時の最大ボディサイズ（バイト）
+func InputSanitizationMiddleware(maxUploadBodySize int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. リクエストボディサイズの制限
 		if c.Request.Body != nil {
-			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBodySize)
+			contentType := c.GetHeader("Content-Type")
+			if strings.Contains(contentType, "multipart/form-data") {
+				// ファイルアップロード用: 設定値に基づく
+				c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadBodySize)
+			} else {
+				c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBodySize)
+			}
 		}
 
 		// 2. Content-Typeバリデーション（POST/PUT/PATCHリクエスト）

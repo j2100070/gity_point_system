@@ -152,7 +152,6 @@ func (c *UserSettingsController) UploadAvatar(ctx *gin.Context) {
 		return
 	}
 
-	// ファイルアップロードを取得
 	file, header, err := ctx.Request.FormFile("avatar")
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "no file uploaded"})
