@@ -3,6 +3,7 @@ services:
   db:
     image: postgres:15.16-alpine
     container_name: point_system_db
+    command: postgres -c default_transaction_isolation='repeatable read'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

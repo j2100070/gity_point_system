@@ -3,6 +3,7 @@ services:
   db:
     image: postgres:15-alpine
     container_name: point_system_db
+    command: postgres -c default_transaction_isolation='repeatable read'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -14,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,7 +59,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: development  # 開発ステージを明示的に指定
+      target: development # 開発ステージを明示的に指定
     container_name: point_system_frontend
     ports:
       - "3000:3000"

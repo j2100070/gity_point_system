@@ -23,12 +23,11 @@ import (
 
 func TestTransactionIsolation_RepeatableRead(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 
 	// テストユーザーを作成
-	testUser, err := entities.NewUser("isolation_test", "isolation@test.com", "hash", "Isolation Test", "", "")
+	testUser, err := entities.NewUser("isolation_test", "isolation@test.com", "hash", "Isolation Test", "Test", "User")
 	testUser.Balance = 10000
 	require.NoError(t, err)
 	require.NoError(t, userDS.Insert(context.Background(), testUser))
@@ -72,7 +71,6 @@ func TestTransactionIsolation_RepeatableRead(t *testing.T) {
 
 func TestTransactionIsolation_PhantomRead(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	gormDB := db.GetDB()
 
@@ -91,8 +89,8 @@ func TestTransactionIsolation_PhantomRead(t *testing.T) {
 					fmt.Sprintf("phantom_%d@test.com", time.Now().UnixNano()),
 					"hash",
 					"Phantom User",
-					"",
-					"",
+					"Phantom",
+					"User",
 				)
 				newUser.Balance = 10000
 				gormDB.Create(newUser)
@@ -116,15 +114,14 @@ func TestTransactionIsolation_PhantomRead(t *testing.T) {
 
 func TestConcurrentTransactions_DeadlockPrevention(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
 	// 2人のユーザーを作成
-	userA, _ := entities.NewUser("userA", "userA@test.com", "hash", "User A", "", "")
+	userA, _ := entities.NewUser("userA", "userA@test.com", "hash", "User A", "A", "User")
 	userA.Balance = 5000
-	userB, _ := entities.NewUser("userB", "userB@test.com", "hash", "User B", "", "")
+	userB, _ := entities.NewUser("userB", "userB@test.com", "hash", "User B", "B", "User")
 	userB.Balance = 5000
 
 	require.NoError(t, userDS.Insert(context.Background(), userA))
@@ -192,12 +189,11 @@ func TestConcurrentTransactions_DeadlockPrevention(t *testing.T) {
 
 func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 
 	// テストユーザーを作成
-	testUser, _ := entities.NewUser("concurrent_test", "concurrent@test.com", "hash", "Concurrent Test", "", "")
+	testUser, _ := entities.NewUser("concurrent_test", "concurrent@test.com", "hash", "Concurrent Test", "Test", "User")
 	testUser.Balance = 100000
 	require.NoError(t, userDS.Insert(context.Background(), testUser))
 
@@ -236,12 +232,11 @@ func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 
 func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
-	testUser, _ := entities.NewUser("lost_update_test", "lost@test.com", "hash", "Lost Update Test", "", "")
+	testUser, _ := entities.NewUser("lost_update_test", "lost@test.com", "hash", "Lost Update Test", "Test", "User")
 	testUser.Balance = 10000
 	require.NoError(t, userDS.Insert(context.Background(), testUser))
 
@@ -296,7 +291,6 @@ func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 
 func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
@@ -310,8 +304,8 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 			fmt.Sprintf("user%d@test.com", i),
 			"hash",
 			fmt.Sprintf("User %d", i),
-			"",
-			"",
+			"Test",
+			"User",
 		)
 		u.Balance = 10000
 		require.NoError(t, userDS.Insert(context.Background(), u))
@@ -417,14 +411,13 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 
 func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
-	sender, _ := entities.NewUser("sender", "sender@test.com", "hash", "Sender", "", "")
+	sender, _ := entities.NewUser("sender", "sender@test.com", "hash", "Sender", "Test", "User")
 	sender.Balance = 10000
-	receiver, _ := entities.NewUser("receiver", "receiver@test.com", "hash", "Receiver", "", "")
+	receiver, _ := entities.NewUser("receiver", "receiver@test.com", "hash", "Receiver", "Test", "User")
 	receiver.Balance = 5000
 
 	require.NoError(t, userDS.Insert(context.Background(), sender))
@@ -495,12 +488,11 @@ func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 
 func TestTransactionRollback_OnError(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
-	testUser, _ := entities.NewUser("rollback_test", "rollback@test.com", "hash", "Rollback Test", "", "")
+	testUser, _ := entities.NewUser("rollback_test", "rollback@test.com", "hash", "Rollback Test", "Test", "User")
 	testUser.Balance = 5000
 	require.NoError(t, userDS.Insert(context.Background(), testUser))
 
@@ -529,7 +521,6 @@ func TestTransactionRollback_OnError(t *testing.T) {
 
 func TestTransactionTimeout(t *testing.T) {
 	db := setupIntegrationDB(t)
-	defer db.Close()
 
 	gormDB := db.GetDB()
 
