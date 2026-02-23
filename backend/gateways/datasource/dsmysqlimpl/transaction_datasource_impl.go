@@ -381,15 +381,22 @@ LEFT JOIN users from_u ON from_u.id = t.from_user_id
 LEFT JOIN users to_u ON to_u.id = t.to_user_id`
 
 // SelectListByUserIDWithUsers はユーザーに関連するトランザクション一覧をユーザー情報付きで取得（JOIN）
+// Deferred Join パターン: サブクエリでIDのみOFFSET/LIMIT → 少数のIDだけJOIN（大OFFSETでも高速）
 func (ds *TransactionDataSourceImpl) SelectListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error) {
 	var rows []transactionWithUsersRow
 
+	// サブクエリでIDのみ取得 → メインクエリでJOIN
+	query := transactionWithUsersSQL + `
+		WHERE t.id IN (
+			SELECT id FROM transactions
+			WHERE from_user_id = ? OR to_user_id = ?
+			ORDER BY created_at DESC
+			LIMIT ? OFFSET ?
+		)
+		ORDER BY t.created_at DESC`
+
 	err := inframysql.GetDB(ctx, ds.db.GetDB()).
-		Raw(transactionWithUsersSQL+`
-		WHERE t.from_user_id = ? OR t.to_user_id = ?
-		ORDER BY t.created_at DESC
-		LIMIT ? OFFSET ?`,
-			userID, userID, limit, offset).
+		Raw(query, userID, userID, limit, offset).
 		Scan(&rows).Error
 
 	if err != nil {
@@ -404,39 +411,47 @@ func (ds *TransactionDataSourceImpl) SelectListByUserIDWithUsers(ctx context.Con
 }
 
 // SelectListAllWithFilterAndUsers はフィルタ・ソート付きで全トランザクション一覧をユーザー情報付きで取得（JOIN）
+// Deferred Join パターン: サブクエリでIDのみOFFSET/LIMIT → 少数のIDだけJOIN（大OFFSETでも高速）
 func (ds *TransactionDataSourceImpl) SelectListAllWithFilterAndUsers(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.TransactionWithUsers, error) {
-	query := transactionWithUsersSQL + " WHERE 1=1"
-	args := make([]interface{}, 0)
-
-	if transactionType != "" {
-		query += " AND t.transaction_type = ?"
-		args = append(args, transactionType)
-	}
-	if dateFrom != "" {
-		query += " AND t.created_at >= ?"
-		args = append(args, dateFrom+" 00:00:00")
-	}
-	if dateTo != "" {
-		query += " AND t.created_at <= ?"
-		args = append(args, dateTo+" 23:59:59")
-	}
-
 	// ソート（ホワイトリスト方式）
 	allowedSortColumns := map[string]string{
-		"created_at": "t.created_at",
-		"amount":     "t.amount",
+		"created_at": "created_at",
+		"amount":     "amount",
 	}
-	col, ok := allowedSortColumns[sortBy]
+	sortCol, ok := allowedSortColumns[sortBy]
 	if !ok {
-		col = "t.created_at"
+		sortCol = "created_at"
 	}
 	order := "DESC"
 	if sortOrder == "asc" {
 		order = "ASC"
 	}
-	query += " ORDER BY " + col + " " + order
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, limit, offset)
+
+	// サブクエリ: IDのみをOFFSET/LIMITで取得（Index-Only Scan）
+	subQuery := "SELECT id FROM transactions WHERE 1=1"
+	subArgs := make([]interface{}, 0)
+
+	if transactionType != "" {
+		subQuery += " AND transaction_type = ?"
+		subArgs = append(subArgs, transactionType)
+	}
+	if dateFrom != "" {
+		subQuery += " AND created_at >= ?"
+		subArgs = append(subArgs, dateFrom+" 00:00:00")
+	}
+	if dateTo != "" {
+		subQuery += " AND created_at <= ?"
+		subArgs = append(subArgs, dateTo+" 23:59:59")
+	}
+
+	subQuery += " ORDER BY " + sortCol + " " + order
+	subQuery += " LIMIT ? OFFSET ?"
+	subArgs = append(subArgs, limit, offset)
+
+	// メインクエリ: サブクエリのIDでJOIN（少数行のみ）
+	query := transactionWithUsersSQL + " WHERE t.id IN (" + subQuery + ")"
+	query += " ORDER BY t." + sortCol + " " + order
+	args := subArgs
 
 	var rows []transactionWithUsersRow
 	err := inframysql.GetDB(ctx, ds.db.GetDB()).

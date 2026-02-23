@@ -2,8 +2,12 @@ package inframysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/rand"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -11,6 +15,9 @@ import (
 type contextKey string
 
 const txKey contextKey = "tx"
+
+// maxRetries はシリアライゼーションエラー時の最大リトライ回数
+const maxRetries = 3
 
 // GormTransactionManager はGORMを使ったTransactionManagerの実装
 type GormTransactionManager struct {
@@ -22,9 +29,38 @@ func NewGormTransactionManager(db *gorm.DB) *GormTransactionManager {
 	return &GormTransactionManager{db: db}
 }
 
-// Do は関数fnをトランザクション内で実行します
-// fn内でエラーが返ればRollback、nilならCommitされます
+// Do は関数fnをトランザクション内で実行します。
+// fn内でエラーが返ればRollback、nilならCommitされます。
+// REPEATABLE READでのシリアライゼーションエラー（SQLSTATE 40001）が発生した場合、
+// exponential backoff + ジッターで最大3回リトライします。
 func (tm *GormTransactionManager) Do(ctx context.Context, fn func(ctx context.Context) error) error {
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// exponential backoff + jitter: 50ms, 100ms, 200ms + ランダムジッター
+			backoff := time.Duration(50<<(attempt-1)) * time.Millisecond
+			jitter := time.Duration(rand.Int63n(int64(backoff / 2)))
+			time.Sleep(backoff + jitter)
+		}
+
+		lastErr = tm.doOnce(ctx, fn)
+		if lastErr == nil {
+			return nil
+		}
+
+		// シリアライゼーションエラー（SQLSTATE 40001）の場合のみリトライ
+		var pgErr *pgconn.PgError
+		if !errors.As(lastErr, &pgErr) || pgErr.Code != "40001" {
+			return lastErr
+		}
+	}
+
+	return fmt.Errorf("transaction failed after %d retries due to serialization conflict: %w", maxRetries, lastErr)
+}
+
+// doOnce は1回のトランザクション実行を行います
+func (tm *GormTransactionManager) doOnce(ctx context.Context, fn func(ctx context.Context) error) error {
 	// トランザクション開始
 	tx := tm.db.Begin()
 	if tx.Error != nil {

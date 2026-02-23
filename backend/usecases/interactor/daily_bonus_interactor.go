@@ -341,25 +341,47 @@ func (i *DailyBonusInteractor) getFallbackPoints(lotteryTiers []*entities.Lotter
 }
 
 // buildUserNameMap は全ユーザーを取得し正規化名→UserIDのマップを構築する
+// ページネーションで全件取得するため、ユーザー数が10万人以上でも対応可能
 func (i *DailyBonusInteractor) buildUserNameMap(ctx context.Context) map[string]uuid.UUID {
-	users, err := i.userRepo.ReadList(ctx, 0, 10000)
-	if err != nil {
-		i.logger.Error("DailyBonusInteractor: failed to get users", entities.NewField("error", err))
-		return nil
-	}
-
 	nameToUser := make(map[string]uuid.UUID)
-	for _, user := range users {
-		if user.LastName != "" && user.FirstName != "" {
-			// "田中太郎" 形式
-			fullName := entities.NormalizeName(user.LastName + user.FirstName)
-			nameToUser[fullName] = user.ID
+	const batchSize = 1000
+	offset := 0
 
-			// "田中 太郎" 形式（スペース区切り）もカバー
-			fullNameWithSpace := entities.NormalizeName(user.LastName + " " + user.FirstName)
-			nameToUser[fullNameWithSpace] = user.ID
+	for {
+		users, err := i.userRepo.ReadList(ctx, offset, batchSize)
+		if err != nil {
+			i.logger.Error("DailyBonusInteractor: failed to get users",
+				entities.NewField("offset", offset),
+				entities.NewField("error", err))
+			return nil
+		}
+
+		if len(users) == 0 {
+			break
+		}
+
+		for _, user := range users {
+			if user.LastName != "" && user.FirstName != "" {
+				// "田中太郎" 形式
+				fullName := entities.NormalizeName(user.LastName + user.FirstName)
+				nameToUser[fullName] = user.ID
+
+				// "田中 太郎" 形式（スペース区切り）もカバー
+				fullNameWithSpace := entities.NormalizeName(user.LastName + " " + user.FirstName)
+				nameToUser[fullNameWithSpace] = user.ID
+			}
+		}
+
+		offset += batchSize
+
+		// 取得件数がバッチサイズ未満なら最後のページ
+		if len(users) < batchSize {
+			break
 		}
 	}
+
+	i.logger.Info("DailyBonusInteractor: user name map built",
+		entities.NewField("mapped_names", len(nameToUser)))
 
 	return nameToUser
 }

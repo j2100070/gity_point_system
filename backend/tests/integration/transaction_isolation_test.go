@@ -12,6 +12,7 @@ import (
 
 	"github.com/gity/point-system/entities"
 	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/infra/inframysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -191,6 +192,7 @@ func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 	db := setupIntegrationDB(t)
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
 
 	// テストユーザーを作成
 	testUser, _ := entities.NewUser("concurrent_test", "concurrent@test.com", "hash", "Concurrent Test", "Test", "User")
@@ -203,15 +205,14 @@ func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 		deductAmount := int64(100)
 
 		initialBalance := testUser.Balance
-		gormDB := db.GetDB()
 
 		// 100個の並行トランザクション
 		for i := 0; i < concurrency; i++ {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
-				gormDB.Transaction(func(tx *gorm.DB) error {
-					return userDS.UpdateBalanceWithLock(context.Background(), testUser.ID, deductAmount, true)
+				txManager.Do(context.Background(), func(ctx context.Context) error {
+					return userDS.UpdateBalanceWithLock(ctx, testUser.ID, deductAmount, true)
 				})
 			}(i)
 		}
@@ -234,7 +235,7 @@ func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 	db := setupIntegrationDB(t)
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
-	gormDB := db.GetDB()
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
 
 	testUser, _ := entities.NewUser("lost_update_test", "lost@test.com", "hash", "Lost Update Test", "Test", "User")
 	testUser.Balance = 10000
@@ -242,34 +243,27 @@ func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 
 	t.Run("SELECT FOR UPDATE による Lost Update 防止", func(t *testing.T) {
 		var wg sync.WaitGroup
-		results := make([]int64, 2)
 
-		// トランザクション1
+		// トランザクション1: SELECT FOR UPDATEで1000減算
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			gormDB.Transaction(func(tx *gorm.DB) error {
-				var user entities.User
-				tx.Clauses().Where("id = ?", testUser.ID).First(&user)
-				time.Sleep(100 * time.Millisecond)
-				user.Balance -= 1000
-				tx.Save(&user)
-				results[0] = user.Balance
+			txManager.Do(context.Background(), func(ctx context.Context) error {
+				if err := userDS.UpdateBalanceWithLock(ctx, testUser.ID, 1000, true); err != nil {
+					return err
+				}
+				time.Sleep(100 * time.Millisecond) // ロック保持中に待機
 				return nil
 			})
 		}()
 
-		// トランザクション2（少し遅れて開始）
+		// トランザクション2（少し遅れて開始）: SELECT FOR UPDATEで2000減算
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			time.Sleep(50 * time.Millisecond)
-			gormDB.Transaction(func(tx *gorm.DB) error {
-				// SELECT FOR UPDATE を使用
-				if err := userDS.UpdateBalanceWithLock(context.Background(), testUser.ID, 2000, true); err != nil {
-					return err
-				}
-				return nil
+			txManager.Do(context.Background(), func(ctx context.Context) error {
+				return userDS.UpdateBalanceWithLock(ctx, testUser.ID, 2000, true)
 			})
 		}()
 
@@ -294,7 +288,8 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
 	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
-	gormDB := db.GetDB()
+	idempotencyDS := dsmysqlimpl.NewIdempotencyKeyDataSource(db)
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
 
 	// 3人のユーザーを作成
 	users := make([]*entities.User, 3)
@@ -345,7 +340,7 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 			}) {
 				defer wg.Done()
 
-				err := gormDB.Transaction(func(tx *gorm.DB) error {
+				err := txManager.Do(context.Background(), func(ctx context.Context) error {
 					fromUser := users[tf.from]
 					toUser := users[tf.to]
 
@@ -358,19 +353,26 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 					}
 
 					if firstIsFrom {
-						if err := userDS.UpdateBalanceWithLock(context.Background(), firstID, tf.amount, true); err != nil {
+						if err := userDS.UpdateBalanceWithLock(ctx, firstID, tf.amount, true); err != nil {
 							return err
 						}
-						if err := userDS.UpdateBalanceWithLock(context.Background(), secondID, tf.amount, false); err != nil {
+						if err := userDS.UpdateBalanceWithLock(ctx, secondID, tf.amount, false); err != nil {
 							return err
 						}
 					} else {
-						if err := userDS.UpdateBalanceWithLock(context.Background(), firstID, tf.amount, false); err != nil {
+						if err := userDS.UpdateBalanceWithLock(ctx, firstID, tf.amount, false); err != nil {
 							return err
 						}
-						if err := userDS.UpdateBalanceWithLock(context.Background(), secondID, tf.amount, true); err != nil {
+						if err := userDS.UpdateBalanceWithLock(ctx, secondID, tf.amount, true); err != nil {
 							return err
 						}
+					}
+
+					// 冪等性キー作成（FK制約対応）
+					idemKeyStr := fmt.Sprintf("concurrent-key-%d-%d", idx, time.Now().UnixNano())
+					idemKey := entities.NewIdempotencyKey(idemKeyStr, fromUser.ID)
+					if err := idempotencyDS.Insert(ctx, idemKey); err != nil {
+						return err
 					}
 
 					// トランザクション記録作成
@@ -378,11 +380,11 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 						fromUser.ID,
 						toUser.ID,
 						tf.amount,
-						fmt.Sprintf("concurrent-key-%d-%d", idx, time.Now().UnixNano()),
+						idemKeyStr,
 						"Concurrent transfer test",
 					)
 					txRecord.Complete()
-					return transactionDS.Insert(context.Background(), txRecord)
+					return transactionDS.Insert(ctx, txRecord)
 				})
 
 				if err != nil {
@@ -413,7 +415,9 @@ func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 	db := setupIntegrationDB(t)
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
-	gormDB := db.GetDB()
+	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
+	idempotencyDS := dsmysqlimpl.NewIdempotencyKeyDataSource(db)
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
 
 	sender, _ := entities.NewUser("sender", "sender@test.com", "hash", "Sender", "Test", "User")
 	sender.Balance = 10000
@@ -437,27 +441,31 @@ func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 			go func() {
 				defer wg.Done()
 
-				err := gormDB.Transaction(func(tx *gorm.DB) error {
-					// Idempotency keyチェック（簡易実装）
-					var existing entities.Transaction
-					if err := tx.Where("idempotency_key = ?", idempotencyKey).First(&existing).Error; err == nil {
+				err := txManager.Do(context.Background(), func(ctx context.Context) error {
+					// Idempotency keyの重複チェック
+					_, err := idempotencyDS.SelectByKey(ctx, idempotencyKey)
+					if err == nil {
+						return fmt.Errorf("duplicate idempotency key")
+					}
+
+					// Idempotency keyの作成
+					idemKey := entities.NewIdempotencyKey(idempotencyKey, sender.ID)
+					if err := idempotencyDS.Insert(ctx, idemKey); err != nil {
 						return fmt.Errorf("duplicate idempotency key")
 					}
 
 					// 残高更新
-					if err := userDS.UpdateBalanceWithLock(context.Background(), sender.ID, amount, true); err != nil {
+					if err := userDS.UpdateBalanceWithLock(ctx, sender.ID, amount, true); err != nil {
 						return err
 					}
-					if err := userDS.UpdateBalanceWithLock(context.Background(), receiver.ID, amount, false); err != nil {
+					if err := userDS.UpdateBalanceWithLock(ctx, receiver.ID, amount, false); err != nil {
 						return err
 					}
 
 					// トランザクション記録
 					txRecord, _ := entities.NewTransfer(sender.ID, receiver.ID, amount, idempotencyKey, "Idempotency test")
 					txRecord.Complete()
-
-					// DB保存（簡易実装のため直接GORMを使用）
-					return tx.Create(txRecord).Error
+					return transactionDS.Insert(ctx, txRecord)
 				})
 
 				if err == nil {
@@ -490,7 +498,7 @@ func TestTransactionRollback_OnError(t *testing.T) {
 	db := setupIntegrationDB(t)
 
 	userDS := dsmysqlimpl.NewUserDataSource(db)
-	gormDB := db.GetDB()
+	txManager := inframysql.NewGormTransactionManager(db.GetDB())
 
 	testUser, _ := entities.NewUser("rollback_test", "rollback@test.com", "hash", "Rollback Test", "Test", "User")
 	testUser.Balance = 5000
@@ -500,9 +508,9 @@ func TestTransactionRollback_OnError(t *testing.T) {
 		initialBalance := testUser.Balance
 
 		// トランザクション内でエラーを発生させる
-		err := gormDB.Transaction(func(tx *gorm.DB) error {
+		err := txManager.Do(context.Background(), func(ctx context.Context) error {
 			// 残高を減算
-			if err := userDS.UpdateBalanceWithLock(context.Background(), testUser.ID, 2000, true); err != nil {
+			if err := userDS.UpdateBalanceWithLock(ctx, testUser.ID, 2000, true); err != nil {
 				return err
 			}
 

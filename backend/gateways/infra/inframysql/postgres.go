@@ -23,13 +23,15 @@ type PostgresDB struct {
 
 // Config はPostgreSQLの設定
 type Config struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
-	Env      string
+	Host         string
+	Port         string
+	User         string
+	Password     string
+	DBName       string
+	SSLMode      string
+	Env          string
+	MaxIdleConns int // 0の場合はデフォルト値25を使用
+	MaxOpenConns int // 0の場合はデフォルト値100を使用
 }
 
 // NewPostgresDB は新しいPostgresDBを作成
@@ -60,9 +62,19 @@ func NewPostgresDB(cfg *Config) (DB, error) {
 		return nil, fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
+	maxIdle := cfg.MaxIdleConns
+	if maxIdle == 0 {
+		maxIdle = 25
+	}
+	maxOpen := cfg.MaxOpenConns
+	if maxOpen == 0 {
+		maxOpen = 100
+	}
+
+	sqlDB.SetMaxIdleConns(maxIdle)
+	sqlDB.SetMaxOpenConns(maxOpen)
 	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	// トランザクション分離レベルをREPEATABLE READに設定
 	// PostgreSQLのREPEATABLE READは、ファントムリードも防止する
