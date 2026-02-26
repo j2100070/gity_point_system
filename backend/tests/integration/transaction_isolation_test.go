@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -24,7 +24,7 @@ import (
 func TestTransactionIsolation_RepeatableRead(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 
 	// テストユーザーを作成
 	testUser, err := entities.NewUser("isolation_test", "isolation@test.com", "hash", "Isolation Test", "Test", "User")
@@ -115,7 +115,7 @@ func TestTransactionIsolation_PhantomRead(t *testing.T) {
 func TestConcurrentTransactions_DeadlockPrevention(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
 	// 2人のユーザーを作成
@@ -190,7 +190,7 @@ func TestConcurrentTransactions_DeadlockPrevention(t *testing.T) {
 func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 
 	// テストユーザーを作成
 	testUser, _ := entities.NewUser("concurrent_test", "concurrent@test.com", "hash", "Concurrent Test", "Test", "User")
@@ -233,7 +233,7 @@ func TestConcurrentTransactions_RaceCondition(t *testing.T) {
 func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
 	testUser, _ := entities.NewUser("lost_update_test", "lost@test.com", "hash", "Lost Update Test", "Test", "User")
@@ -292,8 +292,8 @@ func TestConcurrentTransactions_LostUpdate(t *testing.T) {
 func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	transactionDS := dspostgresimpl.NewTransactionDataSource(db)
 	gormDB := db.GetDB()
 
 	// 3人のユーザーを作成
@@ -412,7 +412,7 @@ func TestPointTransfer_Integration_ConcurrentTransfers(t *testing.T) {
 func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
 	sender, _ := entities.NewUser("sender", "sender@test.com", "hash", "Sender", "Test", "User")
@@ -489,7 +489,7 @@ func TestPointTransfer_Integration_Idempotency(t *testing.T) {
 func TestTransactionRollback_OnError(t *testing.T) {
 	db := setupIntegrationDB(t)
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 	gormDB := db.GetDB()
 
 	testUser, _ := entities.NewUser("rollback_test", "rollback@test.com", "hash", "Rollback Test", "Test", "User")

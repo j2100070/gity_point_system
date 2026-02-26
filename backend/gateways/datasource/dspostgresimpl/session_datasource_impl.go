@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -57,11 +57,11 @@ func (s *SessionModel) FromDomain(session *entities.Session) {
 
 // SessionDataSourceImpl はSessionDataSourceの実装
 type SessionDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewSessionDataSource は新しいSessionDataSourceを作成
-func NewSessionDataSource(db inframysql.DB) dsmysql.SessionDataSource {
+func NewSessionDataSource(db infrapostgres.DB) dsmysql.SessionDataSource {
 	return &SessionDataSourceImpl{db: db}
 }
 
@@ -70,7 +70,7 @@ func (ds *SessionDataSourceImpl) Insert(ctx context.Context, session *entities.S
 	model := &SessionModel{}
 	model.FromDomain(session)
 
-	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
+	if err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (ds *SessionDataSourceImpl) Insert(ctx context.Context, session *entities.S
 func (ds *SessionDataSourceImpl) SelectByToken(ctx context.Context, token string) (*entities.Session, error) {
 	var model SessionModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("session_token = ?", token).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("session_token = ?", token).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("session not found")
@@ -98,7 +98,7 @@ func (ds *SessionDataSourceImpl) Update(ctx context.Context, session *entities.S
 	model := &SessionModel{}
 	model.FromDomain(session)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&SessionModel{}).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&SessionModel{}).
 		Where("id = ?", session.ID).
 		Updates(map[string]interface{}{
 			"expires_at": model.ExpiresAt,
@@ -107,17 +107,17 @@ func (ds *SessionDataSourceImpl) Update(ctx context.Context, session *entities.S
 
 // Delete はセッションを削除
 func (ds *SessionDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).Delete(&SessionModel{}).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).Delete(&SessionModel{}).Error
 }
 
 // DeleteByUserID はユーザーの全セッションを削除
 func (ds *SessionDataSourceImpl) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("user_id = ?", userID).Delete(&SessionModel{}).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("user_id = ?", userID).Delete(&SessionModel{}).Error
 }
 
 // DeleteExpired は期限切れセッションを削除
 func (ds *SessionDataSourceImpl) DeleteExpired(ctx context.Context) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("expires_at < ?", time.Now()).
 		Delete(&SessionModel{}).Error
 }

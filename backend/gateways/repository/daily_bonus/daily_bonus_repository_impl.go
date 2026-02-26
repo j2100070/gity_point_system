@@ -5,17 +5,17 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 )
 
 // DailyBonusRepositoryImpl はデイリーボーナスリポジトリの実装
 type DailyBonusRepositoryImpl struct {
-	ds *dsmysqlimpl.DailyBonusDataSource
+	ds *dspostgresimpl.DailyBonusDataSource
 }
 
 // NewDailyBonusRepository は新しいDailyBonusRepositoryを作成
-func NewDailyBonusRepository(ds *dsmysqlimpl.DailyBonusDataSource) *DailyBonusRepositoryImpl {
+func NewDailyBonusRepository(ds *dspostgresimpl.DailyBonusDataSource) *DailyBonusRepositoryImpl {
 	return &DailyBonusRepositoryImpl{ds: ds}
 }
 

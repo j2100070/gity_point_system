@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -75,11 +75,11 @@ func (tr *TransferRequestModel) FromDomain(transferRequest *entities.TransferReq
 
 // TransferRequestDataSourceImpl はTransferRequestDataSourceの実装
 type TransferRequestDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewTransferRequestDataSource は新しいTransferRequestDataSourceを作成
-func NewTransferRequestDataSource(db inframysql.DB) dsmysql.TransferRequestDataSource {
+func NewTransferRequestDataSource(db infrapostgres.DB) dsmysql.TransferRequestDataSource {
 	return &TransferRequestDataSourceImpl{db: db}
 }
 
@@ -88,7 +88,7 @@ func (ds *TransferRequestDataSourceImpl) Insert(ctx context.Context, transferReq
 	model := &TransferRequestModel{}
 	model.FromDomain(transferRequest)
 
-	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
+	if err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (ds *TransferRequestDataSourceImpl) Insert(ctx context.Context, transferReq
 func (ds *TransferRequestDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.TransferRequest, error) {
 	var model TransferRequestModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -115,7 +115,7 @@ func (ds *TransferRequestDataSourceImpl) Select(ctx context.Context, id uuid.UUI
 func (ds *TransferRequestDataSourceImpl) SelectByIdempotencyKey(ctx context.Context, key string) (*entities.TransferRequest, error) {
 	var model TransferRequestModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("idempotency_key = ?", key).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("idempotency_key = ?", key).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -131,7 +131,7 @@ func (ds *TransferRequestDataSourceImpl) Update(ctx context.Context, transferReq
 	model := &TransferRequestModel{}
 	model.FromDomain(transferRequest)
 
-	result := inframysql.GetDB(ctx, ds.db.GetDB()).Save(model)
+	result := infrapostgres.GetDB(ctx, ds.db.GetDB()).Save(model)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -148,7 +148,7 @@ func (ds *TransferRequestDataSourceImpl) Update(ctx context.Context, transferReq
 func (ds *TransferRequestDataSourceImpl) SelectPendingByToUser(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
 	var models []TransferRequestModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("to_user_id = ? AND status = ?", toUserID, string(entities.TransferRequestStatusPending)).
 		Where("expires_at > ?", time.Now()). // 有効期限内のみ
 		Order("created_at DESC").
@@ -172,7 +172,7 @@ func (ds *TransferRequestDataSourceImpl) SelectPendingByToUser(ctx context.Conte
 func (ds *TransferRequestDataSourceImpl) SelectSentByFromUser(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequest, error) {
 	var models []TransferRequestModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("from_user_id = ?", fromUserID).
 		Order("created_at DESC").
 		Offset(offset).
@@ -195,7 +195,7 @@ func (ds *TransferRequestDataSourceImpl) SelectSentByFromUser(ctx context.Contex
 func (ds *TransferRequestDataSourceImpl) CountPendingByToUser(ctx context.Context, toUserID uuid.UUID) (int64, error) {
 	var count int64
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Model(&TransferRequestModel{}).
 		Where("to_user_id = ? AND status = ?", toUserID, string(entities.TransferRequestStatusPending)).
 		Where("expires_at > ?", time.Now()). // 有効期限内のみ
@@ -210,7 +210,7 @@ func (ds *TransferRequestDataSourceImpl) CountPendingByToUser(ctx context.Contex
 
 // UpdateExpiredRequests は期限切れのリクエストを一括更新
 func (ds *TransferRequestDataSourceImpl) UpdateExpiredRequests(ctx context.Context) (int64, error) {
-	result := inframysql.GetDB(ctx, ds.db.GetDB()).
+	result := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Model(&TransferRequestModel{}).
 		Where("status = ? AND expires_at <= ?", string(entities.TransferRequestStatusPending), time.Now()).
 		Update("status", string(entities.TransferRequestStatusExpired))
@@ -317,7 +317,7 @@ LEFT JOIN users to_u ON to_u.id = tr.to_user_id`
 func (ds *TransferRequestDataSourceImpl) SelectPendingByToUserWithUsers(ctx context.Context, toUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error) {
 	var rows []transferRequestWithUsersRow
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Raw(transferRequestWithUsersSQL+`
 		WHERE tr.to_user_id = ? AND tr.status = ? AND tr.expires_at > ?
 		ORDER BY tr.created_at DESC
@@ -340,7 +340,7 @@ func (ds *TransferRequestDataSourceImpl) SelectPendingByToUserWithUsers(ctx cont
 func (ds *TransferRequestDataSourceImpl) SelectSentByFromUserWithUsers(ctx context.Context, fromUserID uuid.UUID, offset, limit int) ([]*entities.TransferRequestWithUsers, error) {
 	var rows []transferRequestWithUsersRow
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Raw(transferRequestWithUsersSQL+`
 		WHERE tr.from_user_id = ?
 		ORDER BY tr.created_at DESC

@@ -1,27 +1,27 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 )
 
 // AnalyticsDataSourceImpl は分析用データソースの実装
 type AnalyticsDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewAnalyticsDataSource は新しいAnalyticsDataSourceを作成
-func NewAnalyticsDataSource(db inframysql.DB) dsmysql.AnalyticsDataSource {
+func NewAnalyticsDataSource(db infrapostgres.DB) dsmysql.AnalyticsDataSource {
 	return &AnalyticsDataSourceImpl{db: db}
 }
 
 // GetUserBalanceSummary はアクティブユーザーの残高サマリーを取得
 func (ds *AnalyticsDataSourceImpl) GetUserBalanceSummary(ctx context.Context) (*entities.AnalyticsSummaryResult, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var result struct {
 		TotalBalance   int64
@@ -46,7 +46,7 @@ func (ds *AnalyticsDataSourceImpl) GetUserBalanceSummary(ctx context.Context) (*
 
 // GetTopHolders はポイント保有上位ユーザーを取得
 func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int) ([]*entities.TopHolderResult, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var results []struct {
 		ID          string
@@ -79,7 +79,7 @@ func (ds *AnalyticsDataSourceImpl) GetTopHolders(ctx context.Context, limit int)
 
 // GetDailyStats は日別統計を取得（期間内の全日をゼロ埋めで返す）
 func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time.Time) ([]*entities.DailyStatResult, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var results []struct {
 		Date        time.Time
@@ -139,7 +139,7 @@ func (ds *AnalyticsDataSourceImpl) GetDailyStats(ctx context.Context, since time
 
 // GetTransactionTypeBreakdown はトランザクション種別構成を取得
 func (ds *AnalyticsDataSourceImpl) GetTransactionTypeBreakdown(ctx context.Context) ([]*entities.TypeBreakdownResult, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var results []struct {
 		Type        string `gorm:"column:transaction_type"`
@@ -169,7 +169,7 @@ func (ds *AnalyticsDataSourceImpl) GetTransactionTypeBreakdown(ctx context.Conte
 
 // GetMonthlyIssuedPoints は今月の発行ポイント数を取得
 func (ds *AnalyticsDataSourceImpl) GetMonthlyIssuedPoints(ctx context.Context) (int64, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
@@ -191,7 +191,7 @@ func (ds *AnalyticsDataSourceImpl) GetMonthlyIssuedPoints(ctx context.Context) (
 
 // GetMonthlyTransactionCount は今月のトランザクション数を取得
 func (ds *AnalyticsDataSourceImpl) GetMonthlyTransactionCount(ctx context.Context) (int64, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())

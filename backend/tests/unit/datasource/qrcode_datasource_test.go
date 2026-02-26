@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestQRCodeDataSource_InsertAndSelectByCode(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewQRCodeDataSource(db)
+	ds := dspostgresimpl.NewQRCodeDataSource(db)
 	user := createTestUser(t, db, "qr_user")
 
 	t.Run("QRコードを作成してコードで取得", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestQRCodeDataSource_SelectByID(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewQRCodeDataSource(db)
+	ds := dspostgresimpl.NewQRCodeDataSource(db)
 	user := createTestUser(t, db, "qr_id_user")
 
 	t.Run("IDでQRコードを取得", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestQRCodeDataSource_SelectListByUserID(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewQRCodeDataSource(db)
+	ds := dspostgresimpl.NewQRCodeDataSource(db)
 	user := createTestUser(t, db, "qr_list_user")
 	otherUser := createTestUser(t, db, "qr_other_user")
 
@@ -152,7 +152,7 @@ func TestQRCodeDataSource_Update(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewQRCodeDataSource(db)
+	ds := dspostgresimpl.NewQRCodeDataSource(db)
 	user := createTestUser(t, db, "qr_update_user")
 	scanner := createTestUser(t, db, "qr_scanner_user")
 
@@ -185,7 +185,7 @@ func TestQRCodeDataSource_DeleteExpired(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewQRCodeDataSource(db)
+	ds := dspostgresimpl.NewQRCodeDataSource(db)
 	user := createTestUser(t, db, "qr_expire_user")
 
 	t.Run("期限切れQRコードを削除", func(t *testing.T) {

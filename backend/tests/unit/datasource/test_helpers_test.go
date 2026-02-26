@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -100,7 +100,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("[TestMain] GORM connected successfully")
 
 	// AutoMigrate（main.goと同じ: 追加テーブル用）
-	if err := testGormDB.AutoMigrate(&dsmysqlimpl.CategoryModel{}); err != nil {
+	if err := testGormDB.AutoMigrate(&dspostgresimpl.CategoryModel{}); err != nil {
 		testCleanup()
 		log.Fatalf("[TestMain] FATAL: failed to auto migrate: %v", err)
 	}
@@ -115,16 +115,16 @@ func TestMain(m *testing.M) {
 }
 
 // ========================================
-// testTxDB: トランザクションを inframysql.DB として扱うラッパー
+// testTxDB: トランザクションを infrapostgres.DB として扱うラッパー
 // ========================================
 
-// testTxDB は inframysql.DB インターフェースを実装するトランザクションラッパー。
+// testTxDB は infrapostgres.DB インターフェースを実装するトランザクションラッパー。
 // GetDB() がトランザクションを返すため、datasource の操作は全てこの TX 内で実行される。
 type testTxDB struct {
 	tx *gorm.DB
 }
 
-var _ inframysql.DB = (*testTxDB)(nil) // コンパイル時のインターフェース確認
+var _ infrapostgres.DB = (*testTxDB)(nil) // コンパイル時のインターフェース確認
 
 func (t *testTxDB) GetDB() *gorm.DB {
 	return t.tx
@@ -139,9 +139,9 @@ func (t *testTxDB) Close() error {
 // ========================================
 
 // setupTestTx はテスト用のトランザクションを開始し、テスト終了時に自動ロールバックする。
-// 返り値の inframysql.DB を datasource のコンストラクタに渡すことで、
+// 返り値の infrapostgres.DB を datasource のコンストラクタに渡すことで、
 // テストデータが自動的にクリーンアップされる。
-func setupTestTx(t *testing.T) inframysql.DB {
+func setupTestTx(t *testing.T) infrapostgres.DB {
 	t.Helper()
 	if testGormDB == nil {
 		t.Fatal("testGormDB is nil — TestMain did not initialize the database. Is Docker running?")
@@ -166,9 +166,9 @@ func setupTestTx(t *testing.T) inframysql.DB {
 // ========================================
 
 // createTestUser はテスト用ユーザーをDBに挿入
-func createTestUser(t *testing.T, db inframysql.DB, username string) *entities.User {
+func createTestUser(t *testing.T, db infrapostgres.DB, username string) *entities.User {
 	t.Helper()
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 	user, err := entities.NewUser(username, username+"@example.com", "hash", "User "+username, "Test", "User")
 	require.NoError(t, err)
 	require.NoError(t, userDS.Insert(context.Background(), user))
@@ -176,9 +176,9 @@ func createTestUser(t *testing.T, db inframysql.DB, username string) *entities.U
 }
 
 // createTestUserWithBalanceDB はテスト用ユーザーを指定残高でDBに挿入
-func createTestUserWithBalanceDB(t *testing.T, db inframysql.DB, username string, balance int64) *entities.User {
+func createTestUserWithBalanceDB(t *testing.T, db infrapostgres.DB, username string, balance int64) *entities.User {
 	t.Helper()
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 	user, err := entities.NewUser(username, username+"@example.com", "hash", "User "+username, "Test", "User")
 	require.NoError(t, err)
 	user.Balance = balance
@@ -223,32 +223,32 @@ func getMigrationFiles(dir string) []string {
 // ========================================
 
 // setupFriendshipTestDB は既存テストとの互換性のため setupTestTx のエイリアス
-func setupFriendshipTestDB(t *testing.T) inframysql.DB {
+func setupFriendshipTestDB(t *testing.T) infrapostgres.DB {
 	return setupTestTx(t)
 }
 
 // setupTransferRequestTestDB は既存テストとの互換性のため setupTestTx のエイリアス
-func setupTransferRequestTestDB(t *testing.T) inframysql.DB {
+func setupTransferRequestTestDB(t *testing.T) infrapostgres.DB {
 	return setupTestTx(t)
 }
 
 // setupUserSettingsTestDB は既存テストとの互換性のため setupTestTx のエイリアス
-func setupUserSettingsTestDB(t *testing.T) inframysql.DB {
+func setupUserSettingsTestDB(t *testing.T) infrapostgres.DB {
 	return setupTestTx(t)
 }
 
 // createTestUserInDB は既存テストとの互換性のため createTestUser のエイリアス
-func createTestUserInDB(t *testing.T, db inframysql.DB, username string) *entities.User {
+func createTestUserInDB(t *testing.T, db infrapostgres.DB, username string) *entities.User {
 	return createTestUser(t, db, username)
 }
 
 // setupIntegrationDB は既存テストとの互換性のため setupTestTx のエイリアス
-func setupIntegrationDB(t *testing.T) inframysql.DB {
+func setupIntegrationDB(t *testing.T) infrapostgres.DB {
 	return setupTestTx(t)
 }
 
 // setupAnalyticsTestDB は既存テストとの互換性のため setupTestTx のエイリアス
-func setupAnalyticsTestDB(t *testing.T) inframysql.DB {
+func setupAnalyticsTestDB(t *testing.T) infrapostgres.DB {
 	return setupTestTx(t)
 }
 

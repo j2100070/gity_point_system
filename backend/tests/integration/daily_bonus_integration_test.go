@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/google/uuid"
@@ -17,12 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupDailyBonus(t *testing.T) (inputport.DailyBonusInputPort, inframysql.DB) {
+func setupDailyBonus(t *testing.T) (inputport.DailyBonusInputPort, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)
 	repos := setupAllRepos(db, lg)
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 
 	dailyBonus := interactor.NewDailyBonusInteractor(
 		repos.DailyBonus, repos.User, repos.Transaction, txManager, repos.SystemSettings, repos.PointBatch, repos.LotteryTier, lg,
@@ -31,7 +31,7 @@ func setupDailyBonus(t *testing.T) (inputport.DailyBonusInputPort, inframysql.DB
 }
 
 // seedLotteryTier はテスト用の抽選ティアをDBに挿入する
-func seedLotteryTier(t *testing.T, db inframysql.DB) {
+func seedLotteryTier(t *testing.T, db infrapostgres.DB) {
 	t.Helper()
 	err := db.GetDB().Exec(`
 		INSERT INTO bonus_lottery_tiers (id, name, points, probability, display_order, is_active)
@@ -42,7 +42,7 @@ func seedLotteryTier(t *testing.T, db inframysql.DB) {
 }
 
 // seedPendingBonus は対象ユーザーの今日の未抽選ボーナスレコードを挿入する
-func seedPendingBonus(t *testing.T, db inframysql.DB, userID uuid.UUID) {
+func seedPendingBonus(t *testing.T, db infrapostgres.DB, userID uuid.UUID) {
 	t.Helper()
 	bonusDate := entities.GetBonusDateJST(time.Now())
 	now := time.Now()

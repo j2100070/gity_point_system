@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -56,11 +56,11 @@ func (m *EmailVerificationTokenModel) FromDomain(token *entities.EmailVerificati
 
 // EmailVerificationDataSourceImpl はEmailVerificationDataSourceの実装
 type EmailVerificationDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewEmailVerificationDataSource は新しいEmailVerificationDataSourceを作成
-func NewEmailVerificationDataSource(db inframysql.DB) *EmailVerificationDataSourceImpl {
+func NewEmailVerificationDataSource(db infrapostgres.DB) *EmailVerificationDataSourceImpl {
 	return &EmailVerificationDataSourceImpl{db: db}
 }
 
@@ -69,14 +69,14 @@ func (ds *EmailVerificationDataSourceImpl) Insert(ctx context.Context, token *en
 	model := &EmailVerificationTokenModel{}
 	model.FromDomain(token)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // SelectByToken はトークンで検索
 func (ds *EmailVerificationDataSourceImpl) SelectByToken(ctx context.Context, token string) (*entities.EmailVerificationToken, error) {
 	var model EmailVerificationTokenModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("token = ?", token).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("token = ?", token).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("token not found")
@@ -92,7 +92,7 @@ func (ds *EmailVerificationDataSourceImpl) Update(ctx context.Context, token *en
 	model := &EmailVerificationTokenModel{}
 	model.FromDomain(token)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&EmailVerificationTokenModel{}).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&EmailVerificationTokenModel{}).
 		Where("id = ?", token.ID).
 		Updates(map[string]interface{}{
 			"verified_at": model.VerifiedAt,
@@ -101,14 +101,14 @@ func (ds *EmailVerificationDataSourceImpl) Update(ctx context.Context, token *en
 
 // DeleteExpired は期限切れのトークンを削除
 func (ds *EmailVerificationDataSourceImpl) DeleteExpired(ctx context.Context) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("expires_at < ?", time.Now()).
 		Delete(&EmailVerificationTokenModel{}).Error
 }
 
 // DeleteByUserID はユーザーIDに紐づくトークンを削除
 func (ds *EmailVerificationDataSourceImpl) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Delete(&EmailVerificationTokenModel{}).Error
 }

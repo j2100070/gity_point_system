@@ -1,11 +1,11 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 )
 
@@ -45,11 +45,11 @@ func (m *PasswordChangeHistoryModel) FromDomain(history *entities.PasswordChange
 
 // PasswordChangeHistoryDataSourceImpl はPasswordChangeHistoryDataSourceの実装
 type PasswordChangeHistoryDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewPasswordChangeHistoryDataSource は新しいPasswordChangeHistoryDataSourceを作成
-func NewPasswordChangeHistoryDataSource(db inframysql.DB) *PasswordChangeHistoryDataSourceImpl {
+func NewPasswordChangeHistoryDataSource(db infrapostgres.DB) *PasswordChangeHistoryDataSourceImpl {
 	return &PasswordChangeHistoryDataSourceImpl{db: db}
 }
 
@@ -58,14 +58,14 @@ func (ds *PasswordChangeHistoryDataSourceImpl) Insert(ctx context.Context, histo
 	model := &PasswordChangeHistoryModel{}
 	model.FromDomain(history)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // SelectListByUserID はユーザーIDで履歴を取得
 func (ds *PasswordChangeHistoryDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.PasswordChangeHistory, error) {
 	var models []PasswordChangeHistoryModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
@@ -87,7 +87,7 @@ func (ds *PasswordChangeHistoryDataSourceImpl) SelectListByUserID(ctx context.Co
 // CountByUserID はユーザーIDで履歴数を取得
 func (ds *PasswordChangeHistoryDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&PasswordChangeHistoryModel{}).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&PasswordChangeHistoryModel{}).
 		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err

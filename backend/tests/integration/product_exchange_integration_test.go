@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/google/uuid"
@@ -22,7 +22,7 @@ func TestProductExchangeInteractor_ExchangeProduct(t *testing.T) {
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)
 	repos := setupAllRepos(db, lg)
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 
 	productExchangeUC := interactor.NewProductExchangeInteractor(
 		txManager, repos.Product, repos.ProductExchange, repos.User, repos.Transaction, repos.PointBatch, lg,

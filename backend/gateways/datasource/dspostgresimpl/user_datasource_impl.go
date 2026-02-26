@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -90,11 +90,11 @@ func (u *UserModel) FromDomain(user *entities.User) {
 // UserDataSourceImpl はUserDataSourceの実装
 // Infraを活用し、Repositoryが要求するデータの取得、永続化を達成
 type UserDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewUserDataSource は新しいUserDataSourceを作成
-func NewUserDataSource(db inframysql.DB) dsmysql.UserDataSource {
+func NewUserDataSource(db infrapostgres.DB) dsmysql.UserDataSource {
 	return &UserDataSourceImpl{db: db}
 }
 
@@ -103,7 +103,7 @@ func (ds *UserDataSourceImpl) Insert(ctx context.Context, user *entities.User) e
 	model := &UserModel{}
 	model.FromDomain(user)
 
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	if err := db.Create(model).Error; err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (ds *UserDataSourceImpl) Insert(ctx context.Context, user *entities.User) e
 
 // Select はIDでユーザーを検索
 func (ds *UserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.User, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
 	err := db.Where("id = ?", id.String()).First(&model).Error
@@ -130,7 +130,7 @@ func (ds *UserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entiti
 
 // SelectByUsername はユーザー名でユーザーを検索
 func (ds *UserDataSourceImpl) SelectByUsername(ctx context.Context, username string) (*entities.User, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
 	err := db.Where("username = ?", username).First(&model).Error
@@ -146,7 +146,7 @@ func (ds *UserDataSourceImpl) SelectByUsername(ctx context.Context, username str
 
 // SelectByEmail はメールアドレスでユーザーを検索
 func (ds *UserDataSourceImpl) SelectByEmail(ctx context.Context, email string) (*entities.User, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var model UserModel
 
 	err := db.Where("email = ?", email).First(&model).Error
@@ -163,7 +163,7 @@ func (ds *UserDataSourceImpl) SelectByEmail(ctx context.Context, email string) (
 // Update はユーザー情報を更新（楽観的ロック対応）
 // versionはDB側でアトミックにインクリメントするため、呼び出し側でのVersion++は不要
 func (ds *UserDataSourceImpl) Update(ctx context.Context, user *entities.User) (bool, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := &UserModel{}
 	model.FromDomain(user)
 
@@ -205,7 +205,7 @@ func (ds *UserDataSourceImpl) UpdatePartial(ctx context.Context, userID uuid.UUI
 	// updated_atを自動追加
 	fields["updated_at"] = time.Now()
 
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	result := db.Model(&UserModel{}).
 		Where("id = ?", userID).
 		Updates(fields)
@@ -224,7 +224,7 @@ func (ds *UserDataSourceImpl) UpdatePartial(ctx context.Context, userID uuid.UUI
 
 // UpdateBalanceWithLock は残高を更新（悲観的ロック: SELECT FOR UPDATE）
 func (ds *UserDataSourceImpl) UpdateBalanceWithLock(ctx context.Context, userID uuid.UUID, amount int64, isDeduct bool) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var model UserModel
 
@@ -271,7 +271,7 @@ func (ds *UserDataSourceImpl) UpdateBalanceWithLock(ctx context.Context, userID 
 // UpdateBalancesWithLock は複数ユーザーの残高を一括更新（悲観的ロック、デッドロック回避）
 // デッドロック回避のために、常にUUID順（小さい順）にSELECT FOR UPDATEを実行します
 func (ds *UserDataSourceImpl) UpdateBalancesWithLock(ctx context.Context, updates []dsmysql.BalanceUpdate) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	if len(updates) == 0 {
 		return errors.New("no updates provided")
@@ -341,7 +341,7 @@ func (ds *UserDataSourceImpl) UpdateBalancesWithLock(ctx context.Context, update
 
 // SelectList はユーザー一覧を取得
 func (ds *UserDataSourceImpl) SelectList(ctx context.Context, offset, limit int) ([]*entities.User, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var models []UserModel
 
 	err := db.
@@ -364,7 +364,7 @@ func (ds *UserDataSourceImpl) SelectList(ctx context.Context, offset, limit int)
 
 // Count はユーザー総数を取得
 func (ds *UserDataSourceImpl) Count(ctx context.Context) (int64, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var count int64
 	err := db.Model(&UserModel{}).Count(&count).Error
 	return count, err
@@ -372,7 +372,7 @@ func (ds *UserDataSourceImpl) Count(ctx context.Context) (int64, error) {
 
 // Delete はユーザーを物理削除（アーカイブ後に使用）
 func (ds *UserDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	return db.Delete(&UserModel{}, "id = ?", id).Error
 }
 
@@ -390,7 +390,7 @@ func (ds *UserDataSourceImpl) applySearchCondition(db *gorm.DB, search string) *
 
 // SelectListWithSearch は検索・ソート付きでユーザー一覧を取得
 func (ds *UserDataSourceImpl) SelectListWithSearch(ctx context.Context, search string, sortBy string, sortOrder string, offset, limit int) ([]*entities.User, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	query := db.Model(&UserModel{})
 
 	// 検索条件適用
@@ -429,7 +429,7 @@ func (ds *UserDataSourceImpl) SelectListWithSearch(ctx context.Context, search s
 
 // CountWithSearch は検索条件付きでユーザー総数を取得
 func (ds *UserDataSourceImpl) CountWithSearch(ctx context.Context, search string) (int64, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	query := db.Model(&UserModel{})
 	query = ds.applySearchCondition(query, search)
 	var count int64

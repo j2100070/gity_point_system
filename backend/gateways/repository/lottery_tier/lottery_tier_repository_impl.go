@@ -4,17 +4,17 @@ import (
 	"context"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 )
 
 // LotteryTierRepositoryImpl はボーナス抽選ティアリポジトリの実装
 type LotteryTierRepositoryImpl struct {
-	ds *dsmysqlimpl.LotteryTierDataSource
+	ds *dspostgresimpl.LotteryTierDataSource
 }
 
 // NewLotteryTierRepository は新しいLotteryTierRepositoryを作成
-func NewLotteryTierRepository(ds *dsmysqlimpl.LotteryTierDataSource) *LotteryTierRepositoryImpl {
+func NewLotteryTierRepository(ds *dspostgresimpl.LotteryTierDataSource) *LotteryTierRepositoryImpl {
 	return &LotteryTierRepositoryImpl{ds: ds}
 }
 

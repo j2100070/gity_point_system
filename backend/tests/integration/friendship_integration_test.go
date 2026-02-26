@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupFriendship(t *testing.T) (inputport.FriendshipInputPort, inframysql.DB) {
+func setupFriendship(t *testing.T) (inputport.FriendshipInputPort, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)

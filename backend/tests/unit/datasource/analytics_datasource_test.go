@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func TestAnalyticsDataSource_GetUserBalanceSummary(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewAnalyticsDataSource(db)
+	ds := dspostgresimpl.NewAnalyticsDataSource(db)
 
 	t.Run("アクティブユーザーの残高サマリーを取得", func(t *testing.T) {
 		// テストユーザーを作成
@@ -49,7 +49,7 @@ func TestAnalyticsDataSource_GetTopHolders(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewAnalyticsDataSource(db)
+	ds := dspostgresimpl.NewAnalyticsDataSource(db)
 
 	t.Run("ポイント保有上位ユーザーを取得", func(t *testing.T) {
 		// 異なる残高のユーザーを作成
@@ -74,7 +74,7 @@ func TestAnalyticsDataSource_GetMonthlyTransactionCount(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewAnalyticsDataSource(db)
+	ds := dspostgresimpl.NewAnalyticsDataSource(db)
 
 	t.Run("今月のトランザクション数を取得", func(t *testing.T) {
 		count, err := ds.GetMonthlyTransactionCount(context.Background())
@@ -87,7 +87,7 @@ func TestAnalyticsDataSource_GetMonthlyIssuedPoints(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewAnalyticsDataSource(db)
+	ds := dspostgresimpl.NewAnalyticsDataSource(db)
 
 	t.Run("今月の発行ポイント数を取得", func(t *testing.T) {
 		total, err := ds.GetMonthlyIssuedPoints(context.Background())
@@ -100,7 +100,7 @@ func TestAnalyticsDataSource_GetTransactionTypeBreakdown(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewAnalyticsDataSource(db)
+	ds := dspostgresimpl.NewAnalyticsDataSource(db)
 
 	t.Run("トランザクション種別構成を取得", func(t *testing.T) {
 		breakdowns, err := ds.GetTransactionTypeBreakdown(context.Background())

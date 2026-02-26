@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/gity/point-system/usecases/repository"
@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupPointTransfer(t *testing.T) (*interactor.PointTransferInteractor, inframysql.DB) {
+func setupPointTransfer(t *testing.T) (*interactor.PointTransferInteractor, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)
 	repos := setupAllRepos(db, lg)
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 
 	pt := interactor.NewPointTransferInteractor(
 		txManager, repos.User, repos.Transaction, repos.IdempotencyKey, repos.Friendship, repos.PointBatch, lg,
@@ -180,12 +180,12 @@ func TestPointTransfer_GetExpiringPoints(t *testing.T) {
 }
 
 // setupPointTransferWithTxManager はトランザクションマネージャーも返す（他テストで再利用）
-func setupPointTransferWithTxManager(t *testing.T) (*interactor.PointTransferInteractor, *Repos, repository.TransactionManager, inframysql.DB) {
+func setupPointTransferWithTxManager(t *testing.T) (*interactor.PointTransferInteractor, *Repos, repository.TransactionManager, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)
 	repos := setupAllRepos(db, lg)
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 
 	pt := interactor.NewPointTransferInteractor(
 		txManager, repos.User, repos.Transaction, repos.IdempotencyKey, repos.Friendship, repos.PointBatch, lg,

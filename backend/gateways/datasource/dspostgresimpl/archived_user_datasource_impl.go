@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -80,11 +80,11 @@ func (m *ArchivedUserModel) FromDomain(au *entities.ArchivedUser) {
 
 // ArchivedUserDataSourceImpl はArchivedUserDataSourceの実装
 type ArchivedUserDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewArchivedUserDataSource は新しいArchivedUserDataSourceを作成
-func NewArchivedUserDataSource(db inframysql.DB) *ArchivedUserDataSourceImpl {
+func NewArchivedUserDataSource(db infrapostgres.DB) *ArchivedUserDataSourceImpl {
 	return &ArchivedUserDataSourceImpl{db: db}
 }
 
@@ -93,14 +93,14 @@ func (ds *ArchivedUserDataSourceImpl) Insert(ctx context.Context, archivedUser *
 	model := &ArchivedUserModel{}
 	model.FromDomain(archivedUser)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // Select はIDでアーカイブユーザーを検索
 func (ds *ArchivedUserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.ArchivedUser, error) {
 	var model ArchivedUserModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("archived user not found")
@@ -115,7 +115,7 @@ func (ds *ArchivedUserDataSourceImpl) Select(ctx context.Context, id uuid.UUID) 
 func (ds *ArchivedUserDataSourceImpl) SelectByUsername(ctx context.Context, username string) (*entities.ArchivedUser, error) {
 	var model ArchivedUserModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("username = ?", username).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("username = ?", username).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("archived user not found")
@@ -130,7 +130,7 @@ func (ds *ArchivedUserDataSourceImpl) SelectByUsername(ctx context.Context, user
 func (ds *ArchivedUserDataSourceImpl) SelectList(ctx context.Context, offset, limit int) ([]*entities.ArchivedUser, error) {
 	var models []ArchivedUserModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Offset(offset).
 		Limit(limit).
 		Order("archived_at DESC").
@@ -151,7 +151,7 @@ func (ds *ArchivedUserDataSourceImpl) SelectList(ctx context.Context, offset, li
 // Count はアーカイブユーザー総数を取得
 func (ds *ArchivedUserDataSourceImpl) Count(ctx context.Context) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ArchivedUserModel{}).Count(&count).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&ArchivedUserModel{}).Count(&count).Error
 	return count, err
 }
 

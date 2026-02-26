@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -85,17 +85,17 @@ func (t *TransactionModel) FromDomain(transaction *entities.Transaction) {
 
 // TransactionDataSourceImpl はTransactionDataSourceの実装
 type TransactionDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewTransactionDataSource は新しいTransactionDataSourceを作成
-func NewTransactionDataSource(db inframysql.DB) dsmysql.TransactionDataSource {
+func NewTransactionDataSource(db infrapostgres.DB) dsmysql.TransactionDataSource {
 	return &TransactionDataSourceImpl{db: db}
 }
 
 // Insert は新しいトランザクションを挿入
 func (ds *TransactionDataSourceImpl) Insert(ctx context.Context, transaction *entities.Transaction) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := &TransactionModel{}
 	model.FromDomain(transaction)
 
@@ -111,7 +111,7 @@ func (ds *TransactionDataSourceImpl) Insert(ctx context.Context, transaction *en
 func (ds *TransactionDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Transaction, error) {
 	var model TransactionModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("transaction not found")
@@ -126,7 +126,7 @@ func (ds *TransactionDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (
 func (ds *TransactionDataSourceImpl) SelectByIdempotencyKey(ctx context.Context, key string) (*entities.Transaction, error) {
 	var model TransactionModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("idempotency_key = ?", key).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("idempotency_key = ?", key).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("transaction not found")
@@ -141,7 +141,7 @@ func (ds *TransactionDataSourceImpl) SelectByIdempotencyKey(ctx context.Context,
 func (ds *TransactionDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Transaction, error) {
 	var models []TransactionModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("from_user_id = ? OR to_user_id = ?", userID, userID).
 		Offset(offset).
 		Limit(limit).
@@ -164,7 +164,7 @@ func (ds *TransactionDataSourceImpl) SelectListByUserID(ctx context.Context, use
 func (ds *TransactionDataSourceImpl) SelectListAll(ctx context.Context, offset, limit int) ([]*entities.Transaction, error) {
 	var models []TransactionModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -198,7 +198,7 @@ func (ds *TransactionDataSourceImpl) applyFilterConditions(query *gorm.DB, trans
 
 // SelectListAllWithFilter はフィルタ・ソート付きで全トランザクション一覧を取得
 func (ds *TransactionDataSourceImpl) SelectListAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo, sortBy, sortOrder string, offset, limit int) ([]*entities.Transaction, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	query := db.Model(&TransactionModel{})
 
 	query = ds.applyFilterConditions(query, transactionType, dateFrom, dateTo)
@@ -234,13 +234,13 @@ func (ds *TransactionDataSourceImpl) SelectListAllWithFilter(ctx context.Context
 // CountAll は全トランザクション総数を取得
 func (ds *TransactionDataSourceImpl) CountAll(ctx context.Context) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&TransactionModel{}).Count(&count).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&TransactionModel{}).Count(&count).Error
 	return count, err
 }
 
 // CountAllWithFilter はフィルタ付きで全トランザクション総数を取得
 func (ds *TransactionDataSourceImpl) CountAllWithFilter(ctx context.Context, transactionType, dateFrom, dateTo string) (int64, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	query := db.Model(&TransactionModel{})
 	query = ds.applyFilterConditions(query, transactionType, dateFrom, dateTo)
 	var count int64
@@ -250,7 +250,7 @@ func (ds *TransactionDataSourceImpl) CountAllWithFilter(ctx context.Context, tra
 
 // Update はトランザクションを更新
 func (ds *TransactionDataSourceImpl) Update(ctx context.Context, transaction *entities.Transaction) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := &TransactionModel{}
 	model.FromDomain(transaction)
 
@@ -265,7 +265,7 @@ func (ds *TransactionDataSourceImpl) Update(ctx context.Context, transaction *en
 // CountByUserID はユーザーのトランザクション総数を取得
 func (ds *TransactionDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&TransactionModel{}).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&TransactionModel{}).
 		Where("from_user_id = ? OR to_user_id = ?", userID, userID).
 		Count(&count).Error
 	return count, err
@@ -384,7 +384,7 @@ LEFT JOIN users to_u ON to_u.id = t.to_user_id`
 func (ds *TransactionDataSourceImpl) SelectListByUserIDWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.TransactionWithUsers, error) {
 	var rows []transactionWithUsersRow
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Raw(transactionWithUsersSQL+`
 		WHERE t.from_user_id = ? OR t.to_user_id = ?
 		ORDER BY t.created_at DESC
@@ -439,7 +439,7 @@ func (ds *TransactionDataSourceImpl) SelectListAllWithFilterAndUsers(ctx context
 	args = append(args, limit, offset)
 
 	var rows []transactionWithUsersRow
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Raw(query, args...).
 		Scan(&rows).Error
 
@@ -493,11 +493,11 @@ func (i *IdempotencyKeyModel) FromDomain(key *entities.IdempotencyKey) {
 
 // IdempotencyKeyDataSourceImpl はIdempotencyKeyDataSourceの実装
 type IdempotencyKeyDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewIdempotencyKeyDataSource は新しいIdempotencyKeyDataSourceを作成
-func NewIdempotencyKeyDataSource(db inframysql.DB) dsmysql.IdempotencyKeyDataSource {
+func NewIdempotencyKeyDataSource(db infrapostgres.DB) dsmysql.IdempotencyKeyDataSource {
 	return &IdempotencyKeyDataSourceImpl{db: db}
 }
 
@@ -506,7 +506,7 @@ func (ds *IdempotencyKeyDataSourceImpl) Insert(ctx context.Context, key *entitie
 	model := &IdempotencyKeyModel{}
 	model.FromDomain(key)
 
-	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
+	if err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -518,7 +518,7 @@ func (ds *IdempotencyKeyDataSourceImpl) Insert(ctx context.Context, key *entitie
 func (ds *IdempotencyKeyDataSourceImpl) SelectByKey(ctx context.Context, key string) (*entities.IdempotencyKey, error) {
 	var model IdempotencyKeyModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("key = ?", key).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("key = ?", key).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("idempotency key not found")
@@ -534,7 +534,7 @@ func (ds *IdempotencyKeyDataSourceImpl) Update(ctx context.Context, key *entitie
 	model := &IdempotencyKeyModel{}
 	model.FromDomain(key)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&IdempotencyKeyModel{}).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&IdempotencyKeyModel{}).
 		Where("key = ?", key.Key).
 		Updates(map[string]interface{}{
 			"transaction_id": model.TransactionID,
@@ -544,7 +544,7 @@ func (ds *IdempotencyKeyDataSourceImpl) Update(ctx context.Context, key *entitie
 
 // DeleteExpired は期限切れの冪等性キーを削除
 func (ds *IdempotencyKeyDataSourceImpl) DeleteExpired(ctx context.Context) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("expires_at < ?", time.Now()).
 		Delete(&IdempotencyKeyModel{}).Error
 }

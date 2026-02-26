@@ -7,19 +7,19 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupUserSettings(t *testing.T) (inputport.UserSettingsInputPort, inframysql.DB) {
+func setupUserSettings(t *testing.T) (inputport.UserSettingsInputPort, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)
 	repos := setupAllRepos(db, lg)
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 	pwdSvc := &mockPasswordService{}
 	emailSvc := &mockEmailService{}
 	fileSvc := &mockFileStorageService{}

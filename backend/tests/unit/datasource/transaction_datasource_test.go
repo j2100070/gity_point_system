@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func TestTransactionDataSource_InsertAndSelect(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewTransactionDataSource(db)
+	ds := dspostgresimpl.NewTransactionDataSource(db)
 	sender := createTestUser(t, db, "tx_sender")
 	receiver := createTestUser(t, db, "tx_receiver")
 
@@ -55,7 +55,7 @@ func TestTransactionDataSource_SelectByIdempotencyKey(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewTransactionDataSource(db)
+	ds := dspostgresimpl.NewTransactionDataSource(db)
 	sender := createTestUser(t, db, "idem_sender")
 	receiver := createTestUser(t, db, "idem_receiver")
 
@@ -85,7 +85,7 @@ func TestTransactionDataSource_SelectListByUserID(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewTransactionDataSource(db)
+	ds := dspostgresimpl.NewTransactionDataSource(db)
 	sender := createTestUser(t, db, "list_sender")
 	receiver := createTestUser(t, db, "list_receiver")
 
@@ -121,7 +121,7 @@ func TestTransactionDataSource_CountByUserID(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewTransactionDataSource(db)
+	ds := dspostgresimpl.NewTransactionDataSource(db)
 	sender := createTestUser(t, db, "count_sender")
 	receiver := createTestUser(t, db, "count_receiver")
 
@@ -147,7 +147,7 @@ func TestTransactionDataSource_Update(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewTransactionDataSource(db)
+	ds := dspostgresimpl.NewTransactionDataSource(db)
 	sender := createTestUser(t, db, "update_sender")
 	receiver := createTestUser(t, db, "update_receiver")
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestDailyBonusDataSource_InsertAndSelectByUserAndDate(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewDailyBonusDataSource(db)
+	ds := dspostgresimpl.NewDailyBonusDataSource(db)
 	user := createTestUser(t, db, "bonus_user")
 
 	t.Run("デイリーボーナスを作成してユーザー+日付で取得", func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestDailyBonusDataSource_SelectRecentByUser(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewDailyBonusDataSource(db)
+	ds := dspostgresimpl.NewDailyBonusDataSource(db)
 	user := createTestUser(t, db, "recent_bonus_user")
 
 	t.Run("最近のデイリーボーナスを取得", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestDailyBonusDataSource_CountByUser(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewDailyBonusDataSource(db)
+	ds := dspostgresimpl.NewDailyBonusDataSource(db)
 	user := createTestUser(t, db, "count_bonus_user")
 
 	t.Run("ユーザーのボーナス獲得日数を取得", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestDailyBonusDataSource_UpdateIsViewed(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewDailyBonusDataSource(db)
+	ds := dspostgresimpl.NewDailyBonusDataSource(db)
 	user := createTestUser(t, db, "viewed_bonus_user")
 
 	t.Run("閲覧済みフラグを更新", func(t *testing.T) {
@@ -169,7 +169,7 @@ func TestDailyBonusDataSource_UpdateDrawnResult(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewDailyBonusDataSource(db)
+	ds := dspostgresimpl.NewDailyBonusDataSource(db)
 	user := createTestUser(t, db, "drawn_bonus_user")
 
 	t.Run("抽選結果を更新", func(t *testing.T) {
@@ -230,7 +230,7 @@ func TestDailyBonusDataSource_PollState(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewDailyBonusDataSource(db)
+	ds := dspostgresimpl.NewDailyBonusDataSource(db)
 
 	t.Run("ポーリング時刻の取得と更新", func(t *testing.T) {
 		// マイグレーションでシードデータが入っているので、まず削除して「レコードなし」状態をテスト

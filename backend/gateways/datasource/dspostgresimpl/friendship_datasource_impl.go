@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -51,11 +51,11 @@ func (f *FriendshipModel) FromDomain(friendship *entities.Friendship) {
 
 // FriendshipDataSourceImpl はFriendshipDataSourceの実装
 type FriendshipDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewFriendshipDataSource は新しいFriendshipDataSourceを作成
-func NewFriendshipDataSource(db inframysql.DB) dsmysql.FriendshipDataSource {
+func NewFriendshipDataSource(db infrapostgres.DB) dsmysql.FriendshipDataSource {
 	return &FriendshipDataSourceImpl{db: db}
 }
 
@@ -64,7 +64,7 @@ func (ds *FriendshipDataSourceImpl) Insert(ctx context.Context, friendship *enti
 	model := &FriendshipModel{}
 	model.FromDomain(friendship)
 
-	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
+	if err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -76,7 +76,7 @@ func (ds *FriendshipDataSourceImpl) Insert(ctx context.Context, friendship *enti
 func (ds *FriendshipDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Friendship, error) {
 	var model FriendshipModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("friendship not found")
@@ -91,7 +91,7 @@ func (ds *FriendshipDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*
 func (ds *FriendshipDataSourceImpl) SelectByUsers(ctx context.Context, userID1, userID2 uuid.UUID) (*entities.Friendship, error) {
 	var model FriendshipModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("(requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)",
 			userID1, userID2, userID2, userID1).
 		First(&model).Error
@@ -110,7 +110,7 @@ func (ds *FriendshipDataSourceImpl) SelectByUsers(ctx context.Context, userID1, 
 func (ds *FriendshipDataSourceImpl) SelectListFriends(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
 	var models []FriendshipModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("(requester_id = ? OR addressee_id = ?) AND status = ?",
 			userID, userID, "accepted").
 		Offset(offset).
@@ -134,7 +134,7 @@ func (ds *FriendshipDataSourceImpl) SelectListFriends(ctx context.Context, userI
 func (ds *FriendshipDataSourceImpl) SelectListPendingRequests(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.Friendship, error) {
 	var models []FriendshipModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("addressee_id = ? AND status = ?", userID, "pending").
 		Offset(offset).
 		Limit(limit).
@@ -156,7 +156,7 @@ func (ds *FriendshipDataSourceImpl) SelectListPendingRequests(ctx context.Contex
 // CountPendingRequests は保留中の友達申請件数を取得
 func (ds *FriendshipDataSourceImpl) CountPendingRequests(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Model(&FriendshipModel{}).
 		Where("addressee_id = ? AND status = ?", userID, "pending").
 		Count(&count).Error
@@ -168,7 +168,7 @@ func (ds *FriendshipDataSourceImpl) Update(ctx context.Context, friendship *enti
 	model := &FriendshipModel{}
 	model.FromDomain(friendship)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&FriendshipModel{}).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&FriendshipModel{}).
 		Where("id = ?", friendship.ID).
 		Updates(map[string]interface{}{
 			"status":     model.Status,
@@ -178,7 +178,7 @@ func (ds *FriendshipDataSourceImpl) Update(ctx context.Context, friendship *enti
 
 // Delete は友達関係を削除
 func (ds *FriendshipDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).Delete(&FriendshipModel{}).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).Delete(&FriendshipModel{}).Error
 }
 
 // FriendshipArchiveModel はGORM用のアーカイブモデル
@@ -199,7 +199,7 @@ func (FriendshipArchiveModel) TableName() string {
 
 // ArchiveAndDelete は友達関係をアーカイブしてから削除
 func (ds *FriendshipDataSourceImpl) ArchiveAndDelete(ctx context.Context, id uuid.UUID, archivedBy uuid.UUID) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Transaction(func(tx *gorm.DB) error {
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Transaction(func(tx *gorm.DB) error {
 		// 1. 元レコードを取得
 		var model FriendshipModel
 		if err := tx.Where("id = ?", id).First(&model).Error; err != nil {
@@ -230,7 +230,7 @@ func (ds *FriendshipDataSourceImpl) ArchiveAndDelete(ctx context.Context, id uui
 func (ds *FriendshipDataSourceImpl) CheckAreFriends(ctx context.Context, userID1, userID2 uuid.UUID) (bool, error) {
 	var count int64
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&FriendshipModel{}).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&FriendshipModel{}).
 		Where("((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)) AND status = ?",
 			userID1, userID2, userID2, userID1, "accepted").
 		Count(&count).Error
@@ -298,7 +298,7 @@ func (r *friendshipWithUserRow) toDomain() *entities.FriendshipWithUser {
 func (ds *FriendshipDataSourceImpl) SelectListFriendsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
 	var rows []friendshipWithUserRow
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Raw(`SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at, f.updated_at,
 			u.id AS friend_id, u.username AS friend_username, u.email AS friend_email,
 			u.display_name AS friend_display_name, u.first_name AS friend_first_name,
@@ -332,7 +332,7 @@ func (ds *FriendshipDataSourceImpl) SelectListFriendsWithUsers(ctx context.Conte
 func (ds *FriendshipDataSourceImpl) SelectListPendingRequestsWithUsers(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.FriendshipWithUser, error) {
 	var rows []friendshipWithUserRow
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Raw(`SELECT f.id, f.requester_id, f.addressee_id, f.status, f.created_at, f.updated_at,
 			u.id AS friend_id, u.username AS friend_username, u.email AS friend_email,
 			u.display_name AS friend_display_name, u.first_name AS friend_first_name,

@@ -1,11 +1,11 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -45,11 +45,11 @@ func (AkerunPollStateModel) TableName() string {
 
 // DailyBonusDataSource はデイリーボーナスのデータソース
 type DailyBonusDataSource struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewDailyBonusDataSource は新しいDailyBonusDataSourceを作成
-func NewDailyBonusDataSource(db inframysql.DB) *DailyBonusDataSource {
+func NewDailyBonusDataSource(db infrapostgres.DB) *DailyBonusDataSource {
 	return &DailyBonusDataSource{db: db}
 }
 
@@ -105,14 +105,14 @@ func (ds *DailyBonusDataSource) toModel(bonus *entities.DailyBonus) *DailyBonusM
 
 // Insert はデイリーボーナスを挿入
 func (ds *DailyBonusDataSource) Insert(ctx context.Context, bonus *entities.DailyBonus) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := ds.toModel(bonus)
 	return db.Create(model).Error
 }
 
 // SelectByUserAndDate はユーザーIDと日付でデイリーボーナスを取得
 func (ds *DailyBonusDataSource) SelectByUserAndDate(ctx context.Context, userID uuid.UUID, date time.Time) (*entities.DailyBonus, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var model DailyBonusModel
 	dateOnly := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	err := db.Where("user_id = ? AND bonus_date = ?", userID, dateOnly).First(&model).Error
@@ -127,7 +127,7 @@ func (ds *DailyBonusDataSource) SelectByUserAndDate(ctx context.Context, userID 
 
 // SelectRecentByUser はユーザーの最近のデイリーボーナスを取得
 func (ds *DailyBonusDataSource) SelectRecentByUser(ctx context.Context, userID uuid.UUID, limit int) ([]*entities.DailyBonus, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var models []DailyBonusModel
 	err := db.
 		Where("user_id = ?", userID).
@@ -147,7 +147,7 @@ func (ds *DailyBonusDataSource) SelectRecentByUser(ctx context.Context, userID u
 
 // CountByUser はユーザーのボーナス獲得日数をカウント
 func (ds *DailyBonusDataSource) CountByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var count int64
 	err := db.Model(&DailyBonusModel{}).
 		Where("user_id = ?", userID).
@@ -157,7 +157,7 @@ func (ds *DailyBonusDataSource) CountByUser(ctx context.Context, userID uuid.UUI
 
 // GetLastPolledAt は前回ポーリング時刻を取得
 func (ds *DailyBonusDataSource) GetLastPolledAt(ctx context.Context) (time.Time, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var model AkerunPollStateModel
 	err := db.First(&model).Error
 	if err != nil {
@@ -171,7 +171,7 @@ func (ds *DailyBonusDataSource) GetLastPolledAt(ctx context.Context) (time.Time,
 
 // UpdateLastPolledAt はポーリング時刻を更新
 func (ds *DailyBonusDataSource) UpdateLastPolledAt(ctx context.Context, t time.Time) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	return db.Model(&AkerunPollStateModel{}).
 		Where("id = 1").
 		Updates(map[string]interface{}{
@@ -182,7 +182,7 @@ func (ds *DailyBonusDataSource) UpdateLastPolledAt(ctx context.Context, t time.T
 
 // UpdateIsViewed はデイリーボーナスの閲覧状態を更新
 func (ds *DailyBonusDataSource) UpdateIsViewed(ctx context.Context, id uuid.UUID) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	return db.Model(&DailyBonusModel{}).
 		Where("id = ?", id).
 		Update("is_viewed", true).Error
@@ -190,7 +190,7 @@ func (ds *DailyBonusDataSource) UpdateIsViewed(ctx context.Context, id uuid.UUID
 
 // UpdateDrawnResult は抽選結果を更新する（ルーレット実行時）
 func (ds *DailyBonusDataSource) UpdateDrawnResult(ctx context.Context, id uuid.UUID, bonusPoints int64, lotteryTierID *uuid.UUID, lotteryTierName string) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	updates := map[string]interface{}{
 		"bonus_points":      bonusPoints,
 		"lottery_tier_id":   lotteryTierID,

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +22,7 @@ func TestSessionDataSource_InsertAndSelectByToken(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSessionDataSource(db)
+	ds := dspostgresimpl.NewSessionDataSource(db)
 	user := createTestUser(t, db, "session_user")
 
 	t.Run("セッションを作成してトークンで取得", func(t *testing.T) {
@@ -57,7 +57,7 @@ func TestSessionDataSource_Update(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSessionDataSource(db)
+	ds := dspostgresimpl.NewSessionDataSource(db)
 	user := createTestUser(t, db, "session_update_user")
 
 	t.Run("セッション有効期限を更新", func(t *testing.T) {
@@ -85,7 +85,7 @@ func TestSessionDataSource_Delete(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSessionDataSource(db)
+	ds := dspostgresimpl.NewSessionDataSource(db)
 	user := createTestUser(t, db, "session_del_user")
 
 	t.Run("IDでセッションを削除", func(t *testing.T) {
@@ -105,7 +105,7 @@ func TestSessionDataSource_DeleteByUserID(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSessionDataSource(db)
+	ds := dspostgresimpl.NewSessionDataSource(db)
 	user := createTestUser(t, db, "session_del_all_user")
 
 	t.Run("ユーザーの全セッションを削除", func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestSessionDataSource_DeleteExpired(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSessionDataSource(db)
+	ds := dspostgresimpl.NewSessionDataSource(db)
 	user := createTestUser(t, db, "session_expired_user")
 
 	t.Run("期限切れセッションを一括削除", func(t *testing.T) {
@@ -164,7 +164,7 @@ func TestSessionDataSource_FullFlow(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSessionDataSource(db)
+	ds := dspostgresimpl.NewSessionDataSource(db)
 	user := createTestUser(t, db, "session_flow_user")
 
 	t.Run("セッション作成→更新→削除のフルフロー", func(t *testing.T) {

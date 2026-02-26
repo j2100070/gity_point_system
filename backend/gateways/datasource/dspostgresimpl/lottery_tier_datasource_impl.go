@@ -1,11 +1,11 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 )
 
@@ -28,11 +28,11 @@ func (LotteryTierModel) TableName() string {
 
 // LotteryTierDataSource はボーナス抽選ティアのデータソース
 type LotteryTierDataSource struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewLotteryTierDataSource は新しいLotteryTierDataSourceを作成
-func NewLotteryTierDataSource(db inframysql.DB) *LotteryTierDataSource {
+func NewLotteryTierDataSource(db infrapostgres.DB) *LotteryTierDataSource {
 	return &LotteryTierDataSource{db: db}
 }
 
@@ -64,7 +64,7 @@ func (ds *LotteryTierDataSource) toModel(tier *entities.LotteryTier) *LotteryTie
 
 // SelectAll は全ティアを取得（display_order順）
 func (ds *LotteryTierDataSource) SelectAll(ctx context.Context) ([]*entities.LotteryTier, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var models []LotteryTierModel
 	err := db.Order("display_order ASC").Find(&models).Error
 	if err != nil {
@@ -79,7 +79,7 @@ func (ds *LotteryTierDataSource) SelectAll(ctx context.Context) ([]*entities.Lot
 
 // SelectActive はアクティブなティアのみ取得
 func (ds *LotteryTierDataSource) SelectActive(ctx context.Context) ([]*entities.LotteryTier, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var models []LotteryTierModel
 	err := db.Where("is_active = ?", true).Order("display_order ASC").Find(&models).Error
 	if err != nil {
@@ -94,27 +94,27 @@ func (ds *LotteryTierDataSource) SelectActive(ctx context.Context) ([]*entities.
 
 // Insert はティアを作成
 func (ds *LotteryTierDataSource) Insert(ctx context.Context, tier *entities.LotteryTier) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := ds.toModel(tier)
 	return db.Create(model).Error
 }
 
 // Update はティアを更新
 func (ds *LotteryTierDataSource) Update(ctx context.Context, tier *entities.LotteryTier) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := ds.toModel(tier)
 	return db.Save(model).Error
 }
 
 // Delete はティアを削除
 func (ds *LotteryTierDataSource) Delete(ctx context.Context, id uuid.UUID) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	return db.Delete(&LotteryTierModel{}, "id = ?", id).Error
 }
 
 // ReplaceAll は全ティアを一括置換
 func (ds *LotteryTierDataSource) ReplaceAll(ctx context.Context, tiers []*entities.LotteryTier) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	// daily_bonuses の FK 参照を解除（lottery_tier_name に名前は残る）
 	if err := db.Exec("UPDATE daily_bonuses SET lottery_tier_id = NULL WHERE lottery_tier_id IS NOT NULL").Error; err != nil {

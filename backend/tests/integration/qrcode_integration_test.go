@@ -7,19 +7,19 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupQRCode(t *testing.T) (inputport.QRCodeInputPort, inframysql.DB) {
+func setupQRCode(t *testing.T) (inputport.QRCodeInputPort, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)
 	repos := setupAllRepos(db, lg)
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 
 	pt := interactor.NewPointTransferInteractor(
 		txManager, repos.User, repos.Transaction, repos.IdempotencyKey, repos.Friendship, repos.PointBatch, lg,

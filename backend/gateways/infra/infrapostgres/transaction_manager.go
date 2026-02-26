@@ -1,4 +1,4 @@
-package inframysql
+package infrapostgres
 
 import (
 	"context"

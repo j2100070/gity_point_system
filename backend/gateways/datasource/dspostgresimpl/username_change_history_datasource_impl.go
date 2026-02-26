@@ -1,11 +1,11 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 )
 
@@ -51,11 +51,11 @@ func (m *UsernameChangeHistoryModel) FromDomain(history *entities.UsernameChange
 
 // UsernameChangeHistoryDataSourceImpl はUsernameChangeHistoryDataSourceの実装
 type UsernameChangeHistoryDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewUsernameChangeHistoryDataSource は新しいUsernameChangeHistoryDataSourceを作成
-func NewUsernameChangeHistoryDataSource(db inframysql.DB) *UsernameChangeHistoryDataSourceImpl {
+func NewUsernameChangeHistoryDataSource(db infrapostgres.DB) *UsernameChangeHistoryDataSourceImpl {
 	return &UsernameChangeHistoryDataSourceImpl{db: db}
 }
 
@@ -64,14 +64,14 @@ func (ds *UsernameChangeHistoryDataSourceImpl) Insert(ctx context.Context, histo
 	model := &UsernameChangeHistoryModel{}
 	model.FromDomain(history)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error
 }
 
 // SelectListByUserID はユーザーIDで履歴を取得
 func (ds *UsernameChangeHistoryDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.UsernameChangeHistory, error) {
 	var models []UsernameChangeHistoryModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
@@ -93,7 +93,7 @@ func (ds *UsernameChangeHistoryDataSourceImpl) SelectListByUserID(ctx context.Co
 // CountByUserID はユーザーIDで履歴数を取得
 func (ds *UsernameChangeHistoryDataSourceImpl) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&UsernameChangeHistoryModel{}).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&UsernameChangeHistoryModel{}).
 		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err

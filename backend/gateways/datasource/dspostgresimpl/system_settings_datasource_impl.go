@@ -1,10 +1,10 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
 	"time"
 
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -24,17 +24,17 @@ func (SystemSettingModel) TableName() string {
 
 // SystemSettingsDataSource はシステム設定のデータソース
 type SystemSettingsDataSource struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewSystemSettingsDataSource は新しいSystemSettingsDataSourceを作成
-func NewSystemSettingsDataSource(db inframysql.DB) *SystemSettingsDataSource {
+func NewSystemSettingsDataSource(db infrapostgres.DB) *SystemSettingsDataSource {
 	return &SystemSettingsDataSource{db: db}
 }
 
 // GetSetting はキーに対応する設定値を取得
 func (ds *SystemSettingsDataSource) GetSetting(ctx context.Context, key string) (string, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	var model SystemSettingModel
 	err := db.Where("key = ?", key).First(&model).Error
 	if err != nil {
@@ -48,7 +48,7 @@ func (ds *SystemSettingsDataSource) GetSetting(ctx context.Context, key string) 
 
 // SetSetting はキーに対応する設定値を保存（upsert）
 func (ds *SystemSettingsDataSource) SetSetting(ctx context.Context, key, value, description string) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := SystemSettingModel{
 		Key:       key,
 		Value:     value,

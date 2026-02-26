@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -30,11 +30,11 @@ func (PointBatchModel) TableName() string {
 
 // PointBatchDataSource はポイントバッチのデータソース
 type PointBatchDataSource struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewPointBatchDataSource は新しいPointBatchDataSourceを作成
-func NewPointBatchDataSource(db inframysql.DB) *PointBatchDataSource {
+func NewPointBatchDataSource(db infrapostgres.DB) *PointBatchDataSource {
 	return &PointBatchDataSource{db: db}
 }
 
@@ -68,7 +68,7 @@ func (ds *PointBatchDataSource) toModel(batch *entities.PointBatch) *PointBatchM
 
 // Insert はポイントバッチを挿入
 func (ds *PointBatchDataSource) Insert(ctx context.Context, batch *entities.PointBatch) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	model := ds.toModel(batch)
 	return db.Create(model).Error
 }
@@ -76,7 +76,7 @@ func (ds *PointBatchDataSource) Insert(ctx context.Context, batch *entities.Poin
 // ConsumePointsFIFO は古いバッチから順にポイントを消費（FIFO）
 // トランザクションコンテキスト内で呼ぶこと
 func (ds *PointBatchDataSource) ConsumePointsFIFO(ctx context.Context, userID uuid.UUID, amount int64) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	// 有効なバッチを古い順に取得（期限内かつ残量あり）
 	var batches []PointBatchModel
@@ -114,7 +114,7 @@ func (ds *PointBatchDataSource) ConsumePointsFIFO(ctx context.Context, userID uu
 
 // SelectExpiredBatches は期限切れで残量があるバッチを検索
 func (ds *PointBatchDataSource) SelectExpiredBatches(ctx context.Context, before time.Time, limit int) ([]*entities.PointBatch, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var models []PointBatchModel
 	err := db.Where("expires_at < ? AND remaining_amount > 0", before).
@@ -134,7 +134,7 @@ func (ds *PointBatchDataSource) SelectExpiredBatches(ctx context.Context, before
 
 // MarkExpired はバッチのremaining_amountを0に更新
 func (ds *PointBatchDataSource) MarkExpired(ctx context.Context, batchID uuid.UUID) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 	return db.Model(&PointBatchModel{}).
 		Where("id = ?", batchID).
 		Update("remaining_amount", 0).Error
@@ -142,7 +142,7 @@ func (ds *PointBatchDataSource) MarkExpired(ctx context.Context, batchID uuid.UU
 
 // SelectUpcomingExpirations はユーザーの1ヶ月以内に失効するバッチを期限が近い順に取得
 func (ds *PointBatchDataSource) SelectUpcomingExpirations(ctx context.Context, userID uuid.UUID) ([]*entities.PointBatch, error) {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	var models []PointBatchModel
 	err := db.Where("user_id = ? AND remaining_amount > 0 AND expires_at > NOW() AND expires_at <= NOW() + INTERVAL '1 month'", userID).

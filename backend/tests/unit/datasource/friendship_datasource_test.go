@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ func TestFriendshipDataSource_InsertAndSelect(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 
@@ -44,7 +44,7 @@ func TestFriendshipDataSource_SelectByUsers(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 
@@ -77,7 +77,7 @@ func TestFriendshipDataSource_Update(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 
@@ -103,7 +103,7 @@ func TestFriendshipDataSource_SelectListFriends(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 	userC := createTestUserInDB(t, db, "user_c")
@@ -130,7 +130,7 @@ func TestFriendshipDataSource_SelectListPendingRequests(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 	userC := createTestUserInDB(t, db, "user_c")
@@ -163,7 +163,7 @@ func TestFriendshipDataSource_Delete(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 
@@ -187,7 +187,7 @@ func TestFriendshipDataSource_ArchiveAndDelete(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 
@@ -231,7 +231,7 @@ func TestFriendshipDataSource_CheckAreFriends(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 	userC := createTestUserInDB(t, db, "user_c")
@@ -276,7 +276,7 @@ func TestFriendshipDataSource_FullFlow(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 
@@ -342,7 +342,7 @@ func TestFriendshipDataSource_RejectAndReRequest(t *testing.T) {
 	db := setupFriendshipTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewFriendshipDataSource(db)
+	ds := dspostgresimpl.NewFriendshipDataSource(db)
 	userA := createTestUserInDB(t, db, "user_a")
 	userB := createTestUserInDB(t, db, "user_b")
 

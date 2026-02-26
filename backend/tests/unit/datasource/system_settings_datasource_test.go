@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func TestSystemSettingsDataSource_SetAndGet(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewSystemSettingsDataSource(db)
+	ds := dspostgresimpl.NewSystemSettingsDataSource(db)
 
 	t.Run("設定値を保存して取得", func(t *testing.T) {
 		err := ds.SetSetting(context.Background(), "test_key", "test_value", "テスト用設定")

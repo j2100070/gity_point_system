@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +22,7 @@ func TestPointBatchDataSource_Insert(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewPointBatchDataSource(db)
+	ds := dspostgresimpl.NewPointBatchDataSource(db)
 	user := createTestUser(t, db, "batch_user")
 
 	t.Run("ポイントバッチを挿入", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestPointBatchDataSource_ConsumePointsFIFO(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewPointBatchDataSource(db)
+	ds := dspostgresimpl.NewPointBatchDataSource(db)
 	user := createTestUser(t, db, "fifo_user")
 
 	t.Run("古いバッチから順にポイントを消費", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestPointBatchDataSource_SelectExpiredBatches(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewPointBatchDataSource(db)
+	ds := dspostgresimpl.NewPointBatchDataSource(db)
 	user := createTestUser(t, db, "expired_batch_user")
 
 	t.Run("期限切れで残量があるバッチを取得", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestPointBatchDataSource_MarkExpired(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewPointBatchDataSource(db)
+	ds := dspostgresimpl.NewPointBatchDataSource(db)
 	user := createTestUser(t, db, "mark_expired_user")
 
 	t.Run("バッチのremaining_amountを0に更新", func(t *testing.T) {
@@ -149,7 +149,7 @@ func TestPointBatchDataSource_SelectUpcomingExpirations(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewPointBatchDataSource(db)
+	ds := dspostgresimpl.NewPointBatchDataSource(db)
 	user := createTestUser(t, db, "upcoming_user")
 
 	t.Run("1ヶ月以内に失効するバッチを取得", func(t *testing.T) {

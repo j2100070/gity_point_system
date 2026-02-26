@@ -7,14 +7,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/usecases/inputport"
 	"github.com/gity/point-system/usecases/interactor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupAuth(t *testing.T) (inputport.AuthInputPort, inframysql.DB) {
+func setupAuth(t *testing.T) (inputport.AuthInputPort, infrapostgres.DB) {
 	t.Helper()
 	db := setupIntegrationDB(t)
 	lg := newTestLogger(t)

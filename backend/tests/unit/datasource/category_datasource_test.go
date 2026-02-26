@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ func TestCategoryDataSource_InsertAndSelect(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("カテゴリを作成してIDで取得", func(t *testing.T) {
 		category, err := entities.NewCategory("テスト菓子", "test_snack", "テスト用カテゴリ", 10)
@@ -51,7 +51,7 @@ func TestCategoryDataSource_SelectByCode(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("コードでカテゴリを検索", func(t *testing.T) {
 		category, _ := entities.NewCategory("テスト飲み物", "test_drink", "テストドリンク", 11)
@@ -77,7 +77,7 @@ func TestCategoryDataSource_Update(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("カテゴリ情報を更新", func(t *testing.T) {
 		category, _ := entities.NewCategory("更新前", "update_test", "更新テスト", 1)
@@ -105,7 +105,7 @@ func TestCategoryDataSource_Delete(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("カテゴリを論理削除", func(t *testing.T) {
 		category, _ := entities.NewCategory("削除対象", "delete_test", "削除テスト", 1)
@@ -128,7 +128,7 @@ func TestCategoryDataSource_SelectList(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("全カテゴリ一覧を取得", func(t *testing.T) {
 		c1, _ := entities.NewCategory("カテゴリA", "cat_a", "", 2)
@@ -174,7 +174,7 @@ func TestCategoryDataSource_Count(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("カテゴリ総数を取得", func(t *testing.T) {
 		c1, _ := entities.NewCategory("Count1", "count1", "", 1)
@@ -192,7 +192,7 @@ func TestCategoryDataSource_ExistsCode(t *testing.T) {
 	db := setupIntegrationDB(t)
 	defer db.Close()
 
-	ds := dsmysqlimpl.NewCategoryDataSource(db)
+	ds := dspostgresimpl.NewCategoryDataSource(db)
 
 	t.Run("存在するコードはtrue", func(t *testing.T) {
 		category, _ := entities.NewCategory("Exists", "exists_code", "", 1)

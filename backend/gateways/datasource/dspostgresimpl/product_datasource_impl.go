@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -66,11 +66,11 @@ func (p *ProductModel) FromDomain(product *entities.Product) {
 
 // ProductDataSourceImpl はProductDataSourceの実装
 type ProductDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewProductDataSource は新しいProductDataSourceを作成
-func NewProductDataSource(db inframysql.DB) dsmysql.ProductDataSource {
+func NewProductDataSource(db infrapostgres.DB) dsmysql.ProductDataSource {
 	return &ProductDataSourceImpl{db: db}
 }
 
@@ -79,7 +79,7 @@ func (ds *ProductDataSourceImpl) Insert(ctx context.Context, product *entities.P
 	model := &ProductModel{}
 	model.FromDomain(product)
 
-	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
+	if err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -91,7 +91,7 @@ func (ds *ProductDataSourceImpl) Insert(ctx context.Context, product *entities.P
 func (ds *ProductDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.Product, error) {
 	var model ProductModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
@@ -108,14 +108,14 @@ func (ds *ProductDataSourceImpl) Update(ctx context.Context, product *entities.P
 	model.FromDomain(product)
 	model.UpdatedAt = time.Now()
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", product.ID).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ? AND deleted_at IS NULL", product.ID).
 		Updates(model).Error
 }
 
 // Delete は商品を論理削除
 func (ds *ProductDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ProductModel{}).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&ProductModel{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("deleted_at", now).Error
 }
@@ -124,7 +124,7 @@ func (ds *ProductDataSourceImpl) Delete(ctx context.Context, id uuid.UUID) error
 func (ds *ProductDataSourceImpl) SelectList(ctx context.Context, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("deleted_at IS NULL").
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("deleted_at IS NULL").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -146,7 +146,7 @@ func (ds *ProductDataSourceImpl) SelectList(ctx context.Context, offset, limit i
 func (ds *ProductDataSourceImpl) SelectListByCategory(ctx context.Context, categoryCode string, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("category = ? AND deleted_at IS NULL", categoryCode).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("category = ? AND deleted_at IS NULL", categoryCode).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -168,7 +168,7 @@ func (ds *ProductDataSourceImpl) SelectListByCategory(ctx context.Context, categ
 func (ds *ProductDataSourceImpl) SelectAvailableList(ctx context.Context, offset, limit int) ([]*entities.Product, error) {
 	var models []ProductModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("is_available = ? AND deleted_at IS NULL", true).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("is_available = ? AND deleted_at IS NULL", true).
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -189,13 +189,13 @@ func (ds *ProductDataSourceImpl) SelectAvailableList(ctx context.Context, offset
 // Count は商品総数を取得
 func (ds *ProductDataSourceImpl) Count(ctx context.Context) (int64, error) {
 	var count int64
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Model(&ProductModel{}).Where("deleted_at IS NULL").Count(&count).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&ProductModel{}).Where("deleted_at IS NULL").Count(&count).Error
 	return count, err
 }
 
 // UpdateStock は在庫を更新
 func (ds *ProductDataSourceImpl) UpdateStock(ctx context.Context, productID uuid.UUID, quantity int) error {
-	db := inframysql.GetDB(ctx, ds.db.GetDB())
+	db := infrapostgres.GetDB(ctx, ds.db.GetDB())
 
 	return db.Model(&ProductModel{}).
 		Where("id = ? AND deleted_at IS NULL", productID).

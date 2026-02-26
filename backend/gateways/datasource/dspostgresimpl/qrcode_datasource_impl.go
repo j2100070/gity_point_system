@@ -1,4 +1,4 @@
-package dsmysqlimpl
+package dspostgresimpl
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/repository/datasource/dsmysql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -60,11 +60,11 @@ func (q *QRCodeModel) FromDomain(qrCode *entities.QRCode) {
 
 // QRCodeDataSourceImpl はQRCodeDataSourceの実装
 type QRCodeDataSourceImpl struct {
-	db inframysql.DB
+	db infrapostgres.DB
 }
 
 // NewQRCodeDataSource は新しいQRCodeDataSourceを作成
-func NewQRCodeDataSource(db inframysql.DB) dsmysql.QRCodeDataSource {
+func NewQRCodeDataSource(db infrapostgres.DB) dsmysql.QRCodeDataSource {
 	return &QRCodeDataSourceImpl{db: db}
 }
 
@@ -73,7 +73,7 @@ func (ds *QRCodeDataSourceImpl) Insert(ctx context.Context, qrCode *entities.QRC
 	model := &QRCodeModel{}
 	model.FromDomain(qrCode)
 
-	if err := inframysql.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
+	if err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Create(model).Error; err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (ds *QRCodeDataSourceImpl) Insert(ctx context.Context, qrCode *entities.QRC
 func (ds *QRCodeDataSourceImpl) SelectByCode(ctx context.Context, code string) (*entities.QRCode, error) {
 	var model QRCodeModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("code = ?", code).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("code = ?", code).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("qr code not found")
@@ -100,7 +100,7 @@ func (ds *QRCodeDataSourceImpl) SelectByCode(ctx context.Context, code string) (
 func (ds *QRCodeDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*entities.QRCode, error) {
 	var model QRCodeModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("qr code not found")
@@ -115,7 +115,7 @@ func (ds *QRCodeDataSourceImpl) Select(ctx context.Context, id uuid.UUID) (*enti
 func (ds *QRCodeDataSourceImpl) SelectListByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*entities.QRCode, error) {
 	var models []QRCodeModel
 
-	err := inframysql.GetDB(ctx, ds.db.GetDB()).
+	err := infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("user_id = ?", userID).
 		Offset(offset).
 		Limit(limit).
@@ -139,7 +139,7 @@ func (ds *QRCodeDataSourceImpl) Update(ctx context.Context, qrCode *entities.QRC
 	model := &QRCodeModel{}
 	model.FromDomain(qrCode)
 
-	return inframysql.GetDB(ctx, ds.db.GetDB()).Model(&QRCodeModel{}).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).Model(&QRCodeModel{}).
 		Where("id = ?", qrCode.ID).
 		Updates(map[string]interface{}{
 			"used_at":         model.UsedAt,
@@ -149,7 +149,7 @@ func (ds *QRCodeDataSourceImpl) Update(ctx context.Context, qrCode *entities.QRC
 
 // DeleteExpired は期限切れQRコードを削除
 func (ds *QRCodeDataSourceImpl) DeleteExpired(ctx context.Context) error {
-	return inframysql.GetDB(ctx, ds.db.GetDB()).
+	return infrapostgres.GetDB(ctx, ds.db.GetDB()).
 		Where("expires_at < ?", time.Now()).
 		Delete(&QRCodeModel{}).Error
 }

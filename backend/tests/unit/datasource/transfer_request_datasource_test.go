@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // createTestUserForTransferRequest はTransferRequestテスト用のユーザーを作成（初期残高10000）
-func createTestUserForTransferRequest(t *testing.T, db inframysql.DB, username string) *entities.User {
+func createTestUserForTransferRequest(t *testing.T, db infrapostgres.DB, username string) *entities.User {
 	return createTestUserWithBalanceDB(t, db, username, 10000)
 }
 
@@ -30,7 +30,7 @@ func TestTransferRequestDataSource_InsertAndSelect(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
 	receiver := createTestUserForTransferRequest(t, db, "receiver")
 
@@ -61,7 +61,7 @@ func TestTransferRequestDataSource_SelectByIdempotencyKey(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
 	receiver := createTestUserForTransferRequest(t, db, "receiver")
 
@@ -87,7 +87,7 @@ func TestTransferRequestDataSource_Update(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
 	receiver := createTestUserForTransferRequest(t, db, "receiver")
 
@@ -113,7 +113,7 @@ func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender1 := createTestUserForTransferRequest(t, db, "sender1")
 	sender2 := createTestUserForTransferRequest(t, db, "sender2")
 	receiver := createTestUserForTransferRequest(t, db, "receiver")
@@ -148,7 +148,7 @@ func TestTransferRequestDataSource_SelectPendingByToUser(t *testing.T) {
 		db := setupTransferRequestTestDB(t)
 		ctx := context.Background()
 
-		ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+		ds := dspostgresimpl.NewTransferRequestDataSource(db)
 		sender := createTestUserForTransferRequest(t, db, "sender_page")
 		receiver := createTestUserForTransferRequest(t, db, "receiver_page")
 
@@ -180,7 +180,7 @@ func TestTransferRequestDataSource_SelectSentByFromUser(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender")
 	receiver1 := createTestUserForTransferRequest(t, db, "receiver1")
 	receiver2 := createTestUserForTransferRequest(t, db, "receiver2")
@@ -202,7 +202,7 @@ func TestTransferRequestDataSource_CountPendingByToUser(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender_count")
 	receiver := createTestUserForTransferRequest(t, db, "receiver_count")
 
@@ -238,7 +238,7 @@ func TestTransferRequestDataSource_UpdateExpiredRequests(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewTransferRequestDataSource(db)
+	ds := dspostgresimpl.NewTransferRequestDataSource(db)
 	sender := createTestUserForTransferRequest(t, db, "sender_expire")
 	receiver := createTestUserForTransferRequest(t, db, "receiver_expire")
 
@@ -301,8 +301,8 @@ func TestTransferRequestIntegration_WithUsers(t *testing.T) {
 	db := setupTransferRequestTestDB(t)
 	ctx := context.Background()
 
-	trDS := dsmysqlimpl.NewTransferRequestDataSource(db)
-	userDS := dsmysqlimpl.NewUserDataSource(db)
+	trDS := dspostgresimpl.NewTransferRequestDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
 
 	sender := createTestUserForTransferRequest(t, db, "integration_sender")
 	receiver := createTestUserForTransferRequest(t, db, "integration_receiver")

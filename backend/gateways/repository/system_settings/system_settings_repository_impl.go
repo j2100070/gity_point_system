@@ -3,16 +3,16 @@ package system_settings
 import (
 	"context"
 
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 )
 
 // SystemSettingsRepositoryImpl はシステム設定リポジトリの実装
 type SystemSettingsRepositoryImpl struct {
-	ds *dsmysqlimpl.SystemSettingsDataSource
+	ds *dspostgresimpl.SystemSettingsDataSource
 }
 
 // NewSystemSettingsRepository は新しいSystemSettingsRepositoryを作成
-func NewSystemSettingsRepository(ds *dsmysqlimpl.SystemSettingsDataSource) *SystemSettingsRepositoryImpl {
+func NewSystemSettingsRepository(ds *dspostgresimpl.SystemSettingsDataSource) *SystemSettingsRepositoryImpl {
 	return &SystemSettingsRepositoryImpl{ds: ds}
 }
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestUserDataSource_InsertWithNewFields(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewUserDataSource(db)
+	ds := dspostgresimpl.NewUserDataSource(db)
 
 	t.Run("新フィールド付きでユーザーを作成", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")
@@ -51,7 +51,7 @@ func TestUserDataSource_UpdateWithNewFields(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewUserDataSource(db)
+	ds := dspostgresimpl.NewUserDataSource(db)
 
 	t.Run("新フィールドを更新", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")
@@ -98,7 +98,7 @@ func TestArchivedUserDataSource_Insert(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewArchivedUserDataSource(db)
+	ds := dspostgresimpl.NewArchivedUserDataSource(db)
 
 	t.Run("アーカイブユーザーを作成", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")
@@ -125,7 +125,7 @@ func TestArchivedUserDataSource_SelectByUsername(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewArchivedUserDataSource(db)
+	ds := dspostgresimpl.NewArchivedUserDataSource(db)
 
 	t.Run("ユーザー名でアーカイブユーザーを検索", func(t *testing.T) {
 		user, _ := entities.NewUser("archiveduser", "archived@example.com", "hash", "Archived User", "Archived", "User")
@@ -142,7 +142,7 @@ func TestArchivedUserDataSource_SelectList(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewArchivedUserDataSource(db)
+	ds := dspostgresimpl.NewArchivedUserDataSource(db)
 
 	t.Run("アーカイブユーザー一覧を取得", func(t *testing.T) {
 		// 3つのアーカイブユーザーを作成
@@ -173,7 +173,7 @@ func TestArchivedUserDataSource_Count(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewArchivedUserDataSource(db)
+	ds := dspostgresimpl.NewArchivedUserDataSource(db)
 
 	t.Run("アーカイブユーザー総数を取得", func(t *testing.T) {
 		// 2つのアーカイブユーザーを作成
@@ -204,7 +204,7 @@ func TestEmailVerificationDataSource_Insert(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewEmailVerificationDataSource(db)
+	ds := dspostgresimpl.NewEmailVerificationDataSource(db)
 
 	t.Run("メール認証トークンを作成", func(t *testing.T) {
 		token, _ := entities.NewEmailVerificationToken(nil, "test@example.com", entities.TokenTypeRegistration)
@@ -224,7 +224,7 @@ func TestEmailVerificationDataSource_Update(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewEmailVerificationDataSource(db)
+	ds := dspostgresimpl.NewEmailVerificationDataSource(db)
 
 	t.Run("トークンを検証済みに更新", func(t *testing.T) {
 		token, _ := entities.NewEmailVerificationToken(nil, "test@example.com", entities.TokenTypeRegistration)
@@ -245,7 +245,7 @@ func TestEmailVerificationDataSource_DeleteExpired(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	ds := dsmysqlimpl.NewEmailVerificationDataSource(db)
+	ds := dspostgresimpl.NewEmailVerificationDataSource(db)
 
 	t.Run("期限切れトークンを削除", func(t *testing.T) {
 		// 期限切れトークンを作成
@@ -275,8 +275,8 @@ func TestEmailVerificationDataSource_DeleteByUserID(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	tokenDS := dsmysqlimpl.NewEmailVerificationDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	tokenDS := dspostgresimpl.NewEmailVerificationDataSource(db)
 
 	t.Run("ユーザーIDに紐づくトークンを削除", func(t *testing.T) {
 		// ユーザーを作成
@@ -305,8 +305,8 @@ func TestUsernameChangeHistoryDataSource_Insert(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	historyDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	historyDS := dspostgresimpl.NewUsernameChangeHistoryDataSource(db)
 
 	t.Run("ユーザー名変更履歴を作成", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")
@@ -331,8 +331,8 @@ func TestUsernameChangeHistoryDataSource_CountByUserID(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	historyDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	historyDS := dspostgresimpl.NewUsernameChangeHistoryDataSource(db)
 
 	t.Run("ユーザーの変更履歴数を取得", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")
@@ -358,8 +358,8 @@ func TestPasswordChangeHistoryDataSource_Insert(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	historyDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	historyDS := dspostgresimpl.NewPasswordChangeHistoryDataSource(db)
 
 	t.Run("パスワード変更履歴を作成", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")
@@ -385,8 +385,8 @@ func TestPasswordChangeHistoryDataSource_CountByUserID(t *testing.T) {
 	db := setupUserSettingsTestDB(t)
 	ctx := context.Background()
 
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	historyDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	historyDS := dspostgresimpl.NewPasswordChangeHistoryDataSource(db)
 
 	t.Run("ユーザーのパスワード変更履歴数を取得", func(t *testing.T) {
 		user, _ := entities.NewUser("testuser_insert", "test_insert@example.com", "hash", "Test User", "Test", "User")

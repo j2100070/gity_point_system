@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	categoryRepo "github.com/gity/point-system/gateways/repository/category"
 	dailyBonusRepo "github.com/gity/point-system/gateways/repository/daily_bonus"
 	friendshipRepo "github.com/gity/point-system/gateways/repository/friendship"
@@ -112,7 +112,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("[TestMain] GORM connected successfully")
 
 	// AutoMigrate
-	if err := testGormDB.AutoMigrate(&dsmysqlimpl.CategoryModel{}); err != nil {
+	if err := testGormDB.AutoMigrate(&dspostgresimpl.CategoryModel{}); err != nil {
 		testCleanup()
 		log.Fatalf("[TestMain] FATAL: auto migrate failed: %v", err)
 	}
@@ -124,14 +124,14 @@ func TestMain(m *testing.M) {
 }
 
 // ========================================
-// testDBWrapper: inframysql.DB インターフェースを実装
+// testDBWrapper: infrapostgres.DB インターフェースを実装
 // ========================================
 
 type testDBWrapper struct {
 	db *gorm.DB
 }
 
-var _ inframysql.DB = (*testDBWrapper)(nil)
+var _ infrapostgres.DB = (*testDBWrapper)(nil)
 
 func (w *testDBWrapper) GetDB() *gorm.DB {
 	return w.db
@@ -167,8 +167,8 @@ var truncatedTables = []string{
 	"users",
 }
 
-// setupIntegrationDB は各テスト前にテーブルを TRUNCATE し、inframysql.DB を返す。
-func setupIntegrationDB(t *testing.T) inframysql.DB {
+// setupIntegrationDB は各テスト前にテーブルを TRUNCATE し、infrapostgres.DB を返す。
+func setupIntegrationDB(t *testing.T) infrapostgres.DB {
 	t.Helper()
 	if testGormDB == nil {
 		t.Fatal("testGormDB is nil — TestMain did not initialize the database")
@@ -217,27 +217,27 @@ type Repos struct {
 	PasswordChangeHistory repository.PasswordChangeHistoryRepository
 }
 
-func setupAllRepos(db inframysql.DB, lg entities.Logger) *Repos {
+func setupAllRepos(db infrapostgres.DB, lg entities.Logger) *Repos {
 	// DataSources
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	sessionDS := dsmysqlimpl.NewSessionDataSource(db)
-	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
-	idempotencyDS := dsmysqlimpl.NewIdempotencyKeyDataSource(db)
-	friendshipDS := dsmysqlimpl.NewFriendshipDataSource(db)
-	transferRequestDS := dsmysqlimpl.NewTransferRequestDataSource(db)
-	productDS := dsmysqlimpl.NewProductDataSource(db)
-	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
-	categoryDS := dsmysqlimpl.NewCategoryDataSource(db)
-	qrcodeDS := dsmysqlimpl.NewQRCodeDataSource(db)
-	dailyBonusDS := dsmysqlimpl.NewDailyBonusDataSource(db)
-	pointBatchDS := dsmysqlimpl.NewPointBatchDataSource(db)
-	systemSettingsDS := dsmysqlimpl.NewSystemSettingsDataSource(db)
-	lotteryTierDS := dsmysqlimpl.NewLotteryTierDataSource(db)
-	analyticsDS := dsmysqlimpl.NewAnalyticsDataSource(db)
-	archivedUserDS := dsmysqlimpl.NewArchivedUserDataSource(db)
-	emailVerificationDS := dsmysqlimpl.NewEmailVerificationDataSource(db)
-	usernameChangeHistoryDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
-	passwordChangeHistoryDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	sessionDS := dspostgresimpl.NewSessionDataSource(db)
+	transactionDS := dspostgresimpl.NewTransactionDataSource(db)
+	idempotencyDS := dspostgresimpl.NewIdempotencyKeyDataSource(db)
+	friendshipDS := dspostgresimpl.NewFriendshipDataSource(db)
+	transferRequestDS := dspostgresimpl.NewTransferRequestDataSource(db)
+	productDS := dspostgresimpl.NewProductDataSource(db)
+	productExchangeDS := dspostgresimpl.NewProductExchangeDataSource(db)
+	categoryDS := dspostgresimpl.NewCategoryDataSource(db)
+	qrcodeDS := dspostgresimpl.NewQRCodeDataSource(db)
+	dailyBonusDS := dspostgresimpl.NewDailyBonusDataSource(db)
+	pointBatchDS := dspostgresimpl.NewPointBatchDataSource(db)
+	systemSettingsDS := dspostgresimpl.NewSystemSettingsDataSource(db)
+	lotteryTierDS := dspostgresimpl.NewLotteryTierDataSource(db)
+	analyticsDS := dspostgresimpl.NewAnalyticsDataSource(db)
+	archivedUserDS := dspostgresimpl.NewArchivedUserDataSource(db)
+	emailVerificationDS := dspostgresimpl.NewEmailVerificationDataSource(db)
+	usernameChangeHistoryDS := dspostgresimpl.NewUsernameChangeHistoryDataSource(db)
+	passwordChangeHistoryDS := dspostgresimpl.NewPasswordChangeHistoryDataSource(db)
 
 	// Repositories
 	return &Repos{
@@ -312,7 +312,7 @@ func setupAllInteractors(repos *Repos, svcs *Services, txManager repository.Tran
 // テストユーザー作成ヘルパー
 // ========================================
 
-func createTestUser(t *testing.T, db inframysql.DB, username string) *entities.User {
+func createTestUser(t *testing.T, db infrapostgres.DB, username string) *entities.User {
 	t.Helper()
 	user, err := entities.NewUser(
 		username,
@@ -334,7 +334,7 @@ func createTestUser(t *testing.T, db inframysql.DB, username string) *entities.U
 	return user
 }
 
-func createTestUserWithBalance(t *testing.T, db inframysql.DB, username string, balance int64) *entities.User {
+func createTestUserWithBalance(t *testing.T, db infrapostgres.DB, username string, balance int64) *entities.User {
 	t.Helper()
 	user := createTestUser(t, db, username)
 	err := db.GetDB().Exec("UPDATE users SET balance = ? WHERE id = ?", balance, user.ID).Error
@@ -343,7 +343,7 @@ func createTestUserWithBalance(t *testing.T, db inframysql.DB, username string, 
 	return user
 }
 
-func createTestAdminUser(t *testing.T, db inframysql.DB, username string) *entities.User {
+func createTestAdminUser(t *testing.T, db infrapostgres.DB, username string) *entities.User {
 	t.Helper()
 	user := createTestUser(t, db, username)
 	err := db.GetDB().Exec("UPDATE users SET role = 'admin' WHERE id = ?", user.ID).Error

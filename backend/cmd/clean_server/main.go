@@ -9,12 +9,12 @@ import (
 	"github.com/gity/point-system/controllers/web/presenter"
 	frameworksweb "github.com/gity/point-system/frameworks/web"
 	"github.com/gity/point-system/frameworks/web/middleware"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/gity/point-system/gateways/infra"
 	"github.com/gity/point-system/gateways/infra/infraakerun"
 	"github.com/gity/point-system/gateways/infra/infraemail"
 	"github.com/gity/point-system/gateways/infra/infralogger"
-	"github.com/gity/point-system/gateways/infra/inframysql"
+	infrapostgres "github.com/gity/point-system/gateways/infra/infrapostgres"
 	"github.com/gity/point-system/gateways/infra/infrapassword"
 	"github.com/gity/point-system/gateways/infra/infrastorage"
 	categoryrepo "github.com/gity/point-system/gateways/repository/category"
@@ -36,7 +36,7 @@ import (
 // AppContainer はアプリケーションの依存関係を管理
 type AppContainer struct {
 	Router            *frameworksweb.Router
-	DB                inframysql.DB
+	DB                infrapostgres.DB
 	akerunWorker      *infraakerun.AkerunWorker
 	pointExpiryWorker *infra.PointExpiryWorker
 }
@@ -44,7 +44,7 @@ type AppContainer struct {
 // NewAppContainer は新しいAppContainerを作成（手動DI）
 func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	// === Infra層 ===
-	dbConfig := &inframysql.Config{
+	dbConfig := &infrapostgres.Config{
 		Host:     cfg.Database.Host,
 		Port:     cfg.Database.Port,
 		User:     cfg.Database.User,
@@ -60,7 +60,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		MaxUploadSizeMB: cfg.Server.MaxUploadSizeMB,
 	}
 
-	db, err := inframysql.NewPostgresDB(dbConfig)
+	db, err := infrapostgres.NewPostgresDB(dbConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -72,31 +72,31 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	// 既存テーブルはSQLマイグレーション(migrations/*.sql)で管理
 	// 新規追加したモデルのみここに記載する
 	if err := db.GetDB().AutoMigrate(
-		&dsmysqlimpl.CategoryModel{},
+		&dspostgresimpl.CategoryModel{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
 	logger.Info("Database auto migration completed")
 
 	// === DataSource層 ===
-	userDS := dsmysqlimpl.NewUserDataSource(db)
-	transactionDS := dsmysqlimpl.NewTransactionDataSource(db)
-	idempotencyDS := dsmysqlimpl.NewIdempotencyKeyDataSource(db)
-	sessionDS := dsmysqlimpl.NewSessionDataSource(db)
-	friendshipDS := dsmysqlimpl.NewFriendshipDataSource(db)
-	qrcodeDS := dsmysqlimpl.NewQRCodeDataSource(db)
-	transferRequestDS := dsmysqlimpl.NewTransferRequestDataSource(db)
-	dailyBonusDS := dsmysqlimpl.NewDailyBonusDataSource(db)
-	productDS := dsmysqlimpl.NewProductDataSource(db)
-	productExchangeDS := dsmysqlimpl.NewProductExchangeDataSource(db)
-	categoryDS := dsmysqlimpl.NewCategoryDataSource(db)
-	archivedUserDS := dsmysqlimpl.NewArchivedUserDataSource(db)
-	emailVerificationDS := dsmysqlimpl.NewEmailVerificationDataSource(db)
-	usernameChangeHistoryDS := dsmysqlimpl.NewUsernameChangeHistoryDataSource(db)
-	passwordChangeHistoryDS := dsmysqlimpl.NewPasswordChangeHistoryDataSource(db)
-	systemSettingsDS := dsmysqlimpl.NewSystemSettingsDataSource(db)
-	pointBatchDS := dsmysqlimpl.NewPointBatchDataSource(db)
-	lotteryTierDS := dsmysqlimpl.NewLotteryTierDataSource(db)
+	userDS := dspostgresimpl.NewUserDataSource(db)
+	transactionDS := dspostgresimpl.NewTransactionDataSource(db)
+	idempotencyDS := dspostgresimpl.NewIdempotencyKeyDataSource(db)
+	sessionDS := dspostgresimpl.NewSessionDataSource(db)
+	friendshipDS := dspostgresimpl.NewFriendshipDataSource(db)
+	qrcodeDS := dspostgresimpl.NewQRCodeDataSource(db)
+	transferRequestDS := dspostgresimpl.NewTransferRequestDataSource(db)
+	dailyBonusDS := dspostgresimpl.NewDailyBonusDataSource(db)
+	productDS := dspostgresimpl.NewProductDataSource(db)
+	productExchangeDS := dspostgresimpl.NewProductExchangeDataSource(db)
+	categoryDS := dspostgresimpl.NewCategoryDataSource(db)
+	archivedUserDS := dspostgresimpl.NewArchivedUserDataSource(db)
+	emailVerificationDS := dspostgresimpl.NewEmailVerificationDataSource(db)
+	usernameChangeHistoryDS := dspostgresimpl.NewUsernameChangeHistoryDataSource(db)
+	passwordChangeHistoryDS := dspostgresimpl.NewPasswordChangeHistoryDataSource(db)
+	systemSettingsDS := dspostgresimpl.NewSystemSettingsDataSource(db)
+	pointBatchDS := dspostgresimpl.NewPointBatchDataSource(db)
+	lotteryTierDS := dspostgresimpl.NewLotteryTierDataSource(db)
 
 	// === Repository層 ===
 	userRepo := userrepo.NewUserRepository(userDS, logger)
@@ -131,7 +131,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 	)
 
 	// TransactionManagerを作成（他のInteractorより先に作成）
-	txManager := inframysql.NewGormTransactionManager(db.GetDB())
+	txManager := infrapostgres.NewGormTransactionManager(db.GetDB())
 
 	pointTransferUC := interactor.NewPointTransferInteractor(
 		txManager,
@@ -179,7 +179,7 @@ func NewAppContainer(cfg *config.Config) (*AppContainer, error) {
 		transactionRepo,
 		idempotencyRepo,
 		pointBatchRepo,
-		dsmysqlimpl.NewAnalyticsDataSource(db),
+		dspostgresimpl.NewAnalyticsDataSource(db),
 		logger,
 	)
 

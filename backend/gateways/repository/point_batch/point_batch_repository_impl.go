@@ -5,17 +5,17 @@ import (
 	"time"
 
 	"github.com/gity/point-system/entities"
-	"github.com/gity/point-system/gateways/datasource/dsmysqlimpl"
+	"github.com/gity/point-system/gateways/datasource/dspostgresimpl"
 	"github.com/google/uuid"
 )
 
 // PointBatchRepositoryImpl はポイントバッチリポジトリの実装
 type PointBatchRepositoryImpl struct {
-	ds *dsmysqlimpl.PointBatchDataSource
+	ds *dspostgresimpl.PointBatchDataSource
 }
 
 // NewPointBatchRepository は新しいPointBatchRepositoryを作成
-func NewPointBatchRepository(ds *dsmysqlimpl.PointBatchDataSource) *PointBatchRepositoryImpl {
+func NewPointBatchRepository(ds *dspostgresimpl.PointBatchDataSource) *PointBatchRepositoryImpl {
 	return &PointBatchRepositoryImpl{ds: ds}
 }
 
